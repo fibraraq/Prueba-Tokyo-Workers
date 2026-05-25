@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Pedidos - Tokio Sushi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen">
+
+    <header class="bg-gray-800 border-b border-gray-700 p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-red-500 flex items-center gap-2">
+                🍣 Tokio Sushi <span class="text-sm font-normal text-gray-400">| Panel de Control</span>
+            </h1>
+            <button onclick="cargarPedidos()" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md flex items-center gap-2">
+                🔄 Actualizar Pedidos
+            </button>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-xl">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h2 class="text-lg font-bold text-yellow-500 flex items-center gap-2">⏳ Pago Pendiente</h2>
+                    <span id="cant-pendiente" class="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="columna-pendiente" class="space-y-4 min-h-[500px]"></div>
+            </div>
+
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-xl">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h2 class="text-lg font-bold text-orange-500 flex items-center gap-2">🔥 En Cocina</h2>
+                    <span id="cant-cocina" class="bg-orange-500/20 text-orange-400 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="columna-cocina" class="space-y-4 min-h-[500px]"></div>
+            </div>
+
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-xl">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h2 class="text-lg font-bold text-green-500 flex items-center gap-2">✅ Finalizado</h2>
+                    <span id="cant-finalizado" class="bg-green-500/20 text-green-400 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="columna-finalizado" class="space-y-4 min-h-[500px]"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // URLs de tus Webhooks de n8n
+        const URL_LEER = 'http://localhost:5678/webhook/obtener-pedidos';
+        const URL_ACTUALIZAR = 'http://localhost:5678/webhook/actualizar-estado'; // Nuevo webhook para procesar
+
+        async function cargarPedidos() {
+            try {
+                const respuesta = await fetch(URL_LEER);
+                const pedidos = await respuesta.json();
+
+                // Limpiar columnas antes de renderizar
+                document.getElementById('columna-pendiente').innerHTML = '';
+                document.getElementById('columna-cocina').innerHTML = '';
+                document.getElementById('columna-finalizado').innerHTML = '';
+
+                // Contadores
+                let cp = 0, cc = 0, cf = 0;
+
+                pedidos.forEach(pedido => {
+                    const estado = pedido.Estado ? pedido.Estado.trim() : '';
+                    
+                    // Definir qué botón mostrar según el estado actual
+                    let botonAccion = '';
+                    if (estado === 'Pago Pendiente') {
+                        botonAccion = `
+                            <button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition flex justify-center items-center gap-1">
+                                🔥 Enviar a Cocina
+                            </button>`;
+                    } else if (estado === 'En Cocina') {
+                        botonAccion = `
+                            <button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition flex justify-center items-center gap-1">
+                                ✅ Finalizar Pedido
+                            </button>`;
+                    }
+
+                    // Crear tarjeta del pedido
+                    const tarjeta = document.createElement('div');
+                    tarjeta.className = 'bg-gray-700 rounded-lg p-4 shadow border border-gray-600 hover:border-gray-500 transition relative';
+                    
+                    tarjeta.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-mono font-bold text-gray-400 bg-gray-800 px-2 py-0.5 rounded">${pedido.ID_Pedido}</span>
+                            <span class="text-sm font-bold text-green-400">$${pedido.Total_Orden || pedido['Total Orden']}</span>
+                        </div>
+                        <h3 class="font-bold text-white mb-1 text-base">${pedido.Cliente}</h3>
+                        <p class="text-xs text-gray-400 mb-2">📞 ${pedido.Teléfono} | 📍 ${pedido['Tipo de entrega'] || pedido.Tipo_entrega}</p>
+                        
+                        <div class="bg-gray-800 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700">
+                            ${pedido['Pedido Detallado'] || pedido.Pedido_Detallado}
+                        </div>
+                        
+                        <div class="text-xs text-gray-400 flex justify-between items-center">
+                            <span>💳 ${pedido['Método de pago'] || pedido.Metodo_pago}</span>
+                            <span class="italic text-gray-500">Fila: ${pedido.row_number}</span>
+                        </div>
+                        ${botonAccion}
+                    `;
+
+                    // Clasificar en las columnas correctas
+                    if (estado === 'Pago Pendiente') {
+                        document.getElementById('columna-pendiente').appendChild(tarjeta);
+                        cp++;
+                    } else if (estado === 'En Cocina') {
+                        document.getElementById('columna-cocina').appendChild(tarjeta);
+                        cc++;
+                    } else if (estado === 'Finalizado') {
+                        document.getElementById('columna-finalizado').appendChild(tarjeta);
+                        cf++;
+                    }
+                });
+
+                // Actualizar contadores visuales
+                document.getElementById('cant-pendiente').innerText = cp;
+                document.getElementById('cant-cocina').innerText = cc;
+                document.getElementById('cant-finalizado').innerText = cf;
+
+            } catch (error) {
+                console.error('Error cargando pedidos:', error);
+            }
+        }
+
+        // Función para enviar el cambio de estado a n8n via POST
+        async function cambiarEstado(idPedido, nuevoEstado) {
+            try {
+                const respuesta = await fetch(URL_ACTUALIZAR, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: idPedido, estado: nuevoEstado })
+                });
+
+                if (respuesta.ok) {
+                    // Si n8n procesó el cambio con éxito, refrescamos la vista automáticamente
+                    cargarPedidos();
+                } else {
+                    alert('Error en n8n al intentar cambiar el estado.');
+                }
+            } catch (error) {
+                console.error('Error al actualizar:', error);
+                alert('No se pudo conectar con el webhook de actualización de n8n.');
+            }
+        }
+
+        // Cargar automáticamente al abrir la página
+        window.onload = cargarPedidos;
+    </script>
+</body>
+</html>
