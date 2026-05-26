@@ -63,7 +63,7 @@
                 <form id="formNuevoPedido" class="space-y-3" onsubmit="return false;">
                     <input type="text" id="inputCliente" placeholder="Nombre del Cliente" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
                     <input type="text" id="inputTelefono" placeholder="Teléfono" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
-                 
+                    
                     <div class="grid grid-cols-2 gap-2">
                         <select id="inputEntrega" class="bg-gray-700 p-2 rounded border border-gray-600">
                             <option value="Delivery">Delivery</option>
@@ -78,42 +78,58 @@
                     </div>
                     
                     <input type="text" id="inputDireccion" placeholder="Dirección / Mesa" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                    
                     <div id="contenedorArticulos" class="space-y-2 border-t border-gray-700 pt-3">
                         <div class="flex gap-2 articulo-fila">
                             <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
                             <input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato">
                             <input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">
-                        </div>
+                            <div class="w-8"></div> </div>
                     </div>
-                    <button onclick="agregarFila()" class="text-xs text-emerald-400 underline">+ Añadir otro plato</button>
+                    <button type="button" onclick="agregarFila()" class="text-xs text-emerald-400 underline">+ Añadir otro plato</button>
                 </form> 
              </div>
             <div class="p-4 border-t border-gray-700 flex justify-end gap-2">
-                <button onclick="cerrarModal()" class="px-4 py-2 text-gray-400">Cancelar</button>
+                <button type="button" onclick="cerrarModal()" class="px-4 py-2 text-gray-400 hover:text-white">Cancelar</button>
                 <button type="button" onclick="enviarPedido()" class="bg-emerald-600 px-4 py-2 rounded font-bold hover:bg-emerald-500">Procesar Pedido</button>
             </div>
         </div>
     </div>
 
     <script>
-        // URLs Webhooks
+        // URLs Webhooks de Producción
         const URL_LEER = 'https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos';
         const URL_ACTUALIZAR = 'https://n8n-production-633e.up.railway.app/webhook/actualizar-estado';
-        // CAMBIA ESTA URL POR TU WEBHOOK POST (EL QUE INICIA EL FLUJO)
         const URL_NUEVO_PEDIDO = 'https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo';
 
         // Lógica Modal
         function abrirModal() { document.getElementById('modalPedido').classList.remove('hidden'); }
         function cerrarModal() { document.getElementById('modalPedido').classList.add('hidden'); }
+        
+        // Bloqueo de la tecla Enter para que no recargue ni envíe nada
+        document.getElementById('formNuevoPedido').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                return false;
+            }
+        });
+
+        // Añadir fila con botón de borrar
         function agregarFila() {
             const div = document.createElement('div');
             div.className = "flex gap-2 articulo-fila";
-            div.innerHTML = `<input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant"><input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato"><input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">`;
+            div.innerHTML = `
+                <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
+                <input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato">
+                <input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-300 w-8">
+                    <i class="fa-solid fa-trash"></i>
+                </button>`;
             document.getElementById('contenedorArticulos').appendChild(div);
         }
 
+        // Envío manual de los datos a n8n
         async function enviarPedido() {
-            console.log("Iniciando envío...")
             const articulos = Array.from(document.querySelectorAll('.articulo-fila')).map(f => ({
                 qty: f.querySelector('.item-qty').value,
                 name: f.querySelector('.item-name').value,
@@ -127,22 +143,35 @@
                 metodo_pago: document.getElementById('inputPago').value,
                 direccion: document.getElementById('inputDireccion').value,
                 articulos: articulos,
-                timestamp: new Date().toISOString() // Aquí enviamos la fecha/hora
+                timestamp: new Date().toISOString()
             };
 
             try {
-                const res = await fetch(URL_NUEVO_PEDIDO, { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-                if(res.ok) { alert("Pedido registrado"); 
-                           document.getElementById('formNuevoPedido').reset();
-                           document.getElementById('contenedorArticulos').innerHTML = `
-                               <div class="flex gap-2 articulo-fila">
-                               <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
-                               <input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato">
-                               <input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">
-                               </div>`;
-                           cerrarModal();
-                           cargarPedidos();}
-            } catch(e) { alert("No se pudo conectar con el servidor."); }
+                const res = await fetch(URL_NUEVO_PEDIDO, { 
+                    method: 'POST', 
+                    body: JSON.stringify(payload), 
+                    headers: {'Content-Type': 'application/json'} 
+                });
+                
+                if(res.ok) { 
+                    alert("Pedido registrado con éxito"); 
+                    document.getElementById('formNuevoPedido').reset();
+                    // Restaurar contenedor de artículos a 1 sola fila vacía
+                    document.getElementById('contenedorArticulos').innerHTML = `
+                        <div class="flex gap-2 articulo-fila">
+                            <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
+                            <input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato">
+                            <input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">
+                            <div class="w-8"></div>
+                        </div>`;
+                    cerrarModal();
+                    cargarPedidos();
+                } else {
+                    alert("Error en el servidor al guardar el pedido.");
+                }
+            } catch(e) { 
+                alert("No se pudo conectar con el servidor."); 
+            }
         }
 
         // --- TUS FUNCIONES ORIGINALES (NO TOCAR) ---
@@ -154,6 +183,7 @@
                 document.getElementById('columna-cocina').innerHTML = '';
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
+                
                 pedidos.forEach(pedido => {
                     const estado = pedido.Estado ? pedido.Estado.trim() : '';
                     let botonAccion = '';
@@ -162,6 +192,7 @@
                     } else if (estado === 'En Cocina') {
                         botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                     }
+                    
                     const tarjeta = document.createElement('div');
                     tarjeta.className = 'bg-gray-700 rounded-lg p-4 shadow border border-gray-600 hover:border-gray-500 transition';
                     tarjeta.innerHTML = `
@@ -175,10 +206,12 @@
                         <div class="text-xs text-gray-400">💳 ${pedido['Método de pago'] || pedido.Metodo_pago}</div>
                         ${botonAccion}
                     `;
+                    
                     if (estado === 'Pago Pendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
                     else if (estado === 'En Cocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
                     else if (estado === 'Finalizado') { document.getElementById('columna-finalizado').appendChild(tarjeta); cf++; }
                 });
+                
                 document.getElementById('cant-pendiente').innerText = cp;
                 document.getElementById('cant-cocina').innerText = cc;
                 document.getElementById('cant-finalizado').innerText = cf;
