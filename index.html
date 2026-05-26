@@ -188,9 +188,9 @@
                     const estado = pedido.Estado ? pedido.Estado.trim() : '';
                     let botonAccion = '';
                     if (estado === 'Pago Pendiente') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">🔥 Enviar a Cocina</button>`;
+                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina' '${pedido.Teléfono}', '${pedido.Cliente}', '${pedido['Tipo de entrega'] || pedido.Tipo_entrega}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">🔥 Enviar a Cocina</button>`;
                     } else if (estado === 'En Cocina') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
+                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado' '${pedido.Teléfono}', '${pedido.Cliente}', '${pedido['Tipo de entrega'] || pedido.Tipo_entrega}')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                     }
                     
                     const tarjeta = document.createElement('div');
@@ -218,12 +218,19 @@
             } catch (error) { console.error('Error cargando pedidos:', error); }
         }
 
-        async function cambiarEstado(idPedido, nuevoEstado) {
+        async function cambiarEstado(idPedido, nuevoEstado, telefono, cliente, tipoEntrega) {
+            let tiempoEstimado ="";
+
+            //Si va a cocina, preguntamos el tiempo estimado
+            if(nuevoEstado === 'En Cocina') {
+                tiempoEstimado = promt("¿En cúantos minutos estará listo el pedido aproximadamente?", "20");
+                //Si el Trabajador le da a "Cancelar" en la ventanita, detenemos el proceso
+                if(tiempoEstimado ===null) return;
             try {
                 const respuesta = await fetch(URL_ACTUALIZAR, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: idPedido, estado: nuevoEstado })
+                    body: JSON.stringify({ id: idPedido, estado: nuevoEstado, telefono: telefono, cliente: cliente, tipo_entrega: tipoEntrega, tiempo_estimado: tiempoEstimado })
                 });
                 if (respuesta.ok) cargarPedidos();
                 else alert('Error al cambiar estado.');
