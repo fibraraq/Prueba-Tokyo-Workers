@@ -127,7 +127,16 @@
 
             try {
                 const res = await fetch(URL_NUEVO_PEDIDO, { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
-                if(res.ok) { alert("Pedido registrado"); cerrarModal(); cargarPedidos(); }
+                if(res.ok) { alert("Pedido registrado"); 
+                           document.getElementById('formNuevoPedido').reset();
+                           document.getElementById('contenedorArticulos').innerHTML = `
+                               <div class="flex gap-2 articulo-fila">
+                               <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
+                               <input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato">
+                               <input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">
+                               </div>`;
+                           cerrarModal();
+                           cargarPedidos();}
             } catch(e) { alert("No se pudo conectar con el servidor."); }
         }
 
