@@ -60,8 +60,10 @@
                 <button onclick="cerrarModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="p-4 space-y-3">
-                <input type="text" id="inputCliente" placeholder="Nombre del Cliente" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
-                <input type="text" id="inputTelefono" placeholder="Teléfono" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                <form id="formNuevoPedido">
+                    <input type="text" id="inputCliente" placeholder="Nombre del Cliente" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                    <input type="text" id="inputTelefono" placeholder="Teléfono" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                    </form> </div>
                 <select id="inputEntrega" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
                     <option value="Delivery">Delivery</option>
                     <option value="Pickup">Pickup</option>
