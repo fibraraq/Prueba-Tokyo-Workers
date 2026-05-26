@@ -97,7 +97,7 @@
     </div>
 
     <script>
-        // URLs Webhooks de Producción
+        // URLs Webhooks en modo PRUEBA (con el -test)
         const URL_LEER = 'https://n8n-production-633e.up.railway.app/webhook-test/obtener-pedidos';
         const URL_ACTUALIZAR = 'https://n8n-production-633e.up.railway.app/webhook-test/actualizar-estado';
         const URL_NUEVO_PEDIDO = 'https://n8n-production-633e.up.railway.app/webhook-test/Prueba-tokyo';
@@ -106,7 +106,6 @@
         function abrirModal() { document.getElementById('modalPedido').classList.remove('hidden'); }
         function cerrarModal() { document.getElementById('modalPedido').classList.add('hidden'); }
         
-        // Bloqueo de la tecla Enter para que no recargue ni envíe nada
         document.getElementById('formNuevoPedido').addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
@@ -114,7 +113,6 @@
             }
         });
 
-        // Añadir fila con botón de borrar
         function agregarFila() {
             const div = document.createElement('div');
             div.className = "flex gap-2 articulo-fila";
@@ -128,7 +126,6 @@
             document.getElementById('contenedorArticulos').appendChild(div);
         }
 
-        // Envío manual de los datos a n8n
         async function enviarPedido() {
             const articulos = Array.from(document.querySelectorAll('.articulo-fila')).map(f => ({
                 qty: f.querySelector('.item-qty').value,
@@ -156,7 +153,6 @@
                 if(res.ok) { 
                     alert("Pedido registrado con éxito"); 
                     document.getElementById('formNuevoPedido').reset();
-                    // Restaurar contenedor de artículos a 1 sola fila vacía
                     document.getElementById('contenedorArticulos').innerHTML = `
                         <div class="flex gap-2 articulo-fila">
                             <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
@@ -174,7 +170,6 @@
             }
         }
 
-        // --- TUS FUNCIONES ORIGINALES (NO TOCAR) ---
         async function cargarPedidos() {
             try {
                 const respuesta = await fetch(URL_LEER);
@@ -188,9 +183,9 @@
                     const estado = pedido.Estado ? pedido.Estado.trim() : '';
                     let botonAccion = '';
                     if (estado === 'Pago Pendiente') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina' '${pedido.Teléfono}', '${pedido.Cliente}', '${pedido['Tipo de entrega'] || pedido.Tipo_entrega}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">🔥 Enviar a Cocina</button>`;
+                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${pedido.Teléfono}', '${pedido.Cliente}', '${pedido['Tipo de entrega'] || pedido.Tipo_entrega}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">🔥 Enviar a Cocina</button>`;
                     } else if (estado === 'En Cocina') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado' '${pedido.Teléfono}', '${pedido.Cliente}', '${pedido['Tipo de entrega'] || pedido.Tipo_entrega}')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
+                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${pedido.Teléfono}', '${pedido.Cliente}', '${pedido['Tipo de entrega'] || pedido.Tipo_entrega}')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                     }
                     
                     const tarjeta = document.createElement('div');
@@ -219,18 +214,25 @@
         }
 
         async function cambiarEstado(idPedido, nuevoEstado, telefono, cliente, tipoEntrega) {
-            let tiempoEstimado ="";
+            let tiempoEstimado = "";
+            
+            if (nuevoEstado === 'En Cocina') {
+                tiempoEstimado = prompt("¿En cuántos minutos estará listo el pedido aproximadamente?", "20");
+                if (tiempoEstimado === null) return; 
+            }
 
-            //Si va a cocina, preguntamos el tiempo estimado
-            if(nuevoEstado === 'En Cocina') {
-                tiempoEstimado = promt("¿En cúantos minutos estará listo el pedido aproximadamente?", "20");
-                //Si el Trabajador le da a "Cancelar" en la ventanita, detenemos el proceso
-                if(tiempoEstimado ===null) return;
             try {
                 const respuesta = await fetch(URL_ACTUALIZAR, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: idPedido, estado: nuevoEstado, telefono: telefono, cliente: cliente, tipo_entrega: tipoEntrega, tiempo_estimado: tiempoEstimado })
+                    body: JSON.stringify({ 
+                        id: idPedido, 
+                        estado: nuevoEstado,
+                        telefono: telefono,
+                        cliente: cliente,
+                        tipo_entrega: tipoEntrega,
+                        tiempo_estimado: tiempoEstimado
+                    })
                 });
                 if (respuesta.ok) cargarPedidos();
                 else alert('Error al cambiar estado.');
