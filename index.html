@@ -53,6 +53,7 @@
         </div>
     </main>
 
+    <!-- Modal Pedido -->
     <div id="modalPedido" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
         <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-lg shadow-2xl">
             <div class="p-4 border-b border-gray-700 flex justify-between items-center">
@@ -96,6 +97,8 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Tiempo en Cocina -->
     <div id="modalTiempo" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
         <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-sm shadow-2xl">
             <div class="p-4 border-b border-gray-700">
@@ -117,6 +120,8 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Comprobante de Pago -->
     <div id="modalComprobante" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
         <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-sm shadow-2xl">
             <div class="p-4 border-b border-gray-700">
@@ -142,13 +147,10 @@
             </div>
         </div>
     </div>
+
     <script>
-        // LEER ESTÁ EN PRODUCCIÓN: Así el tablero siempre carga la lista de clientes.
         const URL_LEER = 'https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos';
-        
-        // ACTUALIZAR ESTÁ EN PRUEBA: Para que podamos atrapar los clics en n8n.
         const URL_ACTUALIZAR = 'https://n8n-production-633e.up.railway.app/webhook/actualizar-estado';
-        
         const URL_NUEVO_PEDIDO = 'https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo';
 
         function abrirModal() { document.getElementById('modalPedido').classList.remove('hidden'); }
@@ -209,7 +211,7 @@
                             <div class="w-8"></div>
                         </div>`;
                     cerrarModal();
-                    ();
+                    cargarPedidos(); // <--- Aquí estaba el error
                 } else {
                     alert("Error en el servidor al guardar el pedido.");
                 }
@@ -236,22 +238,20 @@
                     const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
                     const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
                     const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
-
                     
                     let botonAccion = '';
                     if (estado === 'Pago Pendiente') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵Procesar Pago </button>`;
+                        // <--- Aquí faltaba el safeMetodo en el onclick
+                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
                     } else if (estado === 'En Cocina') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Procesar </button>`;
+                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                     }
                     
-                    // Color de la tarjeta (Gris por defecto, Índigo para Pickup)
                     let colorTarjeta = 'bg-gray-700 border-gray-600 hover:border-gray-500';
                     if (safeEntrega.toLowerCase() === 'pickup') {
                         colorTarjeta = 'bg-indigo-900 border-indigo-500 hover:border-indigo-400';
                     }
 
-                    // Mostrar Dirección solo si es Delivery
                     let htmlDireccion = '';
                     if (safeEntrega.toLowerCase() === 'delivery' && safeDireccion.trim() !== '') {
                         htmlDireccion = `<div class="mb-2 bg-gray-900/50 p-2 rounded border border-gray-600 text-xs text-blue-200"><i class="fa-solid fa-motorcycle"></i> <b>Dirección:</b> ${safeDireccion}</div>`;
@@ -285,23 +285,20 @@
             } catch (error) { console.error('Error cargando pedidos:', error); }
         }
         
-        // Variables para el control del tiempo
         let tiempoSeleccionado = null;
 
         function seleccionarTiempo(minutos, botonElement) {
             tiempoSeleccionado = minutos;
-            document.getElementById('inputTiempoPersonalizado').value = ''; // Limpia el input si seleccionas un botón
-            
-            // Quita el borde naranja de todos los botones y se lo pone al seleccionado
+            document.getElementById('inputTiempoPersonalizado').value = ''; 
             document.querySelectorAll('.btn-tiempo').forEach(btn => btn.classList.remove('border-orange-500', 'text-orange-400'));
             botonElement.classList.add('border-orange-500', 'text-orange-400');
         }
 
         function limpiarBotonesTiempo() {
-            tiempoSeleccionado = null; // Si el usuario escribe algo, deseleccionamos los botones
+            tiempoSeleccionado = null;
             document.querySelectorAll('.btn-tiempo').forEach(btn => btn.classList.remove('border-orange-500', 'text-orange-400'));
         }
-        // Generar la vista previa de la imagen al subirla
+
         document.getElementById('inputImagenPago').addEventListener('change', function(event) {
             const file = event.target.files[0];
             const preview = document.getElementById('previewComprobante');
@@ -318,7 +315,6 @@
             }
         });
 
-        // Función que pausa el código hasta subir el comprobante
         function pedirComprobantePago(metodoPago) {
             return new Promise((resolve) => {
                 const modal = document.getElementById('modalComprobante');
@@ -328,15 +324,16 @@
                 const preview = document.getElementById('previewComprobante');
                 const txtMetodo = document.getElementById('txtMetodoPagoModal');
 
-                // Limpiar todo de la vez anterior
                 inputRef.value = '';
                 inputImg.value = '';
                 preview.src = '';
                 preview.classList.add('hidden');
-                txtMetodo.innerText = `Método de pago del cliente: ${metodoPago}`;
+                
+                // Aseguramos que el texto esté limpio
+                const metodoLimpio = metodoPago || "Desconocido";
+                txtMetodo.innerText = `Método de pago del cliente: ${metodoLimpio}`;
 
-                // Esconder la Referencia si es Efectivo
-                const metodoLower = metodoPago.toLowerCase();
+                const metodoLower = metodoLimpio.toLowerCase();
                 if (metodoLower.includes('efectivo')) {
                     contenedorRef.classList.add('hidden');
                 } else {
@@ -345,7 +342,6 @@
 
                 modal.classList.remove('hidden');
 
-                // Si le da a Siguiente
                 document.getElementById('btnAceptarComprobante').onclick = () => {
                     if (inputImg.files.length === 0) {
                         alert("Para continuar la demostración, sube una imagen.");
@@ -357,28 +353,25 @@
                     }
                     
                     modal.classList.add('hidden');
-                    resolve(true); // Se cierra y devuelve éxito
+                    resolve(true); 
                 };
 
-                // Si le da a Cancelar
                 document.getElementById('btnCancelarComprobante').onclick = () => {
                     modal.classList.add('hidden');
-                    resolve(false); // Aborta el proceso
+                    resolve(false); 
                 };
             });
         }
-        // Esta función "pausa" el código hasta que el usuario decida el tiempo
+
         function pedirTiempoCocina() {
             return new Promise((resolve) => {
                 const modal = document.getElementById('modalTiempo');
                 const inputPersonalizado = document.getElementById('inputTiempoPersonalizado');
                 
-                // Resetear el modal cada vez que se abre
                 limpiarBotonesTiempo();
                 inputPersonalizado.value = '';
                 modal.classList.remove('hidden');
                 
-                // Función si presiona Aceptar
                 document.getElementById('btnAceptarTiempo').onclick = () => {
                     let tiempoFinal = tiempoSeleccionado || inputPersonalizado.value;
                     if (!tiempoFinal || tiempoFinal <= 0) {
@@ -389,10 +382,9 @@
                     resolve(tiempoFinal);
                 };
 
-                // Función si presiona Cancelar
                 document.getElementById('btnCancelarTiempo').onclick = () => {
                     modal.classList.add('hidden');
-                    resolve(null); // Retorna nulo para cancelar el envío
+                    resolve(null);
                 };
             });
         }
@@ -401,15 +393,11 @@
             let tiempoEstimado = "";
             
             if (nuevoEstado === 'En Cocina') {
-                //PASO 1: Pedor el comprobante primero
                 const comprobanteExitoso = await pedirComprobantePago(metodoPago);
-                if (!comprobanteExitoso) return; // Si el cajero cancela, se detiene todo
-                tiempoEstimado = await pedirTiempoCocina();
-                if (tiempoEstimado === null) return; // Si el usuario canceló, detenemos el proceso
+                if (!comprobanteExitoso) return; 
 
-                // PASO 2: Si el comprobante se subió, pedimos el tiempo de cocina
                 tiempoEstimado = await pedirTiempoCocina();
-                if (tiempoEstimado === null) return;
+                if (tiempoEstimado === null) return; 
             }
 
             try {
