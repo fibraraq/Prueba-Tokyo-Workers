@@ -209,7 +209,7 @@
                             <div class="w-8"></div>
                         </div>`;
                     cerrarModal();
-                    cargarPedidos();
+                    ();
                 } else {
                     alert("Error en el servidor al guardar el pedido.");
                 }
@@ -235,12 +235,14 @@
                     const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
                     const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
                     const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
+                    const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
+
                     
                     let botonAccion = '';
                     if (estado === 'Pago Pendiente') {
                         botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵Procesar Pago </button>`;
                     } else if (estado === 'En Cocina') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
+                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Procesar </button>`;
                     }
                     
                     // Color de la tarjeta (Gris por defecto, Índigo para Pickup)
@@ -395,12 +397,19 @@
             });
         }
         
-        async function cambiarEstado(idPedido, nuevoEstado, telefono, cliente, tipoEntrega) {
+        async function cambiarEstado(idPedido, nuevoEstado, telefono, cliente, tipoEntrega, metodoPago) {
             let tiempoEstimado = "";
             
             if (nuevoEstado === 'En Cocina') {
+                //PASO 1: Pedor el comprobante primero
+                const comprobanteExitoso = await pedirComprobantePago(metodoPago);
+                if (!comprobanteExitoso) return; // Si el cajero cancela, se detiene todo
                 tiempoEstimado = await pedirTiempoCocina();
                 if (tiempoEstimado === null) return; // Si el usuario canceló, detenemos el proceso
+
+                // PASO 2: Si el comprobante se subió, pedimos el tiempo de cocina
+                tiempoEstimado = await pedirTiempoCocina();
+                if (tiempoEstimado === null) return;
             }
 
             try {
