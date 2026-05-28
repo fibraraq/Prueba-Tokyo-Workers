@@ -203,13 +203,12 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                const estado = pedido.Estado ? pedido.Estado.trim() : '';
+                pedidos.forEach(pedido => {
+                    const estado = pedido.Estado ? pedido.Estado.trim() : '';
                     
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
                     const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
                     const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
-                    
-                    // Aseguramos capturar la dirección (revisa que el nombre de la columna en Excel sea exacto, aquí cubrimos con y sin tilde)
                     const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
                     
                     let botonAccion = '';
@@ -219,20 +218,19 @@
                         botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                     }
                     
-                    // LÓGICA 1: Color de la tarjeta (Gris por defecto, Índigo para Pickup)
+                    // Color de la tarjeta (Gris por defecto, Índigo para Pickup)
                     let colorTarjeta = 'bg-gray-700 border-gray-600 hover:border-gray-500';
                     if (safeEntrega.toLowerCase() === 'pickup') {
                         colorTarjeta = 'bg-indigo-900 border-indigo-500 hover:border-indigo-400';
                     }
 
-                    // LÓGICA 2: Mostrar Dirección solo si es Delivery
+                    // Mostrar Dirección solo si es Delivery
                     let htmlDireccion = '';
                     if (safeEntrega.toLowerCase() === 'delivery' && safeDireccion.trim() !== '') {
                         htmlDireccion = `<div class="mb-2 bg-gray-900/50 p-2 rounded border border-gray-600 text-xs text-blue-200"><i class="fa-solid fa-motorcycle"></i> <b>Dirección:</b> ${safeDireccion}</div>`;
                     }
                     
                     const tarjeta = document.createElement('div');
-                    // Le inyectamos el color dinámico que calculamos arriba
                     tarjeta.className = `${colorTarjeta} rounded-lg p-4 shadow border transition`;
                     tarjeta.innerHTML = `
                         <div class="flex justify-between items-start mb-2">
@@ -242,7 +240,9 @@
                         <h3 class="font-bold text-white mb-1 text-base">${pedido.Cliente}</h3>
                         <p class="text-xs text-gray-400 mb-2">📞 ${safeTelefono} | 📍 ${safeEntrega}</p>
                         
-                        ${htmlDireccion} <div class="bg-gray-800/80 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700/50">${pedido['Pedido Detallado'] || pedido.Pedido_Detallado}</div>
+                        ${htmlDireccion}
+
+                        <div class="bg-gray-800/80 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700/50">${pedido['Pedido Detallado'] || pedido.Pedido_Detallado}</div>
                         <div class="text-xs text-gray-400">💳 ${pedido['Método de pago'] || pedido.Metodo_pago}</div>
                         ${botonAccion}
                     `;
@@ -257,6 +257,7 @@
                 document.getElementById('cant-finalizado').innerText = cf;
             } catch (error) { console.error('Error cargando pedidos:', error); }
         }
+        
         // Variables para el control del tiempo
         let tiempoSeleccionado = null;
 
