@@ -117,6 +117,31 @@
             </div>
         </div>
     </div>
+    <div id="modalComprobante" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-sm shadow-2xl">
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-lg font-bold text-emerald-400">🧾 Comprobante de Pago</h2>
+                <p id="txtMetodoPagoModal" class="text-xs text-gray-400 mt-1"></p>
+            </div>
+            <div class="p-4 space-y-3">
+                <div id="contenedorReferencia">
+                    <label class="block text-xs text-gray-400 mb-1">Número de Referencia</label>
+                    <input type="text" id="inputReferencia" placeholder="Ej. 12345678" class="w-full bg-gray-700 p-2 rounded border border-gray-600 text-white focus:border-emerald-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Subir Imagen (Capture o Billete)</label>
+                    <input type="file" id="inputImagenPago" accept="image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-emerald-400 hover:file:bg-gray-600 transition">
+                </div>
+                <div class="mt-2 flex justify-center">
+                    <img id="previewComprobante" class="hidden max-h-40 rounded border border-gray-600 object-contain shadow-md">
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-end gap-2">
+                <button type="button" id="btnCancelarComprobante" class="px-4 py-2 text-gray-400 hover:text-white transition">Cancelar</button>
+                <button type="button" id="btnAceptarComprobante" class="bg-emerald-600 px-4 py-2 rounded font-bold text-white hover:bg-emerald-500 transition">Siguiente</button>
+            </div>
+        </div>
+    </div>
     <script>
         // LEER ESTÁ EN PRODUCCIÓN: Así el tablero siempre carga la lista de clientes.
         const URL_LEER = 'https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos';
@@ -274,7 +299,72 @@
             tiempoSeleccionado = null; // Si el usuario escribe algo, deseleccionamos los botones
             document.querySelectorAll('.btn-tiempo').forEach(btn => btn.classList.remove('border-orange-500', 'text-orange-400'));
         }
+        // Generar la vista previa de la imagen al subirla
+        document.getElementById('inputImagenPago').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const preview = document.getElementById('previewComprobante');
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                preview.src = "";
+                preview.classList.add('hidden');
+            }
+        });
 
+        // Función que pausa el código hasta subir el comprobante
+        function pedirComprobantePago(metodoPago) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('modalComprobante');
+                const contenedorRef = document.getElementById('contenedorReferencia');
+                const inputRef = document.getElementById('inputReferencia');
+                const inputImg = document.getElementById('inputImagenPago');
+                const preview = document.getElementById('previewComprobante');
+                const txtMetodo = document.getElementById('txtMetodoPagoModal');
+
+                // Limpiar todo de la vez anterior
+                inputRef.value = '';
+                inputImg.value = '';
+                preview.src = '';
+                preview.classList.add('hidden');
+                txtMetodo.innerText = `Método de pago del cliente: ${metodoPago}`;
+
+                // Esconder la Referencia si es Efectivo
+                const metodoLower = metodoPago.toLowerCase();
+                if (metodoLower.includes('efectivo')) {
+                    contenedorRef.classList.add('hidden');
+                } else {
+                    contenedorRef.classList.remove('hidden');
+                }
+
+                modal.classList.remove('hidden');
+
+                // Si le da a Siguiente
+                document.getElementById('btnAceptarComprobante').onclick = () => {
+                    if (inputImg.files.length === 0) {
+                        alert("Para continuar la demostración, sube una imagen.");
+                        return;
+                    }
+                    if (!contenedorRef.classList.contains('hidden') && inputRef.value.trim() === '') {
+                        alert("Por favor, ingresa el número de referencia.");
+                        return;
+                    }
+                    
+                    modal.classList.add('hidden');
+                    resolve(true); // Se cierra y devuelve éxito
+                };
+
+                // Si le da a Cancelar
+                document.getElementById('btnCancelarComprobante').onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(false); // Aborta el proceso
+                };
+            });
+        }
         // Esta función "pausa" el código hasta que el usuario decida el tiempo
         function pedirTiempoCocina() {
             return new Promise((resolve) => {
