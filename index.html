@@ -202,8 +202,8 @@
                     tarjeta.className = 'bg-gray-700 rounded-lg p-4 shadow border border-gray-600 hover:border-gray-500 transition';
                     tarjeta.innerHTML = `
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-xs font-mono font-bold text-gray-400 bg-gray-800 px-2 py-0.5 rounded">${pedido.ID_Pedido}</span>
-                            <span class="text-sm font-bold text-green-400">$${pedido.Total_Orden || pedido['Total Orden']}</span>
+                            <span class="text-xl font-mono font-bold text-white bg-gray-700 px-3 py-1 rounded border border-gray-500 shadow">${pedido.ID_Pedido}</span>
+                            <span class="text-sm font-bold text-green-400 text-lg">$${pedido.Total_Orden || pedido['Total Orden']}</span>
                         </div>
                         <h3 class="font-bold text-white mb-1 text-base">${pedido.Cliente}</h3>
                         <p class="text-xs text-gray-400 mb-2">📞 ${safeTelefono} | 📍 ${safeEntrega}</p>
