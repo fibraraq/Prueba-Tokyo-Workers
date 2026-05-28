@@ -96,7 +96,27 @@
             </div>
         </div>
     </div>
-
+    <div id="modalTiempo" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-sm shadow-2xl">
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-lg font-bold text-white">⏳ Tiempo de preparación</h2>
+                <p class="text-xs text-gray-400 mt-1">¿En cuántos minutos estará listo el pedido?</p>
+            </div>
+            <div class="p-4 space-y-3">
+                <div class="flex gap-2">
+                    <button type="button" onclick="seleccionarTiempo(30, this)" class="btn-tiempo flex-1 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded p-2 font-bold text-white transition">30 min</button>
+                    <button type="button" onclick="seleccionarTiempo(45, this)" class="btn-tiempo flex-1 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded p-2 font-bold text-white transition">45 min</button>
+                </div>
+                <div>
+                    <input type="number" id="inputTiempoPersonalizado" placeholder="Personalizado (ej. 15)" class="w-full bg-gray-700 p-2 rounded border border-gray-600 text-white placeholder-gray-400 focus:border-orange-500 focus:outline-none" oninput="limpiarBotonesTiempo()">
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-end gap-2">
+                <button type="button" id="btnCancelarTiempo" class="px-4 py-2 text-gray-400 hover:text-white transition">Cancelar</button>
+                <button type="button" id="btnAceptarTiempo" class="bg-orange-600 px-4 py-2 rounded font-bold text-white hover:bg-orange-500 transition">Aceptar</button>
+            </div>
+        </div>
+    </div>
     <script>
         // LEER ESTÁ EN PRODUCCIÓN: Así el tablero siempre carga la lista de clientes.
         const URL_LEER = 'https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos';
@@ -222,13 +242,59 @@
                 document.getElementById('cant-finalizado').innerText = cf;
             } catch (error) { console.error('Error cargando pedidos:', error); }
         }
+        // Variables para el control del tiempo
+        let tiempoSeleccionado = null;
 
+        function seleccionarTiempo(minutos, botonElement) {
+            tiempoSeleccionado = minutos;
+            document.getElementById('inputTiempoPersonalizado').value = ''; // Limpia el input si seleccionas un botón
+            
+            // Quita el borde naranja de todos los botones y se lo pone al seleccionado
+            document.querySelectorAll('.btn-tiempo').forEach(btn => btn.classList.remove('border-orange-500', 'text-orange-400'));
+            botonElement.classList.add('border-orange-500', 'text-orange-400');
+        }
+
+        function limpiarBotonesTiempo() {
+            tiempoSeleccionado = null; // Si el usuario escribe algo, deseleccionamos los botones
+            document.querySelectorAll('.btn-tiempo').forEach(btn => btn.classList.remove('border-orange-500', 'text-orange-400'));
+        }
+
+        // Esta función "pausa" el código hasta que el usuario decida el tiempo
+        function pedirTiempoCocina() {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('modalTiempo');
+                const inputPersonalizado = document.getElementById('inputTiempoPersonalizado');
+                
+                // Resetear el modal cada vez que se abre
+                limpiarBotonesTiempo();
+                inputPersonalizado.value = '';
+                modal.classList.remove('hidden');
+                
+                // Función si presiona Aceptar
+                document.getElementById('btnAceptarTiempo').onclick = () => {
+                    let tiempoFinal = tiempoSeleccionado || inputPersonalizado.value;
+                    if (!tiempoFinal || tiempoFinal <= 0) {
+                        alert("Por favor selecciona o ingresa un tiempo válido.");
+                        return;
+                    }
+                    modal.classList.add('hidden');
+                    resolve(tiempoFinal);
+                };
+
+                // Función si presiona Cancelar
+                document.getElementById('btnCancelarTiempo').onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(null); // Retorna nulo para cancelar el envío
+                };
+            });
+        }
+        
         async function cambiarEstado(idPedido, nuevoEstado, telefono, cliente, tipoEntrega) {
             let tiempoEstimado = "";
             
             if (nuevoEstado === 'En Cocina') {
-                tiempoEstimado = prompt("¿En cuántos minutos estará listo el pedido aproximadamente?", "20");
-                if (tiempoEstimado === null) return; 
+                tiempoEstimado = await pedirTiempoCocina();
+                if (tiempoEstimado === null) return; // Si el usuario canceló, detenemos el proceso
             }
 
             try {
