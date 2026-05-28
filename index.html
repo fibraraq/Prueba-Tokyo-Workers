@@ -213,7 +213,7 @@
                     
                     let botonAccion = '';
                     if (estado === 'Pago Pendiente') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">🔥 Enviar a Cocina</button>`;
+                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵Procesar Pago </button>`;
                     } else if (estado === 'En Cocina') {
                         botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                     }
