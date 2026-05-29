@@ -580,7 +580,16 @@
             }
         }
 
+        // Iniciar el dashboard al abrir la página
         window.onload = inicializarDashboard;
+
+        // =========================================================
+        // MAGIA AUTOMÁTICA: Actualizar pedidos en "Tiempo Real"
+        // =========================================================
+        // setInterval ejecuta la función cargarPedidos() repetidamente.
+        // 15000 = 15 segundos. (No lo bajes a menos de 10000 para no saturar tu n8n/Google Sheets).
+        setInterval(cargarPedidos, 15000); 
+
     </script>
 </body>
 </html>
