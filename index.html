@@ -224,7 +224,7 @@
                             <div class="w-8"></div>
                         </div>`;
                     cerrarModal();
-                    cargarPedidos();
+                    setTimeout(cargarPedidos, 500);
                 } else {
                     alert("Error en el servidor al guardar el pedido.");
                 }
@@ -235,7 +235,8 @@
 
         async function cargarPedidos() {
             try {
-                const respuesta = await fetch(URL_LEER);
+                // BLINDAJE 1: Forzar datos frescos saltándose el caché del navegador
+                const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
                 const pedidos = await respuesta.json();
                 
                 document.getElementById('columna-pendiente').innerHTML = '';
@@ -243,24 +244,19 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // 1. OBTENEMOS EL PREFIJO DE HOY (ej: 20260529)
                 const prefijoHoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' }).replace(/-/g, '');
                 
                 pedidos.forEach(pedido => {
                     const idReal = String(pedido.ID_Pedido || '');
-                    
-                    // 2. FILTRO INFALIBLE: Cortamos el ID por el guion
                     const partesId = idReal.split('-');
-                    const prefijoPedido = partesId[0]; // Saca la primera parte, ej: "20260529" o "ORD"
+                    const prefijoPedido = partesId[0]; 
                     
-                    if (prefijoPedido !== prefijoHoy) {
-                        return; // ¡Adiós a todo lo que no coincida exactamente con la fecha de hoy!
-                    }
+                    if (prefijoPedido !== prefijoHoy) return; 
 
-                    // 3. Extraemos el número final para que en pantalla solo se vea el "1", "2", etc.
                     const idVisual = partesId.length > 1 ? partesId[1] : idReal;
 
-                    const estado = pedido.Estado ? pedido.Estado.trim() : '';
+                    // BLINDAJE 2: Forzar todo a minúsculas y sin espacios
+                    const estado = String(pedido.Estado || '').trim().toLowerCase();
                     
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
                     const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
@@ -271,14 +267,12 @@
                     
                     const tarjeta = document.createElement('div');
 
-                    // ==========================================
-                    // RAMA 1: DISEÑO PARA "FINALIZADO"
-                    // ==========================================
-                    if (estado === 'Finalizado') {
+                    // Al estar en minúsculas, evitamos cualquier error de tipeo en n8n
+                    if (estado === 'finalizado') {
                         let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
                         
                         if (safeMetodo.toLowerCase().includes('movil') || safeMetodo.toLowerCase().includes('móvil')) {
-                            const totalBs = (totalDolares * tasaBCV).toFixed(2);
+                            const totalBs = (parseFloat(totalDolares) * tasaBCV).toFixed(2);
                             infoMonto = `
                                 <div class="flex flex-col text-right">
                                     <span class="text-lg font-bold text-green-400">$${totalDolares}</span>
@@ -299,14 +293,11 @@
                         document.getElementById('columna-finalizado').appendChild(tarjeta);
                         cf++;
                     
-                    // ==========================================
-                    // RAMA 2: DISEÑO NORMAL (PENDIENTE Y COCINA)
-                    // ==========================================
-                    } else {
+                    } else if (estado === 'pago pendiente' || estado === 'en cocina') {
                         let botonAccion = '';
-                        if (estado === 'Pago Pendiente') {
+                        if (estado === 'pago pendiente') {
                             botonAccion = `<button onclick="cambiarEstado('${idReal}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
-                        } else if (estado === 'En Cocina') {
+                        } else if (estado === 'en cocina') {
                             botonAccion = `<button onclick="cambiarEstado('${idReal}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                         }
                         
@@ -336,8 +327,8 @@
                             ${botonAccion}
                         `;
                         
-                        if (estado === 'Pago Pendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
-                        else if (estado === 'En Cocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
+                        if (estado === 'pago pendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
+                        else if (estado === 'en cocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
                     }
                 });
                 
@@ -476,7 +467,8 @@
                 });
                 
                 if (respuesta.ok) {
-                    cargarPedidos();
+                    // BLINDAJE 3: Darle 800ms a Google Sheets para que termine de guardar la celda
+                    setTimeout(cargarPedidos, 800);
                 } else {
                     alert('Error al cambiar estado.');
                 }
