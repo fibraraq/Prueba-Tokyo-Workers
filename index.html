@@ -145,12 +145,48 @@
         </div>
     </div>
 
+    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-receipt text-emerald-500"></i> Detalle del Pedido <span id="detalleId" class="text-emerald-500 ml-1"></span>
+                </h2>
+                <button onclick="cerrarModalDetalle()" class="text-gray-400 hover:text-white transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="bg-gray-700/50 p-3 rounded-lg border border-gray-600">
+                    <h3 id="detalleCliente" class="font-bold text-white text-lg mb-1"></h3>
+                    <p class="text-sm text-gray-300 mb-1"><i class="fa-solid fa-phone text-gray-500 w-5"></i> <span id="detalleTelefono"></span></p>
+                    <p class="text-sm text-gray-300 mb-1"><i class="fa-solid fa-map-location-dot text-gray-500 w-5"></i> <span id="detalleEntrega"></span> <span id="detalleDireccion"></span></p>
+                    <p class="text-sm text-gray-300"><i class="fa-solid fa-credit-card text-gray-500 w-5"></i> <span id="detalleMetodo"></span></p>
+                </div>
+                
+                <div>
+                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">Artículos</h4>
+                    <div id="detalleArticulos" class="bg-gray-900 rounded p-3 text-sm text-gray-300 font-mono whitespace-pre-line border border-gray-700 min-h-[60px]"></div>
+                </div>
+                
+                <div class="flex justify-between items-end pt-2 border-t border-gray-700">
+                    <span class="text-gray-400 font-bold">Total Cobrado:</span>
+                    <div class="text-right">
+                        <div id="detalleTotalUSD" class="text-2xl font-bold text-green-400"></div>
+                        <div id="detalleTotalBs" class="text-sm font-bold text-gray-400"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-end bg-gray-900">
+                <button type="button" onclick="cerrarModalDetalle()" class="bg-gray-700 px-5 py-2 rounded font-bold text-white hover:bg-gray-600 transition">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const URL_LEER = 'https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos';
         const URL_ACTUALIZAR = 'https://n8n-production-633e.up.railway.app/webhook/actualizar-estado';
         const URL_NUEVO_PEDIDO = 'https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo';
 
         let tasaBCV = 36.5; 
+        let pedidosEnMemoria = {}; // Objeto global para almacenar la información de los pedidos
         
         async function inicializarDashboard() {
             try {
@@ -166,6 +202,33 @@
         function abrirModal() { document.getElementById('modalPedido').classList.remove('hidden'); }
         function cerrarModal() { document.getElementById('modalPedido').classList.add('hidden'); }
         
+        // Funciones para el nuevo modal de detalles
+        function cerrarModalDetalle() { document.getElementById('modalDetalle').classList.add('hidden'); }
+        function abrirModalDetalle(idReal) {
+            const data = pedidosEnMemoria[idReal];
+            if(!data) return; // Por si acaso no encuentra el dato
+            
+            document.getElementById('detalleId').innerText = "#" + data.idVisual;
+            document.getElementById('detalleCliente').innerText = data.cliente;
+            document.getElementById('detalleTelefono').innerText = data.telefono;
+            document.getElementById('detalleEntrega').innerText = data.entrega;
+            document.getElementById('detalleDireccion').innerText = data.direccion ? "- " + data.direccion : "";
+            document.getElementById('detalleMetodo').innerText = data.metodo;
+            document.getElementById('detalleArticulos').innerText = data.detalles;
+            
+            document.getElementById('detalleTotalUSD').innerText = "$" + data.totalUSD;
+            
+            if (data.metodo.toLowerCase().includes('movil') || data.metodo.toLowerCase().includes('móvil')) {
+                const totalBs = (parseFloat(data.totalUSD) * tasaBCV).toFixed(2);
+                document.getElementById('detalleTotalBs').innerText = "Bs. " + totalBs;
+                document.getElementById('detalleTotalBs').classList.remove('hidden');
+            } else {
+                document.getElementById('detalleTotalBs').classList.add('hidden');
+            }
+            
+            document.getElementById('modalDetalle').classList.remove('hidden');
+        }
+
         document.getElementById('formNuevoPedido').addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
@@ -240,47 +303,70 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // Extraemos la fecha de hoy para comparar con tu Excel
+                // Limpiamos la memoria cada vez que recargamos
+                pedidosEnMemoria = {};
+                
                 const d = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
-                const y = d.getFullYear();
+                const y = d.getFullYear().toString();
                 const m = String(d.getMonth() + 1).padStart(2, '0');
                 const day = String(d.getDate()).padStart(2, '0');
-                const fechaHoyLimpia = `${y}-${m}-${day}`; // Ej: 2026-05-29
+                
+                const formato1 = `${y}-${m}-${day}`;
+                const formato2 = `${day}${m}${y}`;   
+                const formato3 = `${day}/${m}/${y}`; 
+                const formato4 = `${y}${m}${day}`;   
                 
                 pedidos.forEach(pedido => {
-                    const fechaCelda = String(pedido.Fecha || pedido.fecha || pedido.Timestamp || '').trim();
-                    const fechaPuraPedido = fechaCelda.substring(0, 10); 
+                    const filaTexto = JSON.stringify(pedido);
+                    
+                    const esDeHoy = filaTexto.includes(formato1) || 
+                                    filaTexto.includes(formato2) || 
+                                    filaTexto.includes(formato3) || 
+                                    filaTexto.includes(formato4);
 
-                    const estadoRaw = String(pedido.Estado || pedido.estado || '').toLowerCase();
+                    const estadoRaw = String(pedido.Estado || pedido.estado || pedido['Estado '] || '').toLowerCase();
                     const estadoLimpio = estadoRaw.replace(/[^a-z]/g, ''); 
 
-                    // REGLA: Si está finalizado pero no es de hoy, se oculta
-                    if (estadoLimpio === 'finalizado' && fechaPuraPedido !== fechaHoyLimpia) {
+                    if (estadoLimpio === 'finalizado' && !esDeHoy) {
                         return; 
                     }
-                    
                     if (estadoLimpio !== 'finalizado' && estadoLimpio !== 'pagopendiente' && estadoLimpio !== 'encocina') {
                         return;
                     }
 
-                    const idReal = String(pedido.ID_Pedido || pedido.id_pedido || '').trim();
+                    const idReal = String(pedido.ID_Pedido || pedido.id_pedido || pedido['ID_Pedido'] || '').trim();
                     const partesId = idReal.split('-');
                     let idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
-                    if (!idVisual) idVisual = "✓";
+                    if (!idVisual) idVisual = "✓"; 
                     
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
                     const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
                     const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
                     const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
                     const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
+                    const safeDetalles = String(pedido['Pedido Detallado'] || pedido.Pedido_Detallado || 'Sin detalles especificados');
                     
-                    const totalRaw = pedido.Total_Orden || pedido['Total Orden'] || 0;
+                    const totalRaw = pedido.Total_Orden || pedido['Total Orden'] || pedido['Total Orden '] || pedido.total_orden || 0;
                     const totalNumerico = String(totalRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
                     const totalDolares = parseFloat(totalNumerico || 0).toFixed(2);
                     
+                    // Guardamos la info en memoria para que el modal la pueda leer
+                    pedidosEnMemoria[idReal] = {
+                        idVisual: idVisual,
+                        cliente: safeCliente,
+                        telefono: safeTelefono,
+                        entrega: safeEntrega,
+                        direccion: safeDireccion,
+                        metodo: safeMetodo,
+                        detalles: safeDetalles,
+                        totalUSD: totalDolares
+                    };
+
                     const tarjeta = document.createElement('div');
 
-                    // RAMA 1: FINALIZADO (Diseño minimalista)
+                    // ==========================================
+                    // RAMA 1: FINALIZADO
+                    // ==========================================
                     if (estadoLimpio === 'finalizado') {
                         let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
                         
@@ -293,7 +379,9 @@
                                 </div>`;
                         }
 
-                        tarjeta.className = 'bg-gray-800 rounded-lg p-3 shadow border border-gray-700 flex justify-between items-center transition opacity-80 hover:opacity-100 hover:border-gray-500';
+                        // Agregamos las clases cursor-pointer y el hover para que parezca un botón clickeable
+                        tarjeta.className = 'cursor-pointer bg-gray-800 rounded-lg p-3 shadow border border-gray-700 flex justify-between items-center transition opacity-90 hover:opacity-100 hover:border-emerald-500 hover:shadow-emerald-500/20';
+                        tarjeta.setAttribute('onclick', `abrirModalDetalle('${idReal}')`);
                         tarjeta.innerHTML = `
                             <div class="flex items-center gap-3">
                                 <span class="text-xl font-mono font-bold text-gray-400 bg-gray-900 px-3 py-1 rounded border border-gray-700 shadow-inner">
@@ -306,7 +394,9 @@
                         document.getElementById('columna-finalizado').appendChild(tarjeta);
                         cf++;
                     
+                    // ==========================================
                     // RAMA 2: PENDIENTE Y COCINA
+                    // ==========================================
                     } else if (estadoLimpio === 'pagopendiente' || estadoLimpio === 'encocina') {
                         let botonAccion = '';
                         if (estadoLimpio === 'pagopendiente') {
@@ -336,7 +426,7 @@
                             
                             ${htmlDireccion}
 
-                            <div class="bg-gray-800/80 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700/50">${pedido['Pedido Detallado'] || pedido.Pedido_Detallado}</div>
+                            <div class="bg-gray-800/80 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700/50">${safeDetalles}</div>
                             <div class="text-xs text-gray-400">💳 ${safeMetodo}</div>
                             ${botonAccion}
                         `;
