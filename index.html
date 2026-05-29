@@ -235,6 +235,7 @@
 
         async function cargarPedidos() {
             try {
+                // Forzar datos frescos saltándose el caché del navegador
                 const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
                 const pedidos = await respuesta.json();
                 
@@ -243,28 +244,21 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // Construimos las fechas clave para evaluar
-                const dateVzla = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
-                const dd = String(dateVzla.getDate()).padStart(2, '0');
-                const mm = String(dateVzla.getMonth() + 1).padStart(2, '0');
-                const yyyy = dateVzla.getFullYear();
-                
-                const fechaHoyES = `${dd}/${mm}/${yyyy}`; // Ej: "29/05/2026" (Tu nueva lógica)
-                const fechaHoyISO = `${yyyy}-${mm}-${dd}`; // Ej: "2026-05-29" (Para revisar tu columna Fecha)
-                const fechaHoyPegada = `${dd}${mm}${yyyy}`; // Ej: "29052026" (Para rescatar los pedidos de esta mañana)
+                // ==========================================
+                // TU SOLUCIÓN: Usar la fecha estándar (YYYY-MM-DD)
+                // ==========================================
+                const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas' });
+                const fechaHoyISO = formatter.format(new Date()); // Retorna siempre el formato de tu Excel: "2026-05-29"
                 
                 pedidos.forEach(pedido => {
+                    // Tomamos la columna Fecha de tu Excel
+                    const fechaAnotada = String(pedido.Fecha || pedido.fecha || pedido.Timestamp || pedido.timestamp || '').trim();
+                    
+                    // FILTRO MAESTRO: Si la fecha del Excel NO incluye "2026-05-29", lo ignoramos por ser de ayer
+                    if (!fechaAnotada.includes(fechaHoyISO)) return; 
+
+                    // Seguimos extrayendo el número visual del ID si tiene guion, sino mostramos todo el ID
                     const idReal = String(pedido.ID_Pedido || pedido.id_pedido || '').trim();
-                    const fechaAnotada = String(pedido.Fecha || pedido.fecha || pedido.Timestamp || '').trim();
-                    
-                    // ==========================================
-                    // TRIPLE FILTRO DE FECHA (Indestructible)
-                    // ==========================================
-                    const esDeHoy = idReal.includes(fechaHoyES) || idReal.includes(fechaHoyPegada) || fechaAnotada.includes(fechaHoyISO);
-                    
-                    if (!esDeHoy) return; // Ignora los de días anteriores
-                    
-                    // Separa el ID por el guion y muestra solo el último número ("1")
                     const partesId = idReal.split('-');
                     const idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
 
