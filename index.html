@@ -161,7 +161,7 @@
                 const data = await res.json();
                 tasaBCV = data.promedio;
             } catch(e) {
-                console.log('Error obteniendo tasa BCV, usando valor por defecto:', e);
+                console.log('Error obteniendo tasa BCV:', e);
             }
             cargarPedidos();
         }
@@ -226,10 +226,10 @@
                     cerrarModal();
                     setTimeout(cargarPedidos, 500);
                 } else {
-                    alert("Error en el servidor al guardar el pedido.");
+                    alert("Error al guardar el pedido.");
                 }
             } catch(e) { 
-                alert("No se pudo conectar con el servidor."); 
+                alert("Error de conexión."); 
             }
         }
 
@@ -243,25 +243,32 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // BLINDAJE 1: Generador de Fecha Internacional (Garantiza DDMMYYYY)
-                const formatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Caracas', day: '2-digit', month: '2-digit', year: 'numeric' });
-                const partesFecha = formatter.formatToParts(new Date());
-                const dd = partesFecha.find(p => p.type === 'day').value;
-                const mm = partesFecha.find(p => p.type === 'month').value;
-                const yyyy = partesFecha.find(p => p.type === 'year').value;
-                const prefijoHoy = `${dd}${mm}${yyyy}`; // Siempre perfecto: "29052026"
+                // Construimos las fechas clave para evaluar
+                const dateVzla = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
+                const dd = String(dateVzla.getDate()).padStart(2, '0');
+                const mm = String(dateVzla.getMonth() + 1).padStart(2, '0');
+                const yyyy = dateVzla.getFullYear();
+                
+                const fechaHoyES = `${dd}/${mm}/${yyyy}`; // Ej: "29/05/2026" (Tu nueva lógica)
+                const fechaHoyISO = `${yyyy}-${mm}-${dd}`; // Ej: "2026-05-29" (Para revisar tu columna Fecha)
+                const fechaHoyPegada = `${dd}${mm}${yyyy}`; // Ej: "29052026" (Para rescatar los pedidos de esta mañana)
                 
                 pedidos.forEach(pedido => {
                     const idReal = String(pedido.ID_Pedido || pedido.id_pedido || '').trim();
-                    const partesId = idReal.split('-');
-                    const prefijoPedido = partesId[0].replace(/\D/g, ''); 
+                    const fechaAnotada = String(pedido.Fecha || pedido.fecha || pedido.Timestamp || '').trim();
                     
-                    if (prefijoPedido !== prefijoHoy) return; 
+                    // ==========================================
+                    // TRIPLE FILTRO DE FECHA (Indestructible)
+                    // ==========================================
+                    const esDeHoy = idReal.includes(fechaHoyES) || idReal.includes(fechaHoyPegada) || fechaAnotada.includes(fechaHoyISO);
+                    
+                    if (!esDeHoy) return; // Ignora los de días anteriores
+                    
+                    // Separa el ID por el guion y muestra solo el último número ("1")
+                    const partesId = idReal.split('-');
+                    const idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
 
-                    const idVisual = partesId.length > 1 ? partesId[1] : idReal;
-
-                    // BLINDAJE 2: Aspiradora de espacios invisibles
-                    // Convierte "Pago Pendiente " en "pagopendiente" y "Finalizado\u00A0" en "finalizado"
+                    // Limpieza absoluta del estado
                     const estadoRaw = String(pedido.Estado || pedido.estado || '').toLowerCase();
                     const estadoLimpio = estadoRaw.replace(/[\s\uFEFF\xA0]+/g, ''); 
                     
@@ -274,7 +281,9 @@
                     
                     const tarjeta = document.createElement('div');
 
-                    // Validamos contra la versión limpia sin espacios
+                    // ==========================================
+                    // RAMA 1: FINALIZADO
+                    // ==========================================
                     if (estadoLimpio === 'finalizado') {
                         let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
                         
@@ -300,6 +309,9 @@
                         document.getElementById('columna-finalizado').appendChild(tarjeta);
                         cf++;
                     
+                    // ==========================================
+                    // RAMA 2: PENDIENTE Y COCINA
+                    // ==========================================
                     } else if (estadoLimpio === 'pagopendiente' || estadoLimpio === 'encocina') {
                         let botonAccion = '';
                         if (estadoLimpio === 'pagopendiente') {
