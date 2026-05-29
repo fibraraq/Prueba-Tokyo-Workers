@@ -232,7 +232,6 @@
 
         async function cargarPedidos() {
             try {
-                // Forzar datos frescos saltándose el caché del navegador
                 const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
                 const pedidos = await respuesta.json();
                 
@@ -241,38 +240,37 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // =======================================================
-                // EL BLINDAJE DE TITANIO: Crea 4 formas distintas de la fecha
-                // =======================================================
-                const dateVzla = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
-                const yyyy = dateVzla.getFullYear().toString();
-                const mm = String(dateVzla.getMonth() + 1).padStart(2, '0');
-                const dd = String(dateVzla.getDate()).padStart(2, '0');
+                // =================================================================
+                // SOLUCIÓN RADICAL: Ignoramos la hora. Buscamos el último pedido
+                // =================================================================
+                const pedidosValidos = pedidos.filter(p => p.ID_Pedido && String(p.ID_Pedido).trim() !== "");
+                let prefijoHoy = "";
                 
-                const fechaISO = `${yyyy}-${mm}-${dd}`; // Ej: 2026-05-29
-                const fechaLatina = `${dd}/${mm}/${yyyy}`; // Ej: 29/05/2026
-                const fechaPegada = `${dd}${mm}${yyyy}`; // Ej: 29052026
-                const fechaInvertida = `${yyyy}${mm}${dd}`; // Ej: 20260529
+                if (pedidosValidos.length > 0) {
+                    // Agarra el ID del último pedido registrado en tu Excel (el más reciente)
+                    const ultimoId = String(pedidosValidos[pedidosValidos.length - 1].ID_Pedido);
+                    prefijoHoy = ultimoId.split('-')[0]; // Se queda con "29052026" (o la fecha que sea)
+                }
                 
-                pedidos.forEach(pedido => {
+                pedidosValidos.forEach(pedido => {
                     const idReal = String(pedido.ID_Pedido || pedido.id_pedido || '').trim();
-                    const fechaAnotada = String(pedido.Fecha || pedido.fecha || pedido.Timestamp || pedido.timestamp || '').trim();
+                    const prefijoPedido = idReal.split('-')[0];
                     
-                    // FILTRO MAESTRO: Si la fila tiene la fecha de hoy en CUALQUIER formato, se aprueba
-                    const esDeHoy = fechaAnotada.includes(fechaISO) || 
-                                    idReal.includes(fechaLatina) || 
-                                    idReal.includes(fechaPegada) || 
-                                    idReal.includes(fechaInvertida);
-                    
-                    if (!esDeHoy) return; 
+                    // 1. Ocultar permanentemente todos los pedidos viejos con formato "ORD-XXXX"
+                    if (prefijoPedido.toUpperCase().startsWith('ORD')) return;
 
-                    // Sacamos el número visual
-                    const partesId = idReal.split('-');
-                    const idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
-
-                    // Limpieza absoluta del estado para evitar que un espacio rompa todo
                     const estadoRaw = String(pedido.Estado || pedido.estado || '').toLowerCase();
                     const estadoLimpio = estadoRaw.replace(/[\s\uFEFF\xA0]+/g, ''); 
+
+                    // 2. REGLA DE ORO DE VISIBILIDAD:
+                    // Si el pedido está Finalizado y no es del día de hoy, lo ocultamos.
+                    // Si está Pendiente o En Cocina se muestra siempre para no perder la venta.
+                    if (estadoLimpio === 'finalizado' && prefijoPedido !== prefijoHoy) {
+                        return; 
+                    }
+
+                    const partesId = idReal.split('-');
+                    const idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
                     
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
                     const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
@@ -283,9 +281,7 @@
                     
                     const tarjeta = document.createElement('div');
 
-                    // ==========================================
                     // RAMA 1: FINALIZADO
-                    // ==========================================
                     if (estadoLimpio === 'finalizado') {
                         let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
                         
@@ -311,9 +307,7 @@
                         document.getElementById('columna-finalizado').appendChild(tarjeta);
                         cf++;
                     
-                    // ==========================================
                     // RAMA 2: PENDIENTE Y COCINA
-                    // ==========================================
                     } else if (estadoLimpio === 'pagopendiente' || estadoLimpio === 'encocina') {
                         let botonAccion = '';
                         if (estadoLimpio === 'pagopendiente') {
