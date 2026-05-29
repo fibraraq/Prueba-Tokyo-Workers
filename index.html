@@ -232,7 +232,7 @@
 
         async function cargarPedidos() {
             try {
-                // Borra caché del navegador para traer datos frescos de n8n siempre
+                // El caché limpio garantiza que leamos tu Excel más reciente
                 const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
                 const pedidos = await respuesta.json();
                 
@@ -242,40 +242,48 @@
                 let cp = 0, cc = 0, cf = 0;
                 
                 // =================================================================
-                // ESTRATEGIA INYECTADA: Tu idea aplicada usando la columna B (Fecha)
+                // EL ESCÁNER ABSOLUTO: Creamos todas las fechas posibles
                 // =================================================================
                 const d = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
-                const y = d.getFullYear();
+                const y = d.getFullYear().toString();
                 const m = String(d.getMonth() + 1).padStart(2, '0');
                 const day = String(d.getDate()).padStart(2, '0');
                 
-                // Esta es la fecha exacta que genera la máquina en tu columna B: "2026-05-29"
-                const fechaHoyLimpia = `${y}-${m}-${day}`; 
+                const formato1 = `${y}-${m}-${day}`; // 2026-05-29 (Columna Fecha)
+                const formato2 = `${day}${m}${y}`;   // 29052026 (Tu ID en n8n)
+                const formato3 = `${day}/${m}/${y}`; // 29/05/2026 (A mano)
+                const formato4 = `${y}${m}${day}`;   // 20260529 (ID Invertido)
                 
                 pedidos.forEach(pedido => {
-                    // 1. Extraemos tu "fecha limpia" de los primeros 10 caracteres de la columna B
-                    const fechaCelda = String(pedido.Fecha || pedido.fecha || pedido.Timestamp || pedido.timestamp || pedido['Fecha '] || '').trim();
-                    const fechaPuraPedido = fechaCelda.substring(0, 10); 
+                    // Convertimos TODA la fila en una palabra larga gigante
+                    const filaTexto = JSON.stringify(pedido);
+                    
+                    // Si encuentra la fecha en CUALQUIER LADO de la fila, lo aprueba
+                    const esDeHoy = filaTexto.includes(formato1) || 
+                                    filaTexto.includes(formato2) || 
+                                    filaTexto.includes(formato3) || 
+                                    filaTexto.includes(formato4);
 
-                    // 2. Extraemos el Estado y usamos una "Aspiradora de Caracteres" para hacerlo indestructible
+                    // Aspiramos y aplastamos el estado para evitar fallos por espacios o mayúsculas
                     const estadoRaw = String(pedido.Estado || pedido.estado || pedido['Estado '] || '').toLowerCase();
-                    const estadoLimpio = estadoRaw.replace(/[^a-z]/g, ''); // Convierte "Finalizado " en "finalizado"
+                    const estadoLimpio = estadoRaw.replace(/[^a-z]/g, ''); 
 
-                    // 3. REGLA DE VISIBILIDAD (Tu idea hecha código):
-                    // Si está Finalizado PERO la fecha pura no es igual a la de hoy, se oculta.
-                    if (estadoLimpio === 'finalizado' && fechaPuraPedido !== fechaHoyLimpia) {
+                    // ----------------------------------------------------
+                    // REGLA DE VIDA O MUERTE:
+                    // Si está Finalizado y NO tiene la fecha de hoy, se oculta.
+                    if (estadoLimpio === 'finalizado' && !esDeHoy) {
                         return; 
                     }
-                    
-                    // Si el estado viene vacío o no es ninguno de los 3 que usamos, se ignora.
+                    // Si el estado es basura (celdas vacías), se ignora
                     if (estadoLimpio !== 'finalizado' && estadoLimpio !== 'pagopendiente' && estadoLimpio !== 'encocina') {
                         return;
                     }
+                    // ----------------------------------------------------
 
-                    // 4. Extracción visual del ID. Solo muestra el número después del guion ("3", "1", etc)
                     const idReal = String(pedido.ID_Pedido || pedido.id_pedido || pedido['ID_Pedido'] || '').trim();
                     const partesId = idReal.split('-');
-                    const idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
+                    let idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
+                    if (!idVisual) idVisual = "✓"; // Fallback por si la celda ID está vacía
                     
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
                     const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
@@ -283,9 +291,10 @@
                     const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
                     const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
                     
-                    // Limpieza de números para evitar errores de cálculo
+                    // Limpieza agresiva del total por si Excel lo envía como "$ 15,00"
                     const totalRaw = pedido.Total_Orden || pedido['Total Orden'] || pedido['Total Orden '] || pedido.total_orden || 0;
-                    const totalDolares = parseFloat(String(totalRaw).replace(',','.')).toFixed(2);
+                    const totalNumerico = String(totalRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
+                    const totalDolares = parseFloat(totalNumerico || 0).toFixed(2);
                     
                     const tarjeta = document.createElement('div');
 
