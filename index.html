@@ -232,146 +232,69 @@
 
         async function cargarPedidos() {
             try {
-                // El caché limpio garantiza que leamos tu Excel más reciente
+                console.log("🟡 1. Iniciando petición a n8n...");
                 const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
-                const pedidos = await respuesta.json();
                 
+                console.log("🟡 2. Estado de la respuesta HTTP:", respuesta.status);
+                
+                const pedidos = await respuesta.json();
+                console.log("🟢 3. Datos crudos recibidos desde n8n:", pedidos);
+                
+                // Verificamos si realmente es un Array
+                if (!Array.isArray(pedidos)) {
+                    console.error("🔴 ERROR CRÍTICO: 'pedidos' no es una lista (array). Es tipo:", typeof pedidos);
+                    return; // Detiene la ejecución para que no explote
+                }
+
                 document.getElementById('columna-pendiente').innerHTML = '';
                 document.getElementById('columna-cocina').innerHTML = '';
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // =================================================================
-                // EL ESCÁNER ABSOLUTO: Creamos todas las fechas posibles
-                // =================================================================
-                const d = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
-                const y = d.getFullYear().toString();
-                const m = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                
-                const formato1 = `${y}-${m}-${day}`; // 2026-05-29 (Columna Fecha)
-                const formato2 = `${day}${m}${y}`;   // 29052026 (Tu ID en n8n)
-                const formato3 = `${day}/${m}/${y}`; // 29/05/2026 (A mano)
-                const formato4 = `${y}${m}${day}`;   // 20260529 (ID Invertido)
-                
-                pedidos.forEach(pedido => {
-                    // Convertimos TODA la fila en una palabra larga gigante
-                    const filaTexto = JSON.stringify(pedido);
+                pedidos.forEach((pedido, index) => {
+                    console.log(`Evaluando pedido #${index}:`, pedido);
                     
-                    // Si encuentra la fecha en CUALQUIER LADO de la fila, lo aprueba
-                    const esDeHoy = filaTexto.includes(formato1) || 
-                                    filaTexto.includes(formato2) || 
-                                    filaTexto.includes(formato3) || 
-                                    filaTexto.includes(formato4);
-
-                    // Aspiramos y aplastamos el estado para evitar fallos por espacios o mayúsculas
-                    const estadoRaw = String(pedido.Estado || pedido.estado || pedido['Estado '] || '').toLowerCase();
-                    const estadoLimpio = estadoRaw.replace(/[^a-z]/g, ''); 
-
-                    // ----------------------------------------------------
-                    // REGLA DE VIDA O MUERTE:
-                    // Si está Finalizado y NO tiene la fecha de hoy, se oculta.
-                    if (estadoLimpio === 'finalizado' && !esDeHoy) {
-                        return; 
-                    }
-                    // Si el estado es basura (celdas vacías), se ignora
-                    if (estadoLimpio !== 'finalizado' && estadoLimpio !== 'pagopendiente' && estadoLimpio !== 'encocina') {
-                        return;
-                    }
-                    // ----------------------------------------------------
-
-                    const idReal = String(pedido.ID_Pedido || pedido.id_pedido || pedido['ID_Pedido'] || '').trim();
-                    const partesId = idReal.split('-');
-                    let idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
-                    if (!idVisual) idVisual = "✓"; // Fallback por si la celda ID está vacía
+                    // Extraemos las variables tal cual vienen
+                    const idReal = String(pedido.ID_Pedido || pedido.id_pedido || pedido['ID_Pedido'] || 'SIN-ID').trim();
+                    const estadoBruto = String(pedido.Estado || pedido.estado || pedido['Estado '] || 'SIN-ESTADO').trim();
+                    const estadoLimpio = estadoBruto.toLowerCase().replace(/[\s\uFEFF\xA0]+/g, ''); 
                     
-                    const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
-                    const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
-                    const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
-                    const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
-                    const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
-                    
-                    // Limpieza agresiva del total por si Excel lo envía como "$ 15,00"
-                    const totalRaw = pedido.Total_Orden || pedido['Total Orden'] || pedido['Total Orden '] || pedido.total_orden || 0;
-                    const totalNumerico = String(totalRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
-                    const totalDolares = parseFloat(totalNumerico || 0).toFixed(2);
+                    const safeCliente = String(pedido.Cliente || 'Sin Nombre');
+                    const totalDolares = parseFloat(pedido.Total_Orden || pedido['Total Orden'] || 0).toFixed(2);
                     
                     const tarjeta = document.createElement('div');
+                    tarjeta.className = 'bg-gray-800 rounded-lg p-3 shadow border border-gray-700 mb-2';
+                    tarjeta.innerHTML = `
+                        <div class="text-xs text-gray-400">ID Real: ${idReal}</div>
+                        <div class="font-bold text-white">${safeCliente}</div>
+                        <div class="text-green-400">$${totalDolares}</div>
+                        <div class="text-xs text-orange-300">Estado Detectado: [${estadoLimpio}]</div>
+                    `;
 
-                    // ==========================================
-                    // RAMA 1: FINALIZADO
-                    // ==========================================
+                    // Lógica de inyección directa (SIN FILTRO DE FECHA)
                     if (estadoLimpio === 'finalizado') {
-                        let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
-                        
-                        if (safeMetodo.toLowerCase().includes('movil') || safeMetodo.toLowerCase().includes('móvil')) {
-                            const totalBs = (parseFloat(totalDolares) * tasaBCV).toFixed(2);
-                            infoMonto = `
-                                <div class="flex flex-col text-right">
-                                    <span class="text-lg font-bold text-green-400">$${totalDolares}</span>
-                                    <span class="text-xs font-bold text-gray-400">Bs. ${totalBs}</span>
-                                </div>`;
-                        }
-
-                        tarjeta.className = 'bg-gray-800 rounded-lg p-3 shadow border border-gray-700 flex justify-between items-center transition opacity-80 hover:opacity-100 hover:border-gray-500';
-                        tarjeta.innerHTML = `
-                            <div class="flex items-center gap-3">
-                                <span class="text-xl font-mono font-bold text-gray-400 bg-gray-900 px-3 py-1 rounded border border-gray-700 shadow-inner">
-                                    <i class="fa-solid fa-check text-green-500 mr-1 text-sm"></i> ${idVisual}
-                                </span>
-                            </div>
-                            ${infoMonto}
-                        `;
-                        
                         document.getElementById('columna-finalizado').appendChild(tarjeta);
                         cf++;
-                    
-                    // ==========================================
-                    // RAMA 2: PENDIENTE Y COCINA
-                    // ==========================================
-                    } else if (estadoLimpio === 'pagopendiente' || estadoLimpio === 'encocina') {
-                        let botonAccion = '';
-                        if (estadoLimpio === 'pagopendiente') {
-                            botonAccion = `<button onclick="cambiarEstado('${idReal}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
-                        } else if (estadoLimpio === 'encocina') {
-                            botonAccion = `<button onclick="cambiarEstado('${idReal}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
-                        }
-                        
-                        let colorTarjeta = 'bg-gray-700 border-gray-600 hover:border-gray-500';
-                        if (safeEntrega.toLowerCase() === 'pickup') {
-                            colorTarjeta = 'bg-indigo-900 border-indigo-500 hover:border-indigo-400';
-                        }
-
-                        let htmlDireccion = '';
-                        if (safeEntrega.toLowerCase() === 'delivery' && safeDireccion.trim() !== '') {
-                            htmlDireccion = `<div class="mb-2 bg-gray-900/50 p-2 rounded border border-gray-600 text-xs text-blue-200"><i class="fa-solid fa-motorcycle"></i> <b>Dirección:</b> ${safeDireccion}</div>`;
-                        }
-                        
-                        tarjeta.className = `${colorTarjeta} rounded-lg p-4 shadow border transition`;
-                        tarjeta.innerHTML = `
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="text-xl font-mono font-bold text-white bg-gray-800 px-3 py-1 rounded border border-gray-500 shadow">${idVisual}</span>
-                                <span class="text-sm font-bold text-green-400 text-lg">$${totalDolares}</span>
-                            </div>
-                            <h3 class="font-bold text-white mb-1 text-base">${pedido.Cliente}</h3>
-                            <p class="text-xs text-gray-400 mb-2">📞 ${safeTelefono} | 📍 ${safeEntrega}</p>
-                            
-                            ${htmlDireccion}
-
-                            <div class="bg-gray-800/80 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700/50">${pedido['Pedido Detallado'] || pedido.Pedido_Detallado}</div>
-                            <div class="text-xs text-gray-400">💳 ${safeMetodo}</div>
-                            ${botonAccion}
-                        `;
-                        
-                        if (estadoLimpio === 'pagopendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
-                        else if (estadoLimpio === 'encocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
+                    } else if (estadoLimpio === 'pagopendiente') {
+                        document.getElementById('columna-pendiente').appendChild(tarjeta);
+                        cp++;
+                    } else if (estadoLimpio === 'encocina') {
+                        document.getElementById('columna-cocina').appendChild(tarjeta);
+                        cc++;
+                    } else {
+                        console.warn(`🔴 Pedido ${idReal} tiene un estado desconocido: "${estadoBruto}"`);
                     }
                 });
                 
                 document.getElementById('cant-pendiente').innerText = cp;
                 document.getElementById('cant-cocina').innerText = cc;
                 document.getElementById('cant-finalizado').innerText = cf;
-            } catch (error) { console.error('Error cargando pedidos:', error); }
+                
+                console.log("✅ Renderizado completado.");
+
+            } catch (error) { 
+                console.error('🔴 Error fatal en el bloque catch:', error); 
+            }
         }
         
         let tiempoSeleccionado = null;
