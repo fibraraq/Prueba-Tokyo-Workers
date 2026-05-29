@@ -245,28 +245,28 @@
                 let cp = 0, cc = 0, cf = 0;
                 
                 // ==========================================
-                // BLINDAJE ABSOLUTO DE FECHA (Construcción Manual)
+                // NUEVO PREFIJO EN FORMATO: DDMMYYYY
                 // ==========================================
                 const fechaVzla = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
                 const yyyy = fechaVzla.getFullYear().toString();
                 const mm = (fechaVzla.getMonth() + 1).toString().padStart(2, '0');
                 const dd = fechaVzla.getDate().toString().padStart(2, '0');
-                const prefijoHoy = `${yyyy}${mm}${dd}`; // 100% Garantizado: "20260529"
+                const prefijoHoy = `${dd}${mm}${yyyy}`; // Garantizado hoy: "29052026"
                 
                 pedidos.forEach(pedido => {
                     const idReal = String(pedido.ID_Pedido || '').trim();
                     const partesId = idReal.split('-');
                     
-                    // Extraemos y limpiamos el prefijo de la base de datos
+                    // Extraemos y limpiamos el prefijo numérico del ID que viene del Excel
                     const prefijoPedido = partesId[0].replace(/\D/g, ''); 
                     
-                    // Si no es exactamente igual a la fecha de hoy, se ignora
+                    // Si el pedido no pertenece al día de hoy, lo ignoramos por completo
                     if (prefijoPedido !== prefijoHoy) return; 
 
-                    // Sacamos el número secuencial visual (ej: "2")
+                    // Sacamos el número visual limpio (ej: "2")
                     const idVisual = partesId.length > 1 ? partesId[1] : idReal;
 
-                    // Estado a minúsculas para evitar errores de mayúsculas desde n8n
+                    // Estado a minúsculas para evitar problemas de tipeo
                     const estado = String(pedido.Estado || '').trim().toLowerCase();
                     
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
@@ -284,7 +284,6 @@
                     if (estado === 'finalizado') {
                         let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
                         
-                        // Solo muestra Bs si el texto del método de pago incluye la palabra "movil" o "móvil"
                         if (safeMetodo.toLowerCase().includes('movil') || safeMetodo.toLowerCase().includes('móvil')) {
                             const totalBs = (parseFloat(totalDolares) * tasaBCV).toFixed(2);
                             infoMonto = `
