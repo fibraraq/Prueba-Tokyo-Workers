@@ -235,7 +235,6 @@
 
         async function cargarPedidos() {
             try {
-                // Forzar datos frescos saltándose el caché del navegador
                 const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
                 const pedidos = await respuesta.json();
                 
@@ -244,44 +243,39 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // ==========================================
-                // NUEVO PREFIJO EN FORMATO: DDMMYYYY
-                // ==========================================
-                const fechaVzla = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
-                const yyyy = fechaVzla.getFullYear().toString();
-                const mm = (fechaVzla.getMonth() + 1).toString().padStart(2, '0');
-                const dd = fechaVzla.getDate().toString().padStart(2, '0');
-                const prefijoHoy = `${dd}${mm}${yyyy}`; // Garantizado hoy: "29052026"
+                // BLINDAJE 1: Generador de Fecha Internacional (Garantiza DDMMYYYY)
+                const formatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Caracas', day: '2-digit', month: '2-digit', year: 'numeric' });
+                const partesFecha = formatter.formatToParts(new Date());
+                const dd = partesFecha.find(p => p.type === 'day').value;
+                const mm = partesFecha.find(p => p.type === 'month').value;
+                const yyyy = partesFecha.find(p => p.type === 'year').value;
+                const prefijoHoy = `${dd}${mm}${yyyy}`; // Siempre perfecto: "29052026"
                 
                 pedidos.forEach(pedido => {
-                    const idReal = String(pedido.ID_Pedido || '').trim();
+                    const idReal = String(pedido.ID_Pedido || pedido.id_pedido || '').trim();
                     const partesId = idReal.split('-');
-                    
-                    // Extraemos y limpiamos el prefijo numérico del ID que viene del Excel
                     const prefijoPedido = partesId[0].replace(/\D/g, ''); 
                     
-                    // Si el pedido no pertenece al día de hoy, lo ignoramos por completo
                     if (prefijoPedido !== prefijoHoy) return; 
 
-                    // Sacamos el número visual limpio (ej: "2")
                     const idVisual = partesId.length > 1 ? partesId[1] : idReal;
 
-                    // Estado a minúsculas para evitar problemas de tipeo
-                    const estado = String(pedido.Estado || '').trim().toLowerCase();
+                    // BLINDAJE 2: Aspiradora de espacios invisibles
+                    // Convierte "Pago Pendiente " en "pagopendiente" y "Finalizado\u00A0" en "finalizado"
+                    const estadoRaw = String(pedido.Estado || pedido.estado || '').toLowerCase();
+                    const estadoLimpio = estadoRaw.replace(/[\s\uFEFF\xA0]+/g, ''); 
                     
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
                     const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
                     const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
                     const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
                     const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
-                    const totalDolares = parseFloat(pedido.Total_Orden || pedido['Total Orden'] || 0).toFixed(2);
+                    const totalDolares = parseFloat(pedido.Total_Orden || pedido['Total Orden'] || pedido['Total_Orden'] || 0).toFixed(2);
                     
                     const tarjeta = document.createElement('div');
 
-                    // ==========================================
-                    // RAMA 1: DISEÑO PARA "FINALIZADO"
-                    // ==========================================
-                    if (estado === 'finalizado') {
+                    // Validamos contra la versión limpia sin espacios
+                    if (estadoLimpio === 'finalizado') {
                         let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
                         
                         if (safeMetodo.toLowerCase().includes('movil') || safeMetodo.toLowerCase().includes('móvil')) {
@@ -306,14 +300,11 @@
                         document.getElementById('columna-finalizado').appendChild(tarjeta);
                         cf++;
                     
-                    // ==========================================
-                    // RAMA 2: DISEÑO NORMAL (PENDIENTE Y COCINA)
-                    // ==========================================
-                    } else if (estado === 'pago pendiente' || estado === 'en cocina') {
+                    } else if (estadoLimpio === 'pagopendiente' || estadoLimpio === 'encocina') {
                         let botonAccion = '';
-                        if (estado === 'pago pendiente') {
+                        if (estadoLimpio === 'pagopendiente') {
                             botonAccion = `<button onclick="cambiarEstado('${idReal}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
-                        } else if (estado === 'en cocina') {
+                        } else if (estadoLimpio === 'encocina') {
                             botonAccion = `<button onclick="cambiarEstado('${idReal}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                         }
                         
@@ -343,8 +334,8 @@
                             ${botonAccion}
                         `;
                         
-                        if (estado === 'pago pendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
-                        else if (estado === 'en cocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
+                        if (estadoLimpio === 'pagopendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
+                        else if (estadoLimpio === 'encocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
                     }
                 });
                 
@@ -483,7 +474,6 @@
                 });
                 
                 if (respuesta.ok) {
-                    // BLINDAJE 3: Darle 800ms a Google Sheets para que termine de guardar la celda
                     setTimeout(cargarPedidos, 800);
                 } else {
                     alert('Error al cambiar estado.');
