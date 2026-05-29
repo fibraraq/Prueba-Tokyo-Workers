@@ -153,6 +153,22 @@
         const URL_ACTUALIZAR = 'https://n8n-production-633e.up.railway.app/webhook/actualizar-estado';
         const URL_NUEVO_PEDIDO = 'https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo';
 
+        // --- NUEVA LÓGICA: Obtener tasa BCV al cargar la página ---
+        let tasaBCV = 36.5; // Valor por defecto por si falla el internet
+        
+        async function inicializarDashboard() {
+            try {
+                // Llama a una API pública y gratuita para obtener el dólar del BCV
+                const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+                const data = await res.json();
+                tasaBCV = data.promedio;
+            } catch(e) {
+                console.log('Error obteniendo tasa BCV, usando valor por defecto:', e);
+            }
+            // Una vez que tiene la tasa, carga los pedidos
+            cargarPedidos();
+        }
+
         function abrirModal() { document.getElementById('modalPedido').classList.remove('hidden'); }
         function cerrarModal() { document.getElementById('modalPedido').classList.add('hidden'); }
         
@@ -211,7 +227,7 @@
                             <div class="w-8"></div>
                         </div>`;
                     cerrarModal();
-                    cargarPedidos(); // <--- Aquí estaba el error
+                    cargarPedidos();
                 } else {
                     alert("Error en el servidor al guardar el pedido.");
                 }
@@ -230,6 +246,9 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
+                // Obtenemos la fecha de hoy en formato YYYY-MM-DD para el filtro
+                const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' }); 
+                
                 pedidos.forEach(pedido => {
                     const estado = pedido.Estado ? pedido.Estado.trim() : '';
                     
@@ -238,45 +257,83 @@
                     const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
                     const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
                     const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
-                    
-                    let botonAccion = '';
-                    if (estado === 'Pago Pendiente') {
-                        // <--- Aquí faltaba el safeMetodo en el onclick
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
-                    } else if (estado === 'En Cocina') {
-                        botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
-                    }
-                    
-                    let colorTarjeta = 'bg-gray-700 border-gray-600 hover:border-gray-500';
-                    if (safeEntrega.toLowerCase() === 'pickup') {
-                        colorTarjeta = 'bg-indigo-900 border-indigo-500 hover:border-indigo-400';
-                    }
-
-                    let htmlDireccion = '';
-                    if (safeEntrega.toLowerCase() === 'delivery' && safeDireccion.trim() !== '') {
-                        htmlDireccion = `<div class="mb-2 bg-gray-900/50 p-2 rounded border border-gray-600 text-xs text-blue-200"><i class="fa-solid fa-motorcycle"></i> <b>Dirección:</b> ${safeDireccion}</div>`;
-                    }
+                    const totalDolares = parseFloat(pedido.Total_Orden || pedido['Total Orden'] || 0).toFixed(2);
                     
                     const tarjeta = document.createElement('div');
-                    tarjeta.className = `${colorTarjeta} rounded-lg p-4 shadow border transition`;
-                    tarjeta.innerHTML = `
-                        <div class="flex justify-between items-start mb-2">
-                            <span class="text-xl font-mono font-bold text-white bg-gray-800 px-3 py-1 rounded border border-gray-500 shadow">${pedido.ID_Pedido}</span>
-                            <span class="text-sm font-bold text-green-400 text-lg">$${pedido.Total_Orden || pedido['Total Orden']}</span>
-                        </div>
-                        <h3 class="font-bold text-white mb-1 text-base">${pedido.Cliente}</h3>
-                        <p class="text-xs text-gray-400 mb-2">📞 ${safeTelefono} | 📍 ${safeEntrega}</p>
-                        
-                        ${htmlDireccion}
 
-                        <div class="bg-gray-800/80 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700/50">${pedido['Pedido Detallado'] || pedido.Pedido_Detallado}</div>
-                        <div class="text-xs text-gray-400">💳 ${pedido['Método de pago'] || pedido.Metodo_pago}</div>
-                        ${botonAccion}
-                    `;
+                    // ==========================================
+                    // RAMA 1: DISEÑO PARA "FINALIZADO"
+                    // ==========================================
+                    if (estado === 'Finalizado') {
+                        // ⚠️ FILTRO DE DÍA DE HOY (Descomenta las 2 líneas de abajo para activarlo)
+                        const fechaPedido = String(pedido.timestamp || pedido.Timestamp || pedido.Fecha || '');
+                        if (!fechaPedido.includes(hoyStr)) return; // Si no es de hoy, salta al siguiente
+
+                        let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
+                        
+                        // Si es pago móvil, calculamos y mostramos los Bs
+                        if (safeMetodo.toLowerCase().includes('movil') || safeMetodo.toLowerCase().includes('móvil')) {
+                            const totalBs = (totalDolares * tasaBCV).toFixed(2);
+                            infoMonto = `
+                                <div class="flex flex-col text-right">
+                                    <span class="text-lg font-bold text-green-400">$${totalDolares}</span>
+                                    <span class="text-xs font-bold text-gray-400">Bs. ${totalBs}</span>
+                                </div>`;
+                        }
+
+                        tarjeta.className = 'bg-gray-800 rounded-lg p-3 shadow border border-gray-700 flex justify-between items-center transition opacity-80 hover:opacity-100 hover:border-gray-500';
+                        tarjeta.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <span class="text-xl font-mono font-bold text-gray-400 bg-gray-900 px-3 py-1 rounded border border-gray-700 shadow-inner">
+                                    <i class="fa-solid fa-check text-green-500 mr-1 text-sm"></i> ${pedido.ID_Pedido}
+                                </span>
+                            </div>
+                            ${infoMonto}
+                        `;
+                        
+                        document.getElementById('columna-finalizado').appendChild(tarjeta);
+                        cf++;
                     
-                    if (estado === 'Pago Pendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
-                    else if (estado === 'En Cocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
-                    else if (estado === 'Finalizado') { document.getElementById('columna-finalizado').appendChild(tarjeta); cf++; }
+                    // ==========================================
+                    // RAMA 2: DISEÑO NORMAL (PENDIENTE Y COCINA)
+                    // ==========================================
+                    } else {
+                        let botonAccion = '';
+                        if (estado === 'Pago Pendiente') {
+                            botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
+                        } else if (estado === 'En Cocina') {
+                            botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
+                        }
+                        
+                        let colorTarjeta = 'bg-gray-700 border-gray-600 hover:border-gray-500';
+                        if (safeEntrega.toLowerCase() === 'pickup') {
+                            colorTarjeta = 'bg-indigo-900 border-indigo-500 hover:border-indigo-400';
+                        }
+
+                        let htmlDireccion = '';
+                        if (safeEntrega.toLowerCase() === 'delivery' && safeDireccion.trim() !== '') {
+                            htmlDireccion = `<div class="mb-2 bg-gray-900/50 p-2 rounded border border-gray-600 text-xs text-blue-200"><i class="fa-solid fa-motorcycle"></i> <b>Dirección:</b> ${safeDireccion}</div>`;
+                        }
+                        
+                        tarjeta.className = `${colorTarjeta} rounded-lg p-4 shadow border transition`;
+                        tarjeta.innerHTML = `
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-xl font-mono font-bold text-white bg-gray-800 px-3 py-1 rounded border border-gray-500 shadow">${pedido.ID_Pedido}</span>
+                                <span class="text-sm font-bold text-green-400 text-lg">$${totalDolares}</span>
+                            </div>
+                            <h3 class="font-bold text-white mb-1 text-base">${pedido.Cliente}</h3>
+                            <p class="text-xs text-gray-400 mb-2">📞 ${safeTelefono} | 📍 ${safeEntrega}</p>
+                            
+                            ${htmlDireccion}
+
+                            <div class="bg-gray-800/80 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700/50">${pedido['Pedido Detallado'] || pedido.Pedido_Detallado}</div>
+                            <div class="text-xs text-gray-400">💳 ${safeMetodo}</div>
+                            ${botonAccion}
+                        `;
+                        
+                        if (estado === 'Pago Pendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
+                        else if (estado === 'En Cocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
+                    }
                 });
                 
                 document.getElementById('cant-pendiente').innerText = cp;
@@ -329,7 +386,6 @@
                 preview.src = '';
                 preview.classList.add('hidden');
                 
-                // Aseguramos que el texto esté limpio
                 const metodoLimpio = metodoPago || "Desconocido";
                 txtMetodo.innerText = `Método de pago del cliente: ${metodoLimpio}`;
 
@@ -424,7 +480,7 @@
             }
         }
 
-        window.onload = cargarPedidos;
+        // --- ATENCIÓN AQUÍ: Iniciamos el dashboard con la función que trae la tasa BCV ---
+        window.onload = inicializarDashboard;
     </script>
-</body>
 </html>
