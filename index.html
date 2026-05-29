@@ -232,6 +232,7 @@
 
         async function cargarPedidos() {
             try {
+                // Borra caché del navegador para traer datos frescos de n8n siempre
                 const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
                 const pedidos = await respuesta.json();
                 
@@ -241,34 +242,38 @@
                 let cp = 0, cc = 0, cf = 0;
                 
                 // =================================================================
-                // SOLUCIÓN RADICAL: Ignoramos la hora. Buscamos el último pedido
+                // ESTRATEGIA INYECTADA: Tu idea aplicada usando la columna B (Fecha)
                 // =================================================================
-                const pedidosValidos = pedidos.filter(p => p.ID_Pedido && String(p.ID_Pedido).trim() !== "");
-                let prefijoHoy = "";
+                const d = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
                 
-                if (pedidosValidos.length > 0) {
-                    // Agarra el ID del último pedido registrado en tu Excel (el más reciente)
-                    const ultimoId = String(pedidosValidos[pedidosValidos.length - 1].ID_Pedido);
-                    prefijoHoy = ultimoId.split('-')[0]; // Se queda con "29052026" (o la fecha que sea)
-                }
+                // Esta es la fecha exacta que genera la máquina en tu columna B: "2026-05-29"
+                const fechaHoyLimpia = `${y}-${m}-${day}`; 
                 
-                pedidosValidos.forEach(pedido => {
-                    const idReal = String(pedido.ID_Pedido || pedido.id_pedido || '').trim();
-                    const prefijoPedido = idReal.split('-')[0];
-                    
-                    // 1. Ocultar permanentemente todos los pedidos viejos con formato "ORD-XXXX"
-                    if (prefijoPedido.toUpperCase().startsWith('ORD')) return;
+                pedidos.forEach(pedido => {
+                    // 1. Extraemos tu "fecha limpia" de los primeros 10 caracteres de la columna B
+                    const fechaCelda = String(pedido.Fecha || pedido.fecha || pedido.Timestamp || pedido.timestamp || pedido['Fecha '] || '').trim();
+                    const fechaPuraPedido = fechaCelda.substring(0, 10); 
 
-                    const estadoRaw = String(pedido.Estado || pedido.estado || '').toLowerCase();
-                    const estadoLimpio = estadoRaw.replace(/[\s\uFEFF\xA0]+/g, ''); 
+                    // 2. Extraemos el Estado y usamos una "Aspiradora de Caracteres" para hacerlo indestructible
+                    const estadoRaw = String(pedido.Estado || pedido.estado || pedido['Estado '] || '').toLowerCase();
+                    const estadoLimpio = estadoRaw.replace(/[^a-z]/g, ''); // Convierte "Finalizado " en "finalizado"
 
-                    // 2. REGLA DE ORO DE VISIBILIDAD:
-                    // Si el pedido está Finalizado y no es del día de hoy, lo ocultamos.
-                    // Si está Pendiente o En Cocina se muestra siempre para no perder la venta.
-                    if (estadoLimpio === 'finalizado' && prefijoPedido !== prefijoHoy) {
+                    // 3. REGLA DE VISIBILIDAD (Tu idea hecha código):
+                    // Si está Finalizado PERO la fecha pura no es igual a la de hoy, se oculta.
+                    if (estadoLimpio === 'finalizado' && fechaPuraPedido !== fechaHoyLimpia) {
                         return; 
                     }
+                    
+                    // Si el estado viene vacío o no es ninguno de los 3 que usamos, se ignora.
+                    if (estadoLimpio !== 'finalizado' && estadoLimpio !== 'pagopendiente' && estadoLimpio !== 'encocina') {
+                        return;
+                    }
 
+                    // 4. Extracción visual del ID. Solo muestra el número después del guion ("3", "1", etc)
+                    const idReal = String(pedido.ID_Pedido || pedido.id_pedido || pedido['ID_Pedido'] || '').trim();
                     const partesId = idReal.split('-');
                     const idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
                     
@@ -277,11 +282,16 @@
                     const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
                     const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
                     const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
-                    const totalDolares = parseFloat(pedido.Total_Orden || pedido['Total Orden'] || pedido['Total_Orden'] || 0).toFixed(2);
+                    
+                    // Limpieza de números para evitar errores de cálculo
+                    const totalRaw = pedido.Total_Orden || pedido['Total Orden'] || pedido['Total Orden '] || pedido.total_orden || 0;
+                    const totalDolares = parseFloat(String(totalRaw).replace(',','.')).toFixed(2);
                     
                     const tarjeta = document.createElement('div');
 
+                    // ==========================================
                     // RAMA 1: FINALIZADO
+                    // ==========================================
                     if (estadoLimpio === 'finalizado') {
                         let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
                         
@@ -307,7 +317,9 @@
                         document.getElementById('columna-finalizado').appendChild(tarjeta);
                         cf++;
                     
+                    // ==========================================
                     // RAMA 2: PENDIENTE Y COCINA
+                    // ==========================================
                     } else if (estadoLimpio === 'pagopendiente' || estadoLimpio === 'encocina') {
                         let botonAccion = '';
                         if (estadoLimpio === 'pagopendiente') {
