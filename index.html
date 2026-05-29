@@ -235,7 +235,7 @@
 
         async function cargarPedidos() {
             try {
-                // BLINDAJE 1: Forzar datos frescos saltándose el caché del navegador
+                // Forzar datos frescos saltándose el caché del navegador
                 const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
                 const pedidos = await respuesta.json();
                 
@@ -244,25 +244,25 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // 1. SOLUCIÓN AL BUG DE FECHAS: Construir YYYYMMDD de forma manual y blindada
-                const fechaActual = new Date();
-                const tz = { timeZone: 'America/Caracas' };
-                const yyyy = fechaActual.toLocaleString('en-US', { year: 'numeric', ...tz });
-                const mm = fechaActual.toLocaleString('en-US', { month: '2-digit', ...tz });
-                const dd = fechaActual.toLocaleString('en-US', { day: '2-digit', ...tz });
-                const prefijoHoy = `${yyyy}${mm}${dd}`; // Siempre será exactamente "20260529"
+                // 1. SOLUCIÓN AL BUG OCULTO: Extraer la fecha y LIMPIAR CUALQUIER CARÁCTER INVISIBLE
+                const opciones = { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' };
+                const fechaCaracas = new Date().toLocaleDateString('en-CA', opciones); // Retorna "2026-05-29"
+                const prefijoHoy = fechaCaracas.replace(/\D/g, ''); // Deja estrictamente los números puros: "20260529"
                 
                 pedidos.forEach(pedido => {
-                    const idReal = String(pedido.ID_Pedido || '');
+                    const idReal = String(pedido.ID_Pedido || '').trim();
                     const partesId = idReal.split('-');
-                    const prefijoPedido = partesId[0]; 
                     
-                    // Solo mostramos los que coincidan exactamente con el prefijo de hoy
+                    // Limpiamos también el prefijo del pedido por si viene con basura del Excel
+                    const prefijoPedido = partesId[0].replace(/\D/g, ''); 
+                    
+                    // Si el pedido no es del prefijo numérico de hoy, lo ignoramos
                     if (prefijoPedido !== prefijoHoy) return; 
 
+                    // Sacamos el número secuencial para la vista limpia (ej: "2")
                     const idVisual = partesId.length > 1 ? partesId[1] : idReal;
 
-                    // Forzamos el texto a minúsculas y sin espacios al inicio/final
+                    // Forzamos el estado a minúsculas y limpio
                     const estado = String(pedido.Estado || '').trim().toLowerCase();
                     
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
