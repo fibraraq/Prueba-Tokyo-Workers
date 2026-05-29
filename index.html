@@ -246,12 +246,22 @@
                 document.getElementById('columna-finalizado').innerHTML = '';
                 let cp = 0, cc = 0, cf = 0;
                 
-                // Obtenemos la fecha de hoy en formato YYYY-MM-DD para el filtro
+                // Obtenemos la fecha de hoy para filtrar
                 const hoyStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' }); 
                 
                 pedidos.forEach(pedido => {
+                    // 1. FILTRO DE FECHA: Ignorar pedidos de días anteriores
+                    const fechaPedido = String(pedido.timestamp || pedido.Timestamp || pedido.Fecha || '');
+                    if (fechaPedido && !fechaPedido.includes(hoyStr)) {
+                        return; // Se salta este pedido y no lo dibuja en pantalla
+                    }
+
                     const estado = pedido.Estado ? pedido.Estado.trim() : '';
                     
+                    // 2. EXTRAER ID VISUAL: Si el ID es "20260529-1", saca solo el "1"
+                    const idReal = pedido.ID_Pedido || '';
+                    const idVisual = idReal.includes('-') ? idReal.split('-').pop() : idReal;
+
                     const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
                     const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
                     const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
@@ -265,13 +275,8 @@
                     // RAMA 1: DISEÑO PARA "FINALIZADO"
                     // ==========================================
                     if (estado === 'Finalizado') {
-                        // ⚠️ FILTRO DE DÍA DE HOY (Descomenta las 2 líneas de abajo para activarlo)
-                        const fechaPedido = String(pedido.timestamp || pedido.Timestamp || pedido.Fecha || '');
-                        if (!fechaPedido.includes(hoyStr)) return; // Si no es de hoy, salta al siguiente
-
                         let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
                         
-                        // Si es pago móvil, calculamos y mostramos los Bs
                         if (safeMetodo.toLowerCase().includes('movil') || safeMetodo.toLowerCase().includes('móvil')) {
                             const totalBs = (totalDolares * tasaBCV).toFixed(2);
                             infoMonto = `
@@ -285,7 +290,7 @@
                         tarjeta.innerHTML = `
                             <div class="flex items-center gap-3">
                                 <span class="text-xl font-mono font-bold text-gray-400 bg-gray-900 px-3 py-1 rounded border border-gray-700 shadow-inner">
-                                    <i class="fa-solid fa-check text-green-500 mr-1 text-sm"></i> ${pedido.ID_Pedido}
+                                    <i class="fa-solid fa-check text-green-500 mr-1 text-sm"></i> ${idVisual}
                                 </span>
                             </div>
                             ${infoMonto}
@@ -300,9 +305,10 @@
                     } else {
                         let botonAccion = '';
                         if (estado === 'Pago Pendiente') {
-                            botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
+                            // Usamos idReal para que n8n sepa exactamente qué fila actualizar
+                            botonAccion = `<button onclick="cambiarEstado('${idReal}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
                         } else if (estado === 'En Cocina') {
-                            botonAccion = `<button onclick="cambiarEstado('${pedido.ID_Pedido}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
+                            botonAccion = `<button onclick="cambiarEstado('${idReal}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Finalizar Pedido</button>`;
                         }
                         
                         let colorTarjeta = 'bg-gray-700 border-gray-600 hover:border-gray-500';
@@ -318,7 +324,7 @@
                         tarjeta.className = `${colorTarjeta} rounded-lg p-4 shadow border transition`;
                         tarjeta.innerHTML = `
                             <div class="flex justify-between items-start mb-2">
-                                <span class="text-xl font-mono font-bold text-white bg-gray-800 px-3 py-1 rounded border border-gray-500 shadow">${pedido.ID_Pedido}</span>
+                                <span class="text-xl font-mono font-bold text-white bg-gray-800 px-3 py-1 rounded border border-gray-500 shadow">${idVisual}</span>
                                 <span class="text-sm font-bold text-green-400 text-lg">$${totalDolares}</span>
                             </div>
                             <h3 class="font-bold text-white mb-1 text-base">${pedido.Cliente}</h3>
