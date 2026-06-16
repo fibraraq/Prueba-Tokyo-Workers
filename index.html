@@ -55,12 +55,12 @@
                     </div>
                 </div>
                 
-                <div class="flex flex-wrap items-center gap-4">
+                <div class="flex flex-wrap items-center gap-3">
                     <div id="badgeUsuario" class="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700"></div>
 
                     <div class="flex items-center bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
-                        <span class="text-xs text-slate-400 mr-2">Tasa BCV (Bs/$):</span>
-                        <input type="number" id="tasaBCV" value="45.00" step="0.01" class="w-24 bg-slate-800 text-white text-sm font-semibold text-center border border-slate-600 rounded px-1 focus:outline-none focus:border-indigo-500">
+                        <span class="text-xs text-slate-400 mr-2">Tasa BCV:</span>
+                        <input type="number" id="tasaBCV" value="45.00" step="0.01" class="w-20 bg-slate-800 text-white text-sm font-semibold text-center border border-slate-600 rounded px-1 focus:outline-none focus:border-indigo-500">
                     </div>
 
                     <div class="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
@@ -68,15 +68,20 @@
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                         </span>
-                        <span class="text-xs text-slate-300">Sondeo: <span id="contadorSegundos" class="font-mono">15</span>s</span>
+                        <span class="text-xs text-slate-300"><span id="contadorSegundos" class="font-mono">15</span>s</span>
                     </div>
 
-                    <button onclick="cargarPedidos()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3.5 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2 cursor-pointer">
+                    <!-- BOTÓN RESTAURADO: NUEVO PEDIDO MANUAL -->
+                    <button onclick="abrirModalNuevoPedido()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-plus"></i> Nuevo Pedido
+                    </button>
+
+                    <button onclick="cargarPedidos()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3.5 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2 cursor-pointer" title="Actualizar">
                         <i class="fa-solid fa-rotate"></i>
                     </button>
 
-                    <button onclick="cerrarSesion()" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-xs font-medium px-3.5 py-2 rounded-lg border border-red-500/20 transition cursor-pointer">
-                        <i class="fa-solid fa-power-off"></i> Salir
+                    <button onclick="cerrarSesion()" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-xs font-medium px-3.5 py-2 rounded-lg border border-red-500/20 transition cursor-pointer" title="Salir">
+                        <i class="fa-solid fa-power-off"></i>
                     </button>
                 </div>
             </div>
@@ -118,6 +123,79 @@
 
             </div>
         </main>
+    </div>
+
+    <!-- MODAL RESTAURADO: NUEVO PEDIDO MANUAL -->
+    <div id="modalNuevoPedido" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square"></i> Registrar Nuevo Pedido
+                </h2>
+                <button onclick="cerrarModalNuevoPedido()" class="text-slate-400 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-600">
+                <form id="formNuevoPedido" class="space-y-4" onsubmit="return false;">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Cliente</label>
+                            <input type="text" id="inputCliente" placeholder="Nombre" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Teléfono</label>
+                            <input type="text" id="inputTelefono" placeholder="Ej. 0412..." class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Entrega</label>
+                            <select id="inputEntrega" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                                <option value="En el Local">En el Local (Mesa)</option>
+                                <option value="Pickup">Pickup (Retiro)</option>
+                                <option value="Delivery">Delivery</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Método de Pago</label>
+                            <select id="inputPago" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                                <option value="Pago Movil">Pago Móvil</option>
+                                <option value="Efectivo">Efectivo / Divisas</option>
+                                <option value="Zelle">Zelle</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Dirección / Mesa / Notas</label>
+                        <input type="text" id="inputDireccion" placeholder="Ej. Mesa 4 o Dirección del delivery" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm focus:border-emerald-500 focus:outline-none">
+                    </div>
+                    
+                    <div class="border-t border-slate-700 pt-4">
+                        <label class="block text-[10px] uppercase text-slate-400 font-bold mb-2">Artículos del Pedido</label>
+                        <div id="contenedorArticulos" class="space-y-2">
+                            <div class="flex gap-2 articulo-fila">
+                                <input type="number" value="1" min="1" class="w-16 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm text-center item-qty" placeholder="Cant">
+                                <input type="text" class="flex-1 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-name" placeholder="Nombre del plato">
+                                <input type="number" step="0.01" min="0" class="w-24 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-price" placeholder="Precio ($)">
+                                <div class="w-8"></div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="agregarFilaArticulo()" class="mt-3 text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer">
+                            <i class="fa-solid fa-plus"></i> Añadir otro plato
+                        </button>
+                    </div>
+                </form> 
+            </div>
+            <div class="p-4 border-t border-slate-700 flex justify-end gap-3 bg-slate-800/50 rounded-b-xl">
+                <button type="button" onclick="cerrarModalNuevoPedido()" class="px-4 py-2 text-slate-400 hover:text-white transition font-medium cursor-pointer text-sm">Cancelar</button>
+                <button type="button" onclick="enviarNuevoPedido()" id="btnEnviarNuevoPedido" class="bg-emerald-600 px-5 py-2 rounded-lg font-bold text-white hover:bg-emerald-500 transition shadow-lg cursor-pointer text-sm flex items-center gap-2">
+                    Procesar Pedido <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal Comprobante de Pago -->
@@ -172,9 +250,9 @@
 
     <!-- Motor JavaScript -->
     <script>
-        // Configuración de Webhooks en n8n
         const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
         const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
+        const URL_NUEVO_PEDIDO = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo";
 
         const USUARIOS_SISTEMA = [
             { username: "super_admin", pin: "9999", nombre: "Propietario", rol: "superadmin" },
@@ -207,7 +285,7 @@
         }
         document.getElementById('tasaBCV').addEventListener('input', (e) => {
             localStorage.setItem('tasaBCV', e.target.value);
-            renderizarTablero(); // Recalcula los bolívares en vivo si cambias la tasa
+            renderizarTablero(); 
         });
 
         // --- SESIONES ---
@@ -274,6 +352,80 @@
             } else {
                 inputTasa.disabled = false;
                 inputTasa.classList.remove('opacity-40', 'cursor-not-allowed');
+            }
+        }
+
+        // --- LÓGICA DE NUEVO PEDIDO MANUAL ---
+        function abrirModalNuevoPedido() { document.getElementById('modalNuevoPedido').classList.remove('hidden'); }
+        function cerrarModalNuevoPedido() { document.getElementById('modalNuevoPedido').classList.add('hidden'); }
+
+        function agregarFilaArticulo() {
+            const div = document.createElement('div');
+            div.className = "flex gap-2 articulo-fila";
+            div.innerHTML = `
+                <input type="number" value="1" min="1" class="w-16 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm text-center item-qty" placeholder="Cant">
+                <input type="text" class="flex-1 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-name" placeholder="Nombre del plato">
+                <input type="number" step="0.01" min="0" class="w-24 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-price" placeholder="Precio ($)">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 w-8 flex items-center justify-center cursor-pointer transition">
+                    <i class="fa-solid fa-trash"></i>
+                </button>`;
+            document.getElementById('contenedorArticulos').appendChild(div);
+        }
+
+        async function enviarNuevoPedido() {
+            const btn = document.getElementById('btnEnviarNuevoPedido');
+            const cliente = document.getElementById('inputCliente').value.trim();
+            
+            if(!cliente) {
+                alert("Por favor ingresa el nombre del cliente.");
+                return;
+            }
+
+            const articulos = Array.from(document.querySelectorAll('.articulo-fila')).map(f => ({
+                qty: parseInt(f.querySelector('.item-qty').value) || 1,
+                name: f.querySelector('.item-name').value.trim() || 'Artículo sin nombre',
+                price: parseFloat(f.querySelector('.item-price').value) || 0
+            }));
+            
+            const payload = {
+                cliente: cliente,
+                telefono: document.getElementById('inputTelefono').value.trim() || 'No registrado',
+                tipo_entrega: document.getElementById('inputEntrega').value,
+                metodo_pago: document.getElementById('inputPago').value,
+                direccion: document.getElementById('inputDireccion').value.trim() || 'En el local',
+                articulos: articulos,
+                timestamp: new Date().toISOString()
+            };
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+
+            try {
+                const res = await fetch(URL_NUEVO_PEDIDO, { 
+                    method: 'POST', 
+                    body: JSON.stringify(payload), 
+                    headers: {'Content-Type': 'application/json'} 
+                });
+                
+                if(res.ok) { 
+                    document.getElementById('formNuevoPedido').reset();
+                    document.getElementById('contenedorArticulos').innerHTML = `
+                        <div class="flex gap-2 articulo-fila">
+                            <input type="number" value="1" min="1" class="w-16 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm text-center item-qty" placeholder="Cant">
+                            <input type="text" class="flex-1 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-name" placeholder="Nombre del plato">
+                            <input type="number" step="0.01" min="0" class="w-24 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-price" placeholder="Precio ($)">
+                            <div class="w-8"></div>
+                        </div>`;
+                    cerrarModalNuevoPedido();
+                    cargarPedidos(); 
+                } else {
+                    alert("Error al guardar el pedido en el servidor.");
+                }
+            } catch(e) { 
+                alert("Error de conexión al intentar enviar el pedido."); 
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Procesar Pedido <i class="fa-solid fa-paper-plane"></i>';
             }
         }
 
@@ -478,7 +630,6 @@
                 const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
                 const monto = parseFloat(montoNumerico || 0).toFixed(2);
                 
-                // Construcción del bloque de Monto (Dólares y Bolívares)
                 let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${monto}</span>`;
                 if (esPagoMovil) {
                     const montoBs = (monto * tasaActual).toFixed(2);
@@ -490,24 +641,20 @@
                     `;
                 }
                 
-                // Extracción de Hora Exacta
+                // ESCÁNER DE HORA EXTREMO
                 let hora = '--:--';
-                const fechaRaw = pedido['Timestamp'] || pedido['Timestamp '] || pedido.timestamp || pedido.Timestamp || '';
-                if (fechaRaw) {
-                    try {
-                        if (fechaRaw.includes('T') && fechaRaw.includes('Z')) {
-                            const d = new Date(fechaRaw);
-                            hora = d.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
-                        } else {
-                            const timeMatch = fechaRaw.match(/(\d{1,2}):(\d{2})/);
-                            if (timeMatch) {
-                                let h = parseInt(timeMatch[1], 10);
-                                const ampm = h >= 12 ? 'PM' : 'AM';
-                                h = h % 12 || 12;
-                                hora = `${h}:${timeMatch[2]} ${ampm}`;
-                            }
-                        }
-                    } catch(e) {}
+                const isoMatch = filaTexto.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/);
+                if (isoMatch) {
+                    const d = new Date(isoMatch[0]);
+                    hora = d.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
+                } else {
+                    const timeMatch = filaTexto.match(/(\d{1,2}):(\d{2})/);
+                    if (timeMatch) {
+                        let h = parseInt(timeMatch[1], 10);
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        h = h % 12 || 12;
+                        hora = `${h}:${timeMatch[2]} ${ampm}`;
+                    }
                 }
                 
                 const articulos = pedido['Pedido Detallado'] || pedido.Pedido_Detallado || pedido.articulos || 'Detalle no disponible';
@@ -664,7 +811,6 @@
             actualizarTasaBCV();
             verificarSesion();
         });
-    </script>
     </script>
 </body>
 </html>
