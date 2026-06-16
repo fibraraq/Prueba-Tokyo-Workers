@@ -3,557 +3,593 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tokio Sushi - Control de Operaciones</title>
-    <!-- Tailwind CSS v4 mediante CDN -->
-    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-    <!-- FontAwesome para iconos -->
+    <title>Dashboard de Pedidos - Tokio Sushi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen">
 
-    <!-- PANTALLA DE INICIO DE SESIÓN -->
-    <div id="vistaLogin" class="fixed inset-0 bg-slate-950 flex items-center justify-center p-4 z-50">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-8 shadow-2xl space-y-6">
-            <div class="text-center space-y-2">
-                <span class="text-5xl">🍣</span>
-                <h2 class="text-2xl font-bold text-white tracking-tight">Acceso Operativo</h2>
-                <p class="text-xs text-slate-400">Tokio Sushi - Control de Pedidos</p>
-            </div>
-
-            <form id="formLogin" onsubmit="iniciarSesion(event)" class="space-y-4">
-                <div>
-                    <label class="block text-xs uppercase font-bold text-slate-400 mb-1">Nombre de Usuario</label>
-                    <input type="text" id="loginUsername" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition" placeholder="Ej. cajero_carlos">
-                </div>
-
-                <div>
-                    <label class="block text-xs uppercase font-bold text-slate-400 mb-1">PIN / Código de Acceso</label>
-                    <input type="password" id="loginPIN" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 tracking-widest text-center text-lg transition" placeholder="••••">
-                </div>
-
-                <div id="loginError" class="bg-red-500/15 border border-red-500/30 text-red-400 text-xs p-3 rounded-lg text-center hidden">
-                    Credenciales incorrectas.
-                </div>
-
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition shadow-lg cursor-pointer">
-                    Entrar al Sistema <i class="fa-solid fa-arrow-right-to-bracket ml-1"></i>
+    <header class="bg-gray-800 border-b border-gray-700 p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-red-500 flex items-center gap-2">
+                🍣 Tokio Sushi <span class="text-sm font-normal text-gray-400">| Panel de Control</span>
+            </h1>
+            <div class="flex gap-3">
+                <button onclick="abrirModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Procesar Pedido
                 </button>
-            </form>
+                <button onclick="cargarPedidos()" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md flex items-center gap-2">
+                    <i class="fa-solid fa-rotate"></i> Actualizar Pedidos
+                </button>
+            </div>
         </div>
-    </div>
+    </header>
 
-    <!-- VISTA PRINCIPAL DEL DASHBOARD (Oculta por defecto hasta loguearse) -->
-    <div id="vistaDashboard" class="hidden flex-col min-h-screen">
-        <!-- Encabezado del Sistema -->
-        <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 shadow-lg">
-            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="flex items-center gap-3">
-                    <span class="text-3xl">🍣</span>
-                    <div>
-                        <h1 class="text-xl font-bold tracking-tight text-white">Tokio Sushi</h1>
-                        <p class="text-xs text-slate-400">Operaciones de Cocina</p>
-                    </div>
+    <main class="container mx-auto p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-xl">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h2 class="text-lg font-bold text-yellow-500 flex items-center gap-2">⏳ Pago Pendiente</h2>
+                    <span id="cant-pendiente" class="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
                 </div>
-                
-                <!-- Datos del Operador Activo e Interfaz de Control -->
-                <div class="flex flex-wrap items-center gap-4">
-                    <!-- Badge del Operador Logueado -->
-                    <div id="badgeUsuario" class="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700">
-                        <!-- Inyección vía JavaScript -->
-                    </div>
-
-                    <!-- Tasa de Cambio Manual BCV -->
-                    <div class="flex items-center bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
-                        <span class="text-xs text-slate-400 mr-2">Tasa BCV (Bs/$):</span>
-                        <input type="number" id="tasaBCV" value="45.00" step="0.01" class="w-16 bg-slate-800 text-white text-sm font-semibold text-center border border-slate-600 rounded px-1 focus:outline-none focus:border-indigo-500">
-                    </div>
-
-                    <!-- Sondeo Automático (Polling de 15 segundos) -->
-                    <div class="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
-                        <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                        </span>
-                        <span class="text-xs text-slate-300">Sondeo: <span id="contadorSegundos" class="font-mono">15</span>s</span>
-                    </div>
-
-                    <!-- Botón Forzar Actualización -->
-                    <button onclick="cargarPedidos()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3.5 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2">
-                        <i class="fa-solid fa-rotate"></i>
-                    </button>
-
-                    <!-- Botón Cerrar Sesión -->
-                    <button onclick="cerrarSesion()" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-xs font-medium px-3.5 py-2 rounded-lg border border-red-500/20 transition cursor-pointer">
-                        <i class="fa-solid fa-power-off"></i> Salir
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Tablero de Estados de Cocina -->
-        <main class="flex-1 max-w-7xl w-full mx-auto p-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
-                
-                <!-- Columna 1: Pago Pendiente -->
-                <div class="bg-slate-800 rounded-xl p-4 border border-yellow-600/20 flex flex-col h-[calc(100vh-180px)] min-h-[500px] shadow-md">
-                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
-                        <h2 class="font-bold text-yellow-400 flex items-center gap-2 text-sm uppercase tracking-wide">
-                            <span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
-                            Pago Pendiente
-                        </h2>
-                        <span id="cantPagoPendiente" class="bg-yellow-400/10 text-yellow-400 text-xs font-bold px-2.5 py-1 rounded-full border border-yellow-400/20">0</span>
-                    </div>
-                    <div id="columnaPagoPendiente" class="flex-1 overflow-y-auto space-y-3 pr-1">
-                        <!-- Dinámico -->
-                    </div>
-                </div>
-
-                <!-- Columna 2: En Cocina -->
-                <div class="bg-slate-800 rounded-xl p-4 border border-sky-600/20 flex flex-col h-[calc(100vh-180px)] min-h-[500px] shadow-md">
-                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
-                        <h2 class="font-bold text-sky-400 flex items-center gap-2 text-sm uppercase tracking-wide">
-                            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
-                            En Cocina
-                        </h2>
-                        <span id="cantEnCocina" class="bg-sky-400/10 text-sky-400 text-xs font-bold px-2.5 py-1 rounded-full border border-sky-400/20">0</span>
-                    </div>
-                    <div id="columnaEnCocina" class="flex-1 overflow-y-auto space-y-3 pr-1">
-                        <!-- Dinámico -->
-                    </div>
-                </div>
-
-                <!-- Columna 3: Finalizado -->
-                <div class="bg-slate-800 rounded-xl p-4 border border-emerald-600/20 flex flex-col h-[calc(100vh-180px)] min-h-[500px] shadow-md">
-                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
-                        <h2 class="font-bold text-emerald-400 flex items-center gap-2 text-sm uppercase tracking-wide">
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                            Finalizado
-                        </h2>
-                        <span id="cantFinalizado" class="bg-emerald-400/10 text-emerald-400 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-400/20">0</span>
-                    </div>
-                    <div id="columnaFinalizado" class="flex-1 overflow-y-auto space-y-2 pr-1">
-                        <!-- Dinámico -->
-                    </div>
-                </div>
-
-            </div>
-        </main>
-    </div>
-
-    <!-- Modal Detallado (Recibo Digital) -->
-    <div id="modalDetalle" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden">
-        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl relative">
-            <div class="flex justify-between items-start border-b border-slate-700 pb-3 mb-4">
-                <div>
-                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-file-invoice-dollar text-emerald-400"></i>
-                        Detalle del Pedido
-                    </h3>
-                    <p class="text-xs text-slate-400" id="modalID">ID: ---</p>
-                </div>
-                <button onclick="cerrarModal()" class="text-slate-400 hover:text-white transition duration-150">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
+                <div id="columna-pendiente" class="space-y-4 min-h-[500px]"></div>
             </div>
 
-            <div class="space-y-4 text-sm text-slate-300" id="modalCuerpo">
-                <!-- Se inyecta dinámicamente -->
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-xl">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h2 class="text-lg font-bold text-orange-500 flex items-center gap-2">🔥 En Cocina</h2>
+                    <span id="cant-cocina" class="bg-orange-500/20 text-orange-400 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="columna-cocina" class="space-y-4 min-h-[500px]"></div>
             </div>
 
-            <div class="mt-6 flex justify-end">
-                <button onclick="cerrarModal()" class="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg transition">
-                    Cerrar Recibo
-                </button>
+            <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-xl">
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h2 class="text-lg font-bold text-green-500 flex items-center gap-2">✅ Finalizado</h2>
+                    <span id="cant-finalizado" class="bg-green-500/20 text-green-400 text-xs font-bold px-2.5 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="columna-finalizado" class="space-y-4 min-h-[500px]"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="modalPedido" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-lg shadow-2xl">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-lg font-bold">Registrar Nuevo Pedido</h2>
+                <button onclick="cerrarModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4">
+                <form id="formNuevoPedido" class="space-y-3" onsubmit="return false;">
+                    <input type="text" id="inputCliente" placeholder="Nombre del Cliente" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                    <input type="text" id="inputTelefono" placeholder="Teléfono" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="inputEntrega" class="bg-gray-700 p-2 rounded border border-gray-600">
+                            <option value="Delivery">Delivery</option>
+                            <option value="Pickup">Pickup</option>
+                            <option value="En el Local">En el Local</option>
+                        </select>
+                        <select id="inputPago" class="bg-gray-700 p-2 rounded border border-gray-600">
+                            <option value="Pago Movil">Pago Móvil</option>
+                            <option value="Zelle">Zelle</option>
+                            <option value="Efectivo">Efectivo</option>
+                        </select>
+                    </div>
+                    
+                    <input type="text" id="inputDireccion" placeholder="Dirección / Mesa" class="w-full bg-gray-700 p-2 rounded border border-gray-600">
+                    
+                    <div id="contenedorArticulos" class="space-y-2 border-t border-gray-700 pt-3">
+                        <div class="flex gap-2 articulo-fila">
+                            <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
+                            <input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato">
+                            <input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">
+                            <div class="w-8"></div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="agregarFila()" class="text-xs text-emerald-400 underline">+ Añadir otro plato</button>
+                </form> 
+             </div>
+            <div class="p-4 border-t border-gray-700 flex justify-end gap-2">
+                <button type="button" onclick="cerrarModal()" class="px-4 py-2 text-gray-400 hover:text-white">Cancelar</button>
+                <button type="button" onclick="enviarPedido()" class="bg-emerald-600 px-4 py-2 rounded font-bold hover:bg-emerald-500">Procesar Pedido</button>
             </div>
         </div>
     </div>
 
-    <!-- Motor JavaScript con Login y Auditoría de Procesos -->
+    <div id="modalTiempo" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-sm shadow-2xl">
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-lg font-bold text-white">⏳ Tiempo de preparación</h2>
+                <p class="text-xs text-gray-400 mt-1">¿En cuántos minutos estará listo el pedido?</p>
+            </div>
+            <div class="p-4 space-y-3">
+                <div class="flex gap-2">
+                    <button type="button" onclick="seleccionarTiempo(30, this)" class="btn-tiempo flex-1 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded p-2 font-bold text-white transition">30 min</button>
+                    <button type="button" onclick="seleccionarTiempo(45, this)" class="btn-tiempo flex-1 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded p-2 font-bold text-white transition">45 min</button>
+                </div>
+                <div>
+                    <input type="number" id="inputTiempoPersonalizado" placeholder="Personalizado (ej. 15)" class="w-full bg-gray-700 p-2 rounded border border-gray-600 text-white placeholder-gray-400 focus:border-orange-500 focus:outline-none" oninput="limpiarBotonesTiempo()">
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-end gap-2">
+                <button type="button" id="btnCancelarTiempo" class="px-4 py-2 text-gray-400 hover:text-white transition">Cancelar</button>
+                <button type="button" id="btnAceptarTiempo" class="bg-orange-600 px-4 py-2 rounded font-bold text-white hover:bg-orange-500 transition">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalComprobante" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-sm shadow-2xl">
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-lg font-bold text-emerald-400">🧾 Comprobante de Pago</h2>
+                <p id="txtMetodoPagoModal" class="text-xs text-gray-400 mt-1"></p>
+            </div>
+            <div class="p-4 space-y-3">
+                <div id="contenedorReferencia">
+                    <label class="block text-xs text-gray-400 mb-1">Número de Referencia</label>
+                    <input type="text" id="inputReferencia" placeholder="Ej. 12345678" class="w-full bg-gray-700 p-2 rounded border border-gray-600 text-white focus:border-emerald-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Subir Imagen (Capture o Billete)</label>
+                    <input type="file" id="inputImagenPago" accept="image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-emerald-400 hover:file:bg-gray-600 transition">
+                </div>
+                <div class="mt-2 flex justify-center">
+                    <img id="previewComprobante" class="hidden max-h-40 rounded border border-gray-600 object-contain shadow-md">
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-end gap-2">
+                <button type="button" id="btnCancelarComprobante" class="px-4 py-2 text-gray-400 hover:text-white transition">Cancelar</button>
+                <button type="button" id="btnAceptarComprobante" class="bg-emerald-600 px-4 py-2 rounded font-bold text-white hover:bg-emerald-500 transition">Siguiente</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalDetalle" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-receipt text-emerald-500"></i> Detalle del Pedido <span id="detalleId" class="text-emerald-500 ml-1"></span>
+                </h2>
+                <button onclick="cerrarModalDetalle()" class="text-gray-400 hover:text-white transition"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="bg-gray-700/50 p-3 rounded-lg border border-gray-600">
+                    <h3 id="detalleCliente" class="font-bold text-white text-lg mb-1"></h3>
+                    <p class="text-sm text-gray-300 mb-1"><i class="fa-solid fa-phone text-gray-500 w-5"></i> <span id="detalleTelefono"></span></p>
+                    <p class="text-sm text-gray-300 mb-1"><i class="fa-solid fa-map-location-dot text-gray-500 w-5"></i> <span id="detalleEntrega"></span> <span id="detalleDireccion"></span></p>
+                    <p class="text-sm text-gray-300"><i class="fa-solid fa-credit-card text-gray-500 w-5"></i> <span id="detalleMetodo"></span></p>
+                </div>
+                
+                <div>
+                    <h4 class="text-xs font-bold text-gray-400 uppercase mb-2">Artículos</h4>
+                    <div id="detalleArticulos" class="bg-gray-900 rounded p-3 text-sm text-gray-300 font-mono whitespace-pre-line border border-gray-700 min-h-[60px]"></div>
+                </div>
+                
+                <div class="flex justify-between items-end pt-2 border-t border-gray-700">
+                    <span class="text-gray-400 font-bold">Total Cobrado:</span>
+                    <div class="text-right">
+                        <div id="detalleTotalUSD" class="text-2xl font-bold text-green-400"></div>
+                        <div id="detalleTotalBs" class="text-sm font-bold text-gray-400"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-end bg-gray-900">
+                <button type="button" onclick="cerrarModalDetalle()" class="bg-gray-700 px-5 py-2 rounded font-bold text-white hover:bg-gray-600 transition">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Configuración de Webhooks en n8n (Flujo Activo / Producción)
-        const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
-        const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
+        const URL_LEER = 'https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos';
+        const URL_ACTUALIZAR = 'https://n8n-production-633e.up.railway.app/webhook/actualizar-estado';
+        const URL_NUEVO_PEDIDO = 'https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo';
 
-        // Registro Local de Usuarios y Roles del Restaurante
-        const USUARIOS_SISTEMA = [
-            { username: "super_admin", pin: "9999", nombre: "Propietario", rol: "superadmin" },
-            { username: "gerente_tokio", pin: "5555", nombre: "Gerente de Turno", rol: "admin" },
-            { username: "cajero_carlos", pin: "1234", nombre: "Carlos Gómez", rol: "cajero" },
-            { username: "cajero_maria", pin: "2345", nombre: "María Delgado", rol: "cajero" }
-        ];
-
-        let usuarioActivo = null;
-        let pedidosEnMemoria = [];
-        let segundosFaltantes = 15;
-        let pollingTimer;
-
-        // --- SISTEMA DE TASA BCV AUTOMÁTICA (API) ---
-        async function actualizarTasaBCV() {
-            const inputTasa = document.getElementById('tasaBCV');
+        let tasaBCV = 36.5; 
+        let pedidosEnMemoria = {}; // Objeto global para almacenar la información de los pedidos
+        
+        async function inicializarDashboard() {
             try {
-                const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-                if (!response.ok) throw new Error('Error API BCV');
-                const data = await response.json();
-                if (data.promedio) {
-                    inputTasa.value = parseFloat(data.promedio).toFixed(2);
-                    localStorage.setItem('tasaBCV', inputTasa.value);
-                    inputTasa.classList.add('text-emerald-400');
-                    setTimeout(() => inputTasa.classList.remove('text-emerald-400'), 2000);
-                }
-            } catch (error) {
-                if (localStorage.getItem('tasaBCV')) inputTasa.value = localStorage.getItem('tasaBCV');
+                const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+                const data = await res.json();
+                tasaBCV = data.promedio;
+            } catch(e) {
+                console.log('Error obteniendo tasa BCV:', e);
             }
+            cargarPedidos();
         }
 
-        document.getElementById('tasaBCV').addEventListener('input', (e) => {
-            localStorage.setItem('tasaBCV', e.target.value);
-        });
-
-        // --- SISTEMA DE CONTROL DE SESIONES ---
-        function verificarSesion() {
-            const sesionGuardada = localStorage.getItem('usuarioActivo');
-            if (sesionGuardada) {
-                usuarioActivo = JSON.parse(sesionGuardada);
-                aplicarRestriccionesRol();
-                document.getElementById('vistaLogin').classList.add('hidden');
-                document.getElementById('vistaDashboard').classList.remove('hidden');
-                document.getElementById('vistaDashboard').classList.add('flex');
-                cargarPedidos();
+        function abrirModal() { document.getElementById('modalPedido').classList.remove('hidden'); }
+        function cerrarModal() { document.getElementById('modalPedido').classList.add('hidden'); }
+        
+        // Funciones para el nuevo modal de detalles
+        function cerrarModalDetalle() { document.getElementById('modalDetalle').classList.add('hidden'); }
+        function abrirModalDetalle(idReal) {
+            const data = pedidosEnMemoria[idReal];
+            if(!data) return; // Por si acaso no encuentra el dato
+            
+            document.getElementById('detalleId').innerText = "#" + data.idVisual;
+            document.getElementById('detalleCliente').innerText = data.cliente;
+            document.getElementById('detalleTelefono').innerText = data.telefono;
+            document.getElementById('detalleEntrega').innerText = data.entrega;
+            document.getElementById('detalleDireccion').innerText = data.direccion ? "- " + data.direccion : "";
+            document.getElementById('detalleMetodo').innerText = data.metodo;
+            document.getElementById('detalleArticulos').innerText = data.detalles;
+            
+            document.getElementById('detalleTotalUSD').innerText = "$" + data.totalUSD;
+            
+            if (data.metodo.toLowerCase().includes('movil') || data.metodo.toLowerCase().includes('móvil')) {
+                const totalBs = (parseFloat(data.totalUSD) * tasaBCV).toFixed(2);
+                document.getElementById('detalleTotalBs').innerText = "Bs. " + totalBs;
+                document.getElementById('detalleTotalBs').classList.remove('hidden');
             } else {
-                usuarioActivo = null;
-                clearInterval(pollingTimer);
-                document.getElementById('vistaLogin').classList.remove('hidden');
-                document.getElementById('vistaDashboard').classList.add('hidden');
-                document.getElementById('vistaDashboard').classList.remove('flex');
+                document.getElementById('detalleTotalBs').classList.add('hidden');
             }
-        }
-
-        function iniciarSesion(event) {
-            event.preventDefault();
-            const usernameInput = document.getElementById('loginUsername').value.trim();
-            const pinInput = document.getElementById('loginPIN').value.trim();
-            const errorMsg = document.getElementById('loginError');
-            errorMsg.classList.add('hidden');
-
-            const usuarioEncontrado = USUARIOS_SISTEMA.find(u => 
-                u.username.toLowerCase() === usernameInput.toLowerCase() && u.pin === pinInput
-            );
-
-            if (usuarioEncontrado) {
-                usuarioActivo = { username: usuarioEncontrado.username, nombre: usuarioEncontrado.nombre, rol: usuarioEncontrado.rol };
-                localStorage.setItem('usuarioActivo', JSON.stringify(usuarioActivo));
-                document.getElementById('formLogin').reset();
-                verificarSesion();
-            } else {
-                errorMsg.innerText = "Usuario o PIN de acceso incorrectos.";
-                errorMsg.classList.remove('hidden');
-            }
-        }
-
-        function cerrarSesion() {
-            localStorage.removeItem('usuarioActivo');
-            verificarSesion();
-        }
-
-        function aplicarRestriccionesRol() {
-            const inputTasa = document.getElementById('tasaBCV');
-            const badgeUsuario = document.getElementById('badgeUsuario');
-            if (!usuarioActivo) return;
-
-            let colorRol = 'bg-slate-600/20 text-slate-300 border-slate-600/30';
-            if (usuarioActivo.rol === 'superadmin') colorRol = 'bg-red-500/10 text-red-400 border-red-500/20';
-            if (usuarioActivo.rol === 'admin') colorRol = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
-
-            badgeUsuario.innerHTML = `
-                <span class="text-[10px] text-slate-400 uppercase font-semibold">Op:</span>
-                <span class="text-xs font-bold text-white">${usuarioActivo.nombre}</span>
-                <span class="text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border ${colorRol}">${usuarioActivo.rol}</span>
-            `;
-
-            if (usuarioActivo.rol === 'cajero') {
-                inputTasa.disabled = true;
-                inputTasa.classList.add('opacity-40', 'cursor-not-allowed');
-            } else {
-                inputTasa.disabled = false;
-                inputTasa.classList.remove('opacity-40', 'cursor-not-allowed');
-            }
-        }
-
-        // --- SISTEMA DE AUDITORÍA Y TRAZABILIDAD ---
-        async function cambiarEstadoPedido(idPedido, nuevoEstado) {
-            try {
-                const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
-                const response = await fetch(API_ACTUALIZAR_ESTADO, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        id_pedido: idPedido, 
-                        estado: nuevoEstado,
-                        procesado_por: operadorFirma 
-                    })
-                });
-                if (!response.ok) throw new Error('Error al guardar cambio de estado');
-                cargarPedidos();
-            } catch (error) {
-                console.error("Error al actualizar la orden:", error);
-                alert("No se pudo actualizar el estado del pedido. Intente nuevamente.");
-            }
-        }
-
-        // --- MANEJO DE FECHAS (Caracas) ---
-        function obtenerFechaHoyCaracas() {
-            const opciones = { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' };
-            const formateador = new Intl.DateTimeFormat('es-VE', opciones);
-            const partes = formateador.formatToParts(new Date());
-            const dia = partes.find(p => p.type === 'day').value;
-            const mes = partes.find(p => p.type === 'month').value;
-            const anio = partes.find(p => p.type === 'year').value;
-            return { dia, mes, anio };
-        }
-
-        function esPedidoDeHoy(fechaString) {
-            if (!fechaString) return false;
-            const { dia, mes, anio } = obtenerFechaHoyCaracas();
-            const fechaLimpia = fechaString.replace(/[\s\uFEFF\xA0]+/g, '');
-            const formato1 = `${anio}-${mes}-${dia}`;
-            const formato2 = `${dia}${mes}${anio}`;
-            const formato3 = `${dia}/${mes}/${anio}`;
-            const formato4 = `${anio}${mes}${dia}`;
-            return fechaLimpia.includes(formato1) || fechaLimpia.includes(formato2) || fechaLimpia.includes(formato3) || fechaLimpia.includes(formato4);
-        }
-
-        function normalizarEstado(estadoRaw) {
-            if (!estadoRaw) return '';
-            return estadoRaw.replace(/[\s\uFEFF\xA0]+/g, '').toLowerCase();
-        }
-
-        // --- POLLING AUTOMÁTICO ---
-        function resetearYArrancarPolling() {
-            segundosFaltantes = 15;
-            document.getElementById('contadorSegundos').innerText = segundosFaltantes;
-            clearInterval(pollingTimer);
-            pollingTimer = setInterval(() => {
-                segundosFaltantes--;
-                document.getElementById('contadorSegundos').innerText = segundosFaltantes;
-                if (segundosFaltantes <= 0) {
-                    cargarPedidos();
-                    segundosFaltantes = 15;
-                }
-            }, 1000);
-        }
-
-        // --- LECTURA DE DATOS (Con Anti-Caché) ---
-        async function cargarPedidos() {
-            try {
-                // El ?_t=... evita que el navegador use datos viejos guardados en memoria
-                const response = await fetch(API_OBTENER_PEDIDOS + '?_t=' + new Date().getTime());
-                if (!response.ok) throw new Error('Error al conectar con la API');
-                
-                const datos = await response.json();
-                pedidosEnMemoria = Array.isArray(datos) ? datos : [];
-                
-                renderizarTablero();
-                resetearYArrancarPolling();
-            } catch (error) {
-                console.error("Error al cargar pedidos:", error);
-            }
-        }
-
-        // --- RENDERIZADO DEL TABLERO ---
-        function renderizarTablero() {
-            const colPagoPendiente = document.getElementById('columnaPagoPendiente');
-            const colEnCocina = document.getElementById('columnaEnCocina');
-            const colFinalizado = document.getElementById('columnaFinalizado');
-
-            colPagoPendiente.innerHTML = '';
-            colEnCocina.innerHTML = '';
-            colFinalizado.innerHTML = '';
-
-            let conteoPago = 0;
-            let conteoCocina = 0;
-            let conteoFinalizado = 0;
-
-            pedidosEnMemoria.forEach(pedido => {
-                // Mapeo exacto de las columnas de tu Google Sheets
-                const id = pedido['ID_Pedido'] || pedido.id_pedido || 'S/ID';
-                const cliente = pedido['Cliente'] || pedido.cliente || 'Desconocido';
-                
-                // Limpieza del monto por si viene con el símbolo de $ o comas
-                const montoRaw = pedido['Total Orden'] || pedido.monto || 0;
-                const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
-                const monto = parseFloat(montoNumerico || 0).toFixed(2);
-                
-                const fecha = pedido['Timestamp'] || pedido.timestamp || '';
-                const articulos = pedido['Pedido Detallado'] || pedido.articulos || 'Detalle no disponible';
-                const estadoLimpio = normalizarEstado(pedido['Estado'] || pedido.estado);
-
-                if (!esPedidoDeHoy(fecha)) return;
-
-                if (estadoLimpio === 'pagopendiente') {
-                    conteoPago++;
-                    colPagoPendiente.innerHTML += `
-                        <div class="bg-slate-700/40 p-4 rounded-lg border border-yellow-500/10 hover:border-yellow-500/30 transition duration-150 space-y-3">
-                            <div class="flex justify-between items-start">
-                                <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">#${id}</span>
-                                <span class="text-[10px] text-slate-400"><i class="fa-regular fa-clock"></i> ${formatearHora(fecha)}</span>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-white text-sm truncate">${cliente}</h4>
-                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
-                            </div>
-                            <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
-                                <span class="text-xs font-bold text-slate-300">$${monto}</span>
-                                <button onclick="cambiarEstadoPedido('${id}', 'En Cocina')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-md transition duration-150 flex items-center gap-1 cursor-pointer">
-                                    Aceptar <i class="fa-solid fa-arrow-right"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                } else if (estadoLimpio === 'encocina') {
-                    conteoCocina++;
-                    colEnCocina.innerHTML += `
-                        <div class="bg-slate-700/40 p-4 rounded-lg border border-sky-500/10 hover:border-sky-500/30 transition duration-150 space-y-3">
-                            <div class="flex justify-between items-start">
-                                <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${id}</span>
-                                <span class="text-[10px] text-slate-400"><i class="fa-regular fa-clock"></i> ${formatearHora(fecha)}</span>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-white text-sm truncate">${cliente}</h4>
-                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
-                            </div>
-                            <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
-                                <span class="text-xs font-bold text-slate-300">$${monto}</span>
-                                <button onclick="cambiarEstadoPedido('${id}', 'Finalizado')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition duration-150 flex items-center gap-1 cursor-pointer">
-                                    Despachar <i class="fa-solid fa-check"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                } else if (estadoLimpio === 'finalizado') {
-                    conteoFinalizado++;
-                    colFinalizado.innerHTML += `
-                        <div onclick="abrirModalDetalle('${id}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition duration-150 flex justify-between items-center cursor-pointer">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${id}</span>
-                                <span class="text-xs text-slate-400">Ver Recibo</span>
-                            </div>
-                            <span class="text-sm font-bold text-emerald-400">$${monto}</span>
-                        </div>
-                    `;
-                }
-            });
-
-            document.getElementById('cantPagoPendiente').innerText = conteoPago;
-            document.getElementById('cantEnCocina').innerText = conteoCocina;
-            document.getElementById('cantFinalizado').innerText = conteoFinalizado;
-        }
-
-        // --- MODAL DETALLADO (Recibo) ---
-        function abrirModalDetalle(idPedido) {
-            const pedido = pedidosEnMemoria.find(p => {
-                const id = p['ID_Pedido'] || p.id_pedido || p.ID;
-                return String(id) === String(idPedido);
-            });
-
-            if (!pedido) return;
-
-            const id = pedido['ID_Pedido'] || 'S/ID';
-            const cliente = pedido['Cliente'] || 'Cliente Registrado';
-            const telefono = pedido['Teléfono'] || pedido.telefono || 'No registrado';
-            const tipoEntrega = pedido['Tipo de entrega'] || 'No definido';
-            const direccion = pedido['Dirección'] || pedido.direccion || 'No especificada';
-            const metodoPago = pedido['Método de pago'] || 'No especificado';
-            const articulos = pedido['Pedido Detallado'] || '';
             
-            const montoRaw = pedido['Total Orden'] || 0;
-            const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
-            const montoUSD = parseFloat(montoNumerico || 0);
-            
-            const procesadoPor = pedido['Procesado Por'] || 'Sin registro de operador';
-            
-            document.getElementById('modalID').innerText = `ID Pedido: #${id}`;
-
-            let seccionCambioVES = '';
-            const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil') || metodoPago.toLowerCase().includes('móvil');
-            
-            if (esPagoMovil) {
-                const tasaBCV = parseFloat(document.getElementById('tasaBCV').value) || 1.0;
-                const montoVES = (montoUSD * tasaBCV).toFixed(2);
-                seccionCambioVES = `
-                    <div class="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg mt-2 text-amber-300 text-xs text-center font-bold">
-                        Total en Bolívares: Bs. ${montoVES} (Tasa: ${tasaBCV.toFixed(2)} Bs/$)
-                    </div>
-                `;
-            }
-
-            const modalHTML = `
-                <div class="space-y-3.5">
-                    <div class="flex justify-between">
-                        <div>
-                            <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Cliente</span>
-                            <p class="font-bold text-white text-base">${cliente}</p>
-                            <p class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-phone"></i> ${telefono}</p>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider text-right block">Despachado por</span>
-                            <p class="text-xs text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded mt-1 font-semibold">${procesadoPor}</p>
-                        </div>
-                    </div>
-
-                    <div class="border-t border-slate-700/50 pt-2.5">
-                        <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Método de Distribución</span>
-                        <p class="text-white text-xs mt-0.5 font-medium">${tipoEntrega}</p>
-                        <p class="text-xs text-slate-400 mt-1 bg-slate-900/40 p-2 rounded border border-slate-700/30 italic">${direccion}</p>
-                    </div>
-
-                    <div class="border-t border-slate-700/50 pt-2.5">
-                        <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Productos</span>
-                        <div class="text-xs bg-slate-900/40 p-2.5 rounded border border-slate-700/30 whitespace-pre-line max-h-32 overflow-y-auto text-slate-300 font-mono">
-                            ${articulos}
-                        </div>
-                    </div>
-
-                    <div class="border-t border-slate-700/50 pt-2.5 flex justify-between items-center">
-                        <div>
-                            <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Forma de Pago</span>
-                            <p class="text-white text-xs font-semibold">${metodoPago}</p>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Total</span>
-                            <p class="text-emerald-400 font-bold text-lg">$${montoUSD.toFixed(2)}</p>
-                        </div>
-                    </div>
-
-                    ${seccionCambioVES}
-                </div>
-            `;
-
-            document.getElementById('modalCuerpo').innerHTML = modalHTML;
             document.getElementById('modalDetalle').classList.remove('hidden');
         }
 
-        function cerrarModal() {
-            document.getElementById('modalDetalle').classList.add('hidden');
+        document.getElementById('formNuevoPedido').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                return false;
+            }
+        });
+
+        function agregarFila() {
+            const div = document.createElement('div');
+            div.className = "flex gap-2 articulo-fila";
+            div.innerHTML = `
+                <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
+                <input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato">
+                <input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-300 w-8">
+                    <i class="fa-solid fa-trash"></i>
+                </button>`;
+            document.getElementById('contenedorArticulos').appendChild(div);
         }
 
-        function formatearHora(fechaString) {
-            if (!fechaString) return '--:--';
+        async function enviarPedido() {
+            const articulos = Array.from(document.querySelectorAll('.articulo-fila')).map(f => ({
+                qty: f.querySelector('.item-qty').value,
+                name: f.querySelector('.item-name').value,
+                price: parseFloat(f.querySelector('.item-price').value)
+            }));
+            
+            const payload = {
+                cliente: document.getElementById('inputCliente').value,
+                telefono: document.getElementById('inputTelefono').value,
+                tipo_entrega: document.getElementById('inputEntrega').value,
+                metodo_pago: document.getElementById('inputPago').value,
+                direccion: document.getElementById('inputDireccion').value,
+                articulos: articulos,
+                timestamp: new Date().toISOString()
+            };
+
             try {
-                const partes = fechaString.split(' ');
-                if (partes.length > 1) {
-                    return partes[1].substring(0, 5);
+                const res = await fetch(URL_NUEVO_PEDIDO, { 
+                    method: 'POST', 
+                    body: JSON.stringify(payload), 
+                    headers: {'Content-Type': 'application/json'} 
+                });
+                
+                if(res.ok) { 
+                    alert("Pedido registrado con éxito"); 
+                    document.getElementById('formNuevoPedido').reset();
+                    document.getElementById('contenedorArticulos').innerHTML = `
+                        <div class="flex gap-2 articulo-fila">
+                            <input type="number" value="1" class="w-16 bg-gray-700 p-2 rounded item-qty" placeholder="Cant">
+                            <input type="text" class="flex-1 bg-gray-700 p-2 rounded item-name" placeholder="Plato">
+                            <input type="number" step="0.01" class="w-20 bg-gray-700 p-2 rounded item-price" placeholder="Precio">
+                            <div class="w-8"></div>
+                        </div>`;
+                    cerrarModal();
+                    setTimeout(cargarPedidos, 500);
+                } else {
+                    alert("Error al guardar el pedido.");
                 }
-                return fechaString.substring(11, 16) || '--:--';
-            } catch (e) {
-                return '--:--';
+            } catch(e) { 
+                alert("Error de conexión."); 
             }
         }
 
-        // --- INICIALIZACIÓN DEL CICLO DE VIDA ---
-        window.addEventListener('DOMContentLoaded', () => {
-            actualizarTasaBCV();
-            verificarSesion();
+        async function cargarPedidos() {
+            try {
+                const respuesta = await fetch(URL_LEER + '?_t=' + new Date().getTime());
+                const pedidos = await respuesta.json();
+                
+                document.getElementById('columna-pendiente').innerHTML = '';
+                document.getElementById('columna-cocina').innerHTML = '';
+                document.getElementById('columna-finalizado').innerHTML = '';
+                let cp = 0, cc = 0, cf = 0;
+                
+                // Limpiamos la memoria cada vez que recargamos
+                pedidosEnMemoria = {};
+                
+                const d = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Caracas"}));
+                const y = d.getFullYear().toString();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                
+                const formato1 = `${y}-${m}-${day}`;
+                const formato2 = `${day}${m}${y}`;   
+                const formato3 = `${day}/${m}/${y}`; 
+                const formato4 = `${y}${m}${day}`;   
+                
+                pedidos.forEach(pedido => {
+                    const filaTexto = JSON.stringify(pedido);
+                    
+                    const esDeHoy = filaTexto.includes(formato1) || 
+                                    filaTexto.includes(formato2) || 
+                                    filaTexto.includes(formato3) || 
+                                    filaTexto.includes(formato4);
+
+                    const estadoRaw = String(pedido.Estado || pedido.estado || pedido['Estado '] || '').toLowerCase();
+                    const estadoLimpio = estadoRaw.replace(/[^a-z]/g, ''); 
+
+                    if (estadoLimpio === 'finalizado' && !esDeHoy) {
+                        return; 
+                    }
+                    if (estadoLimpio !== 'finalizado' && estadoLimpio !== 'pagopendiente' && estadoLimpio !== 'encocina') {
+                        return;
+                    }
+
+                    const idReal = String(pedido.ID_Pedido || pedido.id_pedido || pedido['ID_Pedido'] || '').trim();
+                    const partesId = idReal.split('-');
+                    let idVisual = partesId.length > 1 ? partesId[partesId.length - 1] : idReal;
+                    if (!idVisual) idVisual = "✓"; 
+                    
+                    const safeCliente = String(pedido.Cliente || '').replace(/'/g, "\\'");
+                    const safeTelefono = String(pedido.Teléfono || '').replace(/'/g, "\\'");
+                    const safeEntrega = String(pedido['Tipo de entrega'] || pedido.Tipo_entrega || '').replace(/'/g, "\\'");
+                    const safeDireccion = String(pedido.Dirección || pedido.Direccion || '').replace(/'/g, "\\'");
+                    const safeMetodo = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
+                    const safeDetalles = String(pedido['Pedido Detallado'] || pedido.Pedido_Detallado || 'Sin detalles especificados');
+                    
+                    const totalRaw = pedido.Total_Orden || pedido['Total Orden'] || pedido['Total Orden '] || pedido.total_orden || 0;
+                    const totalNumerico = String(totalRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
+                    const totalDolares = parseFloat(totalNumerico || 0).toFixed(2);
+                    
+                    // Guardamos la info en memoria para que el modal la pueda leer
+                    pedidosEnMemoria[idReal] = {
+                        idVisual: idVisual,
+                        cliente: safeCliente,
+                        telefono: safeTelefono,
+                        entrega: safeEntrega,
+                        direccion: safeDireccion,
+                        metodo: safeMetodo,
+                        detalles: safeDetalles,
+                        totalUSD: totalDolares
+                    };
+
+                    const tarjeta = document.createElement('div');
+
+                    // ==========================================
+                    // RAMA 1: FINALIZADO
+                    // ==========================================
+                    if (estadoLimpio === 'finalizado') {
+                        let infoMonto = `<span class="text-lg font-bold text-green-400">$${totalDolares}</span>`;
+                        
+                        if (safeMetodo.toLowerCase().includes('movil') || safeMetodo.toLowerCase().includes('móvil')) {
+                            const totalBs = (parseFloat(totalDolares) * tasaBCV).toFixed(2);
+                            infoMonto = `
+                                <div class="flex flex-col text-right">
+                                    <span class="text-lg font-bold text-green-400">$${totalDolares}</span>
+                                    <span class="text-xs font-bold text-gray-400">Bs. ${totalBs}</span>
+                                </div>`;
+                        }
+
+                        // Agregamos las clases cursor-pointer y el hover para que parezca un botón clickeable
+                        tarjeta.className = 'cursor-pointer bg-gray-800 rounded-lg p-3 shadow border border-gray-700 flex justify-between items-center transition opacity-90 hover:opacity-100 hover:border-emerald-500 hover:shadow-emerald-500/20';
+                        tarjeta.setAttribute('onclick', `abrirModalDetalle('${idReal}')`);
+                        tarjeta.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <span class="text-xl font-mono font-bold text-gray-400 bg-gray-900 px-3 py-1 rounded border border-gray-700 shadow-inner">
+                                    <i class="fa-solid fa-check text-green-500 mr-1 text-sm"></i> ${idVisual}
+                                </span>
+                            </div>
+                            ${infoMonto}
+                        `;
+                        
+                        document.getElementById('columna-finalizado').appendChild(tarjeta);
+                        cf++;
+                    
+                    // ==========================================
+                    // RAMA 2: PENDIENTE Y COCINA
+                    // ==========================================
+                    } else if (estadoLimpio === 'pagopendiente' || estadoLimpio === 'encocina') {
+                        let botonAccion = '';
+                        if (estadoLimpio === 'pagopendiente') {
+                            botonAccion = `<button onclick="cambiarEstado('${idReal}', 'En Cocina', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '${safeMetodo}')" class="w-full mt-3 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">💵 Procesar Pago</button>`;
+                        } else if (estadoLimpio === 'encocina') {
+                            botonAccion = `<button onclick="cambiarEstado('${idReal}', 'Finalizado', '${safeTelefono}', '${safeCliente}', '${safeEntrega}', '')" class="w-full mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">✅ Procesar Pedido</button>`;
+                        }
+                        
+                        let colorTarjeta = 'bg-gray-700 border-gray-600 hover:border-gray-500';
+                        if (safeEntrega.toLowerCase() === 'pickup') {
+                            colorTarjeta = 'bg-indigo-900 border-indigo-500 hover:border-indigo-400';
+                        }
+
+                        let htmlDireccion = '';
+                        if (safeEntrega.toLowerCase() === 'delivery' && safeDireccion.trim() !== '') {
+                            htmlDireccion = `<div class="mb-2 bg-gray-900/50 p-2 rounded border border-gray-600 text-xs text-blue-200"><i class="fa-solid fa-motorcycle"></i> <b>Dirección:</b> ${safeDireccion}</div>`;
+                        }
+                        
+                        tarjeta.className = `${colorTarjeta} rounded-lg p-4 shadow border transition`;
+                        tarjeta.innerHTML = `
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-xl font-mono font-bold text-white bg-gray-800 px-3 py-1 rounded border border-gray-500 shadow">${idVisual}</span>
+                                <span class="text-sm font-bold text-green-400 text-lg">$${totalDolares}</span>
+                            </div>
+                            <h3 class="font-bold text-white mb-1 text-base">${pedido.Cliente}</h3>
+                            <p class="text-xs text-gray-400 mb-2">📞 ${safeTelefono} | 📍 ${safeEntrega}</p>
+                            
+                            ${htmlDireccion}
+
+                            <div class="bg-gray-800/80 rounded p-2 text-xs text-gray-300 font-mono mb-3 whitespace-pre-line border border-gray-700/50">${safeDetalles}</div>
+                            <div class="text-xs text-gray-400">💳 ${safeMetodo}</div>
+                            ${botonAccion}
+                        `;
+                        
+                        if (estadoLimpio === 'pagopendiente') { document.getElementById('columna-pendiente').appendChild(tarjeta); cp++; }
+                        else if (estadoLimpio === 'encocina') { document.getElementById('columna-cocina').appendChild(tarjeta); cc++; }
+                    }
+                });
+                
+                document.getElementById('cant-pendiente').innerText = cp;
+                document.getElementById('cant-cocina').innerText = cc;
+                document.getElementById('cant-finalizado').innerText = cf;
+            } catch (error) { console.error('Error cargando pedidos:', error); }
+        }
+        
+        let tiempoSeleccionado = null;
+
+        function seleccionarTiempo(minutos, botonElement) {
+            tiempoSeleccionado = minutos;
+            document.getElementById('inputTiempoPersonalizado').value = ''; 
+            document.querySelectorAll('.btn-tiempo').forEach(btn => btn.classList.remove('border-orange-500', 'text-orange-400'));
+            botonElement.classList.add('border-orange-500', 'text-orange-400');
+        }
+
+        function limpiarBotonesTiempo() {
+            tiempoSeleccionado = null;
+            document.querySelectorAll('.btn-tiempo').forEach(btn => btn.classList.remove('border-orange-500', 'text-orange-400'));
+        }
+
+        document.getElementById('inputImagenPago').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const preview = document.getElementById('previewComprobante');
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                preview.src = "";
+                preview.classList.add('hidden');
+            }
         });
+
+        function pedirComprobantePago(metodoPago) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('modalComprobante');
+                const contenedorRef = document.getElementById('contenedorReferencia');
+                const inputRef = document.getElementById('inputReferencia');
+                const inputImg = document.getElementById('inputImagenPago');
+                const preview = document.getElementById('previewComprobante');
+                const txtMetodo = document.getElementById('txtMetodoPagoModal');
+
+                inputRef.value = '';
+                inputImg.value = '';
+                preview.src = '';
+                preview.classList.add('hidden');
+                
+                const metodoLimpio = metodoPago || "Desconocido";
+                txtMetodo.innerText = `Método de pago del cliente: ${metodoLimpio}`;
+
+                const metodoLower = metodoLimpio.toLowerCase();
+                if (metodoLower.includes('efectivo')) {
+                    contenedorRef.classList.add('hidden');
+                } else {
+                    contenedorRef.classList.remove('hidden');
+                }
+
+                modal.classList.remove('hidden');
+
+                document.getElementById('btnAceptarComprobante').onclick = () => {
+                    if (inputImg.files.length === 0) {
+                        alert("Para continuar la demostración, sube una imagen.");
+                        return;
+                    }
+                    if (!contenedorRef.classList.contains('hidden') && inputRef.value.trim() === '') {
+                        alert("Por favor, ingresa el número de referencia.");
+                        return;
+                    }
+                    
+                    modal.classList.add('hidden');
+                    resolve(true); 
+                };
+
+                document.getElementById('btnCancelarComprobante').onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(false); 
+                };
+            });
+        }
+
+        function pedirTiempoCocina() {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('modalTiempo');
+                const inputPersonalizado = document.getElementById('inputTiempoPersonalizado');
+                
+                limpiarBotonesTiempo();
+                inputPersonalizado.value = '';
+                modal.classList.remove('hidden');
+                
+                document.getElementById('btnAceptarTiempo').onclick = () => {
+                    let tiempoFinal = tiempoSeleccionado || inputPersonalizado.value;
+                    if (!tiempoFinal || tiempoFinal <= 0) {
+                        alert("Por favor selecciona o ingresa un tiempo válido.");
+                        return;
+                    }
+                    modal.classList.add('hidden');
+                    resolve(tiempoFinal);
+                };
+
+                document.getElementById('btnCancelarTiempo').onclick = () => {
+                    modal.classList.add('hidden');
+                    resolve(null);
+                };
+            });
+        }
+        
+        async function cambiarEstado(idPedido, nuevoEstado, telefono, cliente, tipoEntrega, metodoPago) {
+            let tiempoEstimado = "";
+            
+            if (nuevoEstado === 'En Cocina') {
+                const comprobanteExitoso = await pedirComprobantePago(metodoPago);
+                if (!comprobanteExitoso) return; 
+
+                tiempoEstimado = await pedirTiempoCocina();
+                if (tiempoEstimado === null) return; 
+            }
+
+            try {
+                const respuesta = await fetch(URL_ACTUALIZAR, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        id: idPedido, 
+                        estado: nuevoEstado,
+                        telefono: telefono,
+                        cliente: cliente,
+                        tipo_entrega: tipoEntrega,
+                        tiempo_estimado: tiempoEstimado
+                    })
+                });
+                
+                if (respuesta.ok) {
+                    setTimeout(cargarPedidos, 800);
+                } else {
+                    alert('Error al cambiar estado.');
+                }
+            } catch (error) { 
+                console.error('Error:', error); 
+            }
+        }
+
+        // Iniciar el dashboard al abrir la página
+        window.onload = inicializarDashboard;
+
+        // =========================================================
+        // MAGIA AUTOMÁTICA: Actualizar pedidos en "Tiempo Real"
+        // =========================================================
+        // setInterval ejecuta la función cargarPedidos() repetidamente.
+        // 15000 = 15 segundos. (No lo bajes a menos de 10000 para no saturar tu n8n/Google Sheets).
+        setInterval(cargarPedidos, 15000); 
+
     </script>
 </body>
 </html>
