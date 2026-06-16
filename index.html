@@ -172,6 +172,7 @@
 
     <!-- Motor JavaScript -->
     <script>
+        // Configuración de Webhooks en n8n
         const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
         const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
 
@@ -335,21 +336,44 @@
             });
         }
 
-        // --- ACTUALIZAR ESTADO ---
-        async function cambiarEstadoPedido(idPedido, nuevoEstado, metodoPago) {
-            let datosPago = null;
+        // --- PROCESAR BOTONES DE ACCIÓN ---
+        async function procesarPasoCocina(idPedido) {
+            const pedido = pedidosEnMemoria.find(p => (p['ID_Pedido'] || p.id_pedido || p.ID || 'S/ID') === idPedido);
+            if (!pedido) return;
             
-            // Si va a pasar a "En Cocina", pedimos el comprobante primero
-            if (nuevoEstado === 'En Cocina') {
-                datosPago = await pedirComprobantePago(metodoPago);
-                if (!datosPago) return; // Si el usuario le dio a "Cancelar", detenemos el proceso
-            }
+            const metodoPago = pedido['Método de pago'] || pedido.Metodo_pago || '';
+            const telefono = pedido['Teléfono'] || pedido.telefono || '';
+            const cliente = pedido['Cliente'] || pedido.cliente || '';
+            const tipoEntrega = pedido['Tipo de entrega'] || pedido.Tipo_entrega || '';
 
+            const datosPago = await pedirComprobantePago(metodoPago);
+            if (!datosPago) return; // Si el usuario cancela el modal
+
+            ejecutarActualizacion(idPedido, 'En Cocina', telefono, cliente, tipoEntrega, datosPago);
+        }
+
+        async function procesarPasoFinalizado(idPedido) {
+            const pedido = pedidosEnMemoria.find(p => (p['ID_Pedido'] || p.id_pedido || p.ID || 'S/ID') === idPedido);
+            if (!pedido) return;
+            
+            const telefono = pedido['Teléfono'] || pedido.telefono || '';
+            const cliente = pedido['Cliente'] || pedido.cliente || '';
+            const tipoEntrega = pedido['Tipo de entrega'] || pedido.Tipo_entrega || '';
+
+            ejecutarActualizacion(idPedido, 'Finalizado', telefono, cliente, tipoEntrega, null);
+        }
+
+        async function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago) {
             try {
                 const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
-                const payload = { 
-                    id_pedido: idPedido, 
-                    estado: nuevoEstado,
+                
+                // Payload exacto que espera n8n
+                const payload = {
+                    id: id, 
+                    estado: estado,
+                    telefono: telefono,
+                    cliente: cliente,
+                    tipo_entrega: tipoEntrega,
                     procesado_por: operadorFirma,
                     referencia_pago: datosPago ? datosPago.referencia : "",
                     imagen_pago: datosPago ? datosPago.imagen : ""
@@ -360,11 +384,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                if (!response.ok) throw new Error('Error al guardar cambio de estado');
+                
+                if (!response.ok) throw new Error('Error al actualizar');
                 cargarPedidos();
             } catch (error) {
-                console.error("Error al actualizar la orden:", error);
-                alert("No se pudo actualizar el estado del pedido. Intente nuevamente.");
+                alert("Error al conectar con el servidor de n8n.");
             }
         }
 
@@ -440,30 +464,25 @@
                 const filaTexto = JSON.stringify(pedido);
                 if (!esPedidoDeHoy(filaTexto)) return;
 
-                // 1. ID Corto (Corta todo lo que esté antes del guión)
                 const idReal = pedido['ID_Pedido'] || pedido.id_pedido || pedido.ID || 'S/ID';
                 const idParts = String(idReal).split('-');
                 const idVisual = idParts.length > 1 ? idParts[idParts.length - 1] : idReal;
 
                 const cliente = pedido['Cliente'] || pedido.cliente || 'Desconocido';
-                const metodoPago = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
                 
                 const montoRaw = pedido['Total Orden'] || pedido['Total Orden '] || pedido.Total_Orden || pedido.monto || 0;
                 const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
                 const monto = parseFloat(montoNumerico || 0).toFixed(2);
                 
-                // 2. Extracción de Hora Exacta (Zona Horaria Caracas)
+                // Escáner de Hora a prueba de balas (Busca cualquier formato de hora en el JSON)
                 let hora = '--:--';
-                const fechaRaw = pedido['Timestamp'] || pedido['Timestamp '] || pedido.timestamp || '';
-                if (fechaRaw) {
-                    try {
-                        const dateObj = new Date(fechaRaw);
-                        if (!isNaN(dateObj)) {
-                            hora = dateObj.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', hour12: true });
-                        } else {
-                            hora = fechaRaw.split('T')[1].substring(0, 5);
-                        }
-                    } catch(e) {}
+                const timeMatch = filaTexto.match(/\b([01]?\d|2[0-3]):([0-5]\d):([0-5]\d)\b/);
+                if (timeMatch) {
+                    let h = parseInt(timeMatch[1], 10);
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    h = h % 12;
+                    h = h ? h : 12; 
+                    hora = `${h}:${timeMatch[2]} ${ampm}`;
                 }
                 
                 const articulos = pedido['Pedido Detallado'] || pedido.Pedido_Detallado || pedido.articulos || 'Detalle no disponible';
@@ -483,7 +502,7 @@
                             </div>
                             <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
                                 <span class="text-xs font-bold text-slate-300">$${monto}</span>
-                                <button onclick="cambiarEstadoPedido('${idReal}', 'En Cocina', '${metodoPago}')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-md transition duration-150 flex items-center gap-1 cursor-pointer shadow-md">
+                                <button onclick="procesarPasoCocina('${idReal}')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-md transition duration-150 flex items-center gap-1 cursor-pointer shadow-md">
                                     Aceptar <i class="fa-solid fa-arrow-right"></i>
                                 </button>
                             </div>
@@ -503,7 +522,7 @@
                             </div>
                             <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
                                 <span class="text-xs font-bold text-slate-300">$${monto}</span>
-                                <button onclick="cambiarEstadoPedido('${idReal}', 'Finalizado', '${metodoPago}')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition duration-150 flex items-center gap-1 cursor-pointer shadow-md">
+                                <button onclick="procesarPasoFinalizado('${idReal}')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition duration-150 flex items-center gap-1 cursor-pointer shadow-md">
                                     Despachar <i class="fa-solid fa-check"></i>
                                 </button>
                             </div>
