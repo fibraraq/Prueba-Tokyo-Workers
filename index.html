@@ -171,7 +171,7 @@
     <!-- Motor JavaScript con Login y Auditoría de Procesos -->
     <script>
         // Configuración de Webhooks en n8n
-        const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook-test/obtener-pedidos";
+        const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
         const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
 
         // Registro Local de Usuarios y Roles del Restaurante
@@ -410,12 +410,13 @@
             let conteoFinalizado = 0;
 
             pedidosEnMemoria.forEach(pedido => {
-                const id = pedido.id_pedido || pedido.id || pedido.ID || 'S/ID';
-                const cliente = pedido.cliente || pedido.nombre || 'Desconocido';
-                const monto = parseFloat(pedido.monto || pedido.total || 0).toFixed(2);
-                const fecha = pedido.fecha || pedido.timestamp || '';
-                const articulos = pedido.articulos || pedido.platos || 'Detalle no disponible';
-                const estadoLimpio = normalizarEstado(pedido.estado);
+                const id = pedido['ID_Pedido'] || pedido.id_pedido || 'S/ID';
+                const cliente = pedido['Cliente'] || pedido.cliente || 'Desconocido';
+                const montoRaw = pedido['Total Orden'] || pedido.monto || 0;
+                const monto = parseFloat(montoRaw).toFixed(2);
+                const fecha = pedido['Timestamp'] || pedido.timestamp || '';
+                const articulos = pedido['Pedido Detallado'] || pedido.articulos || 'Detalle no disponible';
+                const estadoLimpio = normalizarEstado(pedido['Estado'] || pedido.estado);
 
                 if (!esPedidoDeHoy(fecha)) return;
 
@@ -481,24 +482,24 @@
         // --- MODAL DETALLADO (Recibo) ---
         function abrirModalDetalle(idPedido) {
             const pedido = pedidosEnMemoria.find(p => {
-                const id = p.id_pedido || p.id || p.ID;
+                const id = p['ID_Pedido'] || p.id_pedido || p.ID;
                 return String(id) === String(idPedido);
             });
 
             if (!pedido) return;
 
-            const id = pedido.id_pedido || pedido.id || pedido.ID || 'S/ID';
-            const cliente = pedido.cliente || pedido.nombre || 'Cliente Registrado';
-            const telefono = pedido.telefono || 'No registrado';
-            const tipoEntrega = pedido.tipo_entrega || pedido.metodo_entrega || 'No definido';
-            const direccion = pedido.direccion || 'No especificada';
-            const metodoPago = pedido.metodo_pago || 'No especificado';
-            const articulos = pedido.articulos || pedido.platos || '';
-            const montoUSD = parseFloat(pedido.monto || pedido.total || 0);
+            const id = pedido['ID_Pedido'] || 'S/ID';
+            const cliente = pedido['Cliente'] || 'Cliente Registrado';
+            const telefono = pedido['Teléfono'] || pedido.telefono || 'No registrado';
+            const tipoEntrega = pedido['Tipo de entrega'] || 'No definido';
+            const direccion = pedido['Dirección'] || pedido.direccion || 'No especificada';
+            const metodoPago = pedido['Método de pago'] || 'No especificado';
+            const articulos = pedido['Pedido Detallado'] || '';
+            const montoUSD = parseFloat(pedido['Total Orden'] || 0);
             
             // Trazabilidad de quién lo procesó desde Google Sheets
-            const procesadoPor = pedido.procesado_por || pedido.procesado || 'Sin registro de operador';
-
+            const procesadoPor = pedido['Procesado Por'] || 'Sin registro de operador';
+            
             document.getElementById('modalID').innerText = `ID Pedido: #${id}`;
 
             let seccionCambioVES = '';
