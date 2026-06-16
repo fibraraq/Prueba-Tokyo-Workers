@@ -205,7 +205,10 @@
                 if (localStorage.getItem('tasaBCV')) inputTasa.value = localStorage.getItem('tasaBCV');
             }
         }
-        document.getElementById('tasaBCV').addEventListener('input', (e) => localStorage.setItem('tasaBCV', e.target.value));
+        document.getElementById('tasaBCV').addEventListener('input', (e) => {
+            localStorage.setItem('tasaBCV', e.target.value);
+            renderizarTablero(); // Recalcula los bolívares en vivo si cambias la tasa
+        });
 
         // --- SESIONES ---
         function verificarSesion() {
@@ -347,7 +350,7 @@
             const tipoEntrega = pedido['Tipo de entrega'] || pedido.Tipo_entrega || '';
 
             const datosPago = await pedirComprobantePago(metodoPago);
-            if (!datosPago) return; // Si el usuario cancela el modal
+            if (!datosPago) return; 
 
             ejecutarActualizacion(idPedido, 'En Cocina', telefono, cliente, tipoEntrega, datosPago);
         }
@@ -366,8 +369,6 @@
         async function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago) {
             try {
                 const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
-                
-                // Payload exacto que espera n8n
                 const payload = {
                     id: id, 
                     estado: estado,
@@ -459,6 +460,7 @@
             colFinalizado.innerHTML = '';
 
             let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
+            const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
 
             pedidosEnMemoria.forEach(pedido => {
                 const filaTexto = JSON.stringify(pedido);
@@ -469,20 +471,43 @@
                 const idVisual = idParts.length > 1 ? idParts[idParts.length - 1] : idReal;
 
                 const cliente = pedido['Cliente'] || pedido.cliente || 'Desconocido';
+                const metodoPago = String(pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
+                const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil') || metodoPago.toLowerCase().includes('móvil');
                 
                 const montoRaw = pedido['Total Orden'] || pedido['Total Orden '] || pedido.Total_Orden || pedido.monto || 0;
                 const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
                 const monto = parseFloat(montoNumerico || 0).toFixed(2);
                 
-                // Escáner de Hora a prueba de balas (Busca cualquier formato de hora en el JSON)
+                // Construcción del bloque de Monto (Dólares y Bolívares)
+                let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${monto}</span>`;
+                if (esPagoMovil) {
+                    const montoBs = (monto * tasaActual).toFixed(2);
+                    htmlMonto = `
+                        <div class="flex flex-col">
+                            <span class="text-xs font-bold text-slate-300">$${monto}</span>
+                            <span class="text-[10px] font-bold text-amber-400">Bs. ${montoBs}</span>
+                        </div>
+                    `;
+                }
+                
+                // Extracción de Hora Exacta
                 let hora = '--:--';
-                const timeMatch = filaTexto.match(/\b([01]?\d|2[0-3]):([0-5]\d):([0-5]\d)\b/);
-                if (timeMatch) {
-                    let h = parseInt(timeMatch[1], 10);
-                    const ampm = h >= 12 ? 'PM' : 'AM';
-                    h = h % 12;
-                    h = h ? h : 12; 
-                    hora = `${h}:${timeMatch[2]} ${ampm}`;
+                const fechaRaw = pedido['Timestamp'] || pedido['Timestamp '] || pedido.timestamp || pedido.Timestamp || '';
+                if (fechaRaw) {
+                    try {
+                        if (fechaRaw.includes('T') && fechaRaw.includes('Z')) {
+                            const d = new Date(fechaRaw);
+                            hora = d.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
+                        } else {
+                            const timeMatch = fechaRaw.match(/(\d{1,2}):(\d{2})/);
+                            if (timeMatch) {
+                                let h = parseInt(timeMatch[1], 10);
+                                const ampm = h >= 12 ? 'PM' : 'AM';
+                                h = h % 12 || 12;
+                                hora = `${h}:${timeMatch[2]} ${ampm}`;
+                            }
+                        }
+                    } catch(e) {}
                 }
                 
                 const articulos = pedido['Pedido Detallado'] || pedido.Pedido_Detallado || pedido.articulos || 'Detalle no disponible';
@@ -493,7 +518,12 @@
                     colPagoPendiente.innerHTML += `
                         <div class="bg-slate-700/40 p-4 rounded-lg border border-yellow-500/10 hover:border-yellow-500/30 transition duration-150 space-y-3">
                             <div class="flex justify-between items-start">
-                                <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">#${idVisual}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">#${idVisual}</span>
+                                    <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer" title="Ver detalle completo">
+                                        <i class="fa-solid fa-file-lines"></i>
+                                    </button>
+                                </div>
                                 <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                             </div>
                             <div>
@@ -501,7 +531,7 @@
                                 <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
                             </div>
                             <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
-                                <span class="text-xs font-bold text-slate-300">$${monto}</span>
+                                ${htmlMonto}
                                 <button onclick="procesarPasoCocina('${idReal}')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-md transition duration-150 flex items-center gap-1 cursor-pointer shadow-md">
                                     Aceptar <i class="fa-solid fa-arrow-right"></i>
                                 </button>
@@ -513,7 +543,12 @@
                     colEnCocina.innerHTML += `
                         <div class="bg-slate-700/40 p-4 rounded-lg border border-sky-500/10 hover:border-sky-500/30 transition duration-150 space-y-3">
                             <div class="flex justify-between items-start">
-                                <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
+                                    <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer" title="Ver detalle completo">
+                                        <i class="fa-solid fa-file-lines"></i>
+                                    </button>
+                                </div>
                                 <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                             </div>
                             <div>
@@ -521,7 +556,7 @@
                                 <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
                             </div>
                             <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
-                                <span class="text-xs font-bold text-slate-300">$${monto}</span>
+                                ${htmlMonto}
                                 <button onclick="procesarPasoFinalizado('${idReal}')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition duration-150 flex items-center gap-1 cursor-pointer shadow-md">
                                     Despachar <i class="fa-solid fa-check"></i>
                                 </button>
@@ -629,6 +664,7 @@
             actualizarTasaBCV();
             verificarSesion();
         });
+    </script>
     </script>
 </body>
 </html>
