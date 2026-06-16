@@ -1,4 +1,176 @@
-// Configuración de Webhooks en n8n (Flujo Activo / Producción)
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokio Sushi - Control de Operaciones</title>
+    <!-- Tailwind CSS v4 mediante CDN -->
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+
+    <!-- PANTALLA DE INICIO DE SESIÓN -->
+    <div id="vistaLogin" class="fixed inset-0 bg-slate-950 flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-8 shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <span class="text-5xl">🍣</span>
+                <h2 class="text-2xl font-bold text-white tracking-tight">Acceso Operativo</h2>
+                <p class="text-xs text-slate-400">Tokio Sushi - Control de Pedidos</p>
+            </div>
+
+            <form id="formLogin" onsubmit="iniciarSesion(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs uppercase font-bold text-slate-400 mb-1">Nombre de Usuario</label>
+                    <input type="text" id="loginUsername" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition" placeholder="Ej. cajero_carlos">
+                </div>
+
+                <div>
+                    <label class="block text-xs uppercase font-bold text-slate-400 mb-1">PIN / Código de Acceso</label>
+                    <input type="password" id="loginPIN" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 tracking-widest text-center text-lg transition" placeholder="••••">
+                </div>
+
+                <div id="loginError" class="bg-red-500/15 border border-red-500/30 text-red-400 text-xs p-3 rounded-lg text-center hidden">
+                    Credenciales incorrectas.
+                </div>
+
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition shadow-lg cursor-pointer">
+                    Entrar al Sistema <i class="fa-solid fa-arrow-right-to-bracket ml-1"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- VISTA PRINCIPAL DEL DASHBOARD (Oculta por defecto hasta loguearse) -->
+    <div id="vistaDashboard" class="hidden flex-col min-h-screen">
+        <!-- Encabezado del Sistema -->
+        <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 shadow-lg">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">🍣</span>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-white">Tokio Sushi</h1>
+                        <p class="text-xs text-slate-400">Operaciones de Cocina</p>
+                    </div>
+                </div>
+                
+                <!-- Datos del Operador Activo e Interfaz de Control -->
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- Badge del Operador Logueado -->
+                    <div id="badgeUsuario" class="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700">
+                        <!-- Inyección vía JavaScript -->
+                    </div>
+
+                    <!-- Tasa de Cambio Manual BCV -->
+                    <div class="flex items-center bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
+                        <span class="text-xs text-slate-400 mr-2">Tasa BCV (Bs/$):</span>
+                        <input type="number" id="tasaBCV" value="45.00" step="0.01" class="w-16 bg-slate-800 text-white text-sm font-semibold text-center border border-slate-600 rounded px-1 focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <!-- Sondeo Automático (Polling de 15 segundos) -->
+                    <div class="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        <span class="text-xs text-slate-300">Sondeo: <span id="contadorSegundos" class="font-mono">15</span>s</span>
+                    </div>
+
+                    <!-- Botón Forzar Actualización -->
+                    <button onclick="cargarPedidos()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3.5 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+
+                    <!-- Botón Cerrar Sesión -->
+                    <button onclick="cerrarSesion()" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-xs font-medium px-3.5 py-2 rounded-lg border border-red-500/20 transition cursor-pointer">
+                        <i class="fa-solid fa-power-off"></i> Salir
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tablero de Estados de Cocina -->
+        <main class="flex-1 max-w-7xl w-full mx-auto p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
+                
+                <!-- Columna 1: Pago Pendiente -->
+                <div class="bg-slate-800 rounded-xl p-4 border border-yellow-600/20 flex flex-col h-[calc(100vh-180px)] min-h-[500px] shadow-md">
+                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
+                        <h2 class="font-bold text-yellow-400 flex items-center gap-2 text-sm uppercase tracking-wide">
+                            <span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+                            Pago Pendiente
+                        </h2>
+                        <span id="cantPagoPendiente" class="bg-yellow-400/10 text-yellow-400 text-xs font-bold px-2.5 py-1 rounded-full border border-yellow-400/20">0</span>
+                    </div>
+                    <div id="columnaPagoPendiente" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                        <!-- Dinámico -->
+                    </div>
+                </div>
+
+                <!-- Columna 2: En Cocina -->
+                <div class="bg-slate-800 rounded-xl p-4 border border-sky-600/20 flex flex-col h-[calc(100vh-180px)] min-h-[500px] shadow-md">
+                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
+                        <h2 class="font-bold text-sky-400 flex items-center gap-2 text-sm uppercase tracking-wide">
+                            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                            En Cocina
+                        </h2>
+                        <span id="cantEnCocina" class="bg-sky-400/10 text-sky-400 text-xs font-bold px-2.5 py-1 rounded-full border border-sky-400/20">0</span>
+                    </div>
+                    <div id="columnaEnCocina" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                        <!-- Dinámico -->
+                    </div>
+                </div>
+
+                <!-- Columna 3: Finalizado -->
+                <div class="bg-slate-800 rounded-xl p-4 border border-emerald-600/20 flex flex-col h-[calc(100vh-180px)] min-h-[500px] shadow-md">
+                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
+                        <h2 class="font-bold text-emerald-400 flex items-center gap-2 text-sm uppercase tracking-wide">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                            Finalizado
+                        </h2>
+                        <span id="cantFinalizado" class="bg-emerald-400/10 text-emerald-400 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-400/20">0</span>
+                    </div>
+                    <div id="columnaFinalizado" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                        <!-- Dinámico -->
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Detallado (Recibo Digital) -->
+    <div id="modalDetalle" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl relative">
+            <div class="flex justify-between items-start border-b border-slate-700 pb-3 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-file-invoice-dollar text-emerald-400"></i>
+                        Detalle del Pedido
+                    </h3>
+                    <p class="text-xs text-slate-400" id="modalID">ID: ---</p>
+                </div>
+                <button onclick="cerrarModal()" class="text-slate-400 hover:text-white transition duration-150">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-sm text-slate-300" id="modalCuerpo">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="cerrarModal()" class="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg transition">
+                    Cerrar Recibo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Motor JavaScript con Login y Auditoría de Procesos -->
+    <script>
+        // Configuración de Webhooks en n8n (Flujo Activo / Producción)
         const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
         const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
 
@@ -382,3 +554,6 @@
             actualizarTasaBCV();
             verificarSesion();
         });
+    </script>
+</body>
+</html>
