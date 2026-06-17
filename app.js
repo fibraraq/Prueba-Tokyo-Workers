@@ -383,7 +383,30 @@ function pedirComprobantePago(metodoPago) {
     });
 }
 
-// --- CAMBIO DE ESTADOS Y CONTROL DE FLUJO ---
+let resolveTiempoEstimado = null;
+
+function pedirTiempoEstimado() {
+    return new Promise((resolve) => {
+        resolveTiempoEstimado = resolve;
+        document.getElementById('inputTiempoPersonalizado').value = '';
+        document.getElementById('modalTiempoEstimado').classList.remove('hidden');
+    });
+}
+
+function seleccionarTiempo(minutos) {
+    if (!minutos || minutos.trim() === '') {
+        alert('Por favor ingresa un tiempo válido.');
+        return;
+    }
+    document.getElementById('modalTiempoEstimado').classList.add('hidden');
+    if (resolveTiempoEstimado) resolveTiempoEstimado(minutos);
+}
+
+function cancelarTiempoEstimado() {
+    document.getElementById('modalTiempoEstimado').classList.add('hidden');
+    if (resolveTiempoEstimado) resolveTiempoEstimado(null);
+}
+
 async function procesarPasoCocina(idPedido) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
@@ -396,7 +419,11 @@ async function procesarPasoCocina(idPedido) {
     const datosPago = await pedirComprobantePago(metodoPago);
     if (!datosPago) return; 
 
-    ejecutarActualizacion(idPedido, 'En Cocina', telefono, cliente, tipoEntrega, datosPago);
+    // NUEVO: Pedimos el tiempo estimado antes de avanzar
+    const tiempoEstimado = await pedirTiempoEstimado();
+    if (!tiempoEstimado) return; // Si cancela, se detiene el flujo
+
+    ejecutarActualizacion(idPedido, 'En Cocina', telefono, cliente, tipoEntrega, datosPago, tiempoEstimado);
 }
 
 function procesarPasoFinalizado(idPedido) {
@@ -406,31 +433,30 @@ function procesarPasoFinalizado(idPedido) {
     const cliente = pedido.cliente || pedido['Cliente'] || '';
     const tipoEntrega = pedido.tipo_entrega || pedido['Tipo de entrega'] || pedido.Tipo_entrega || '';
 
-    ejecutarActualizacion(idPedido, 'Finalizado', telefono, cliente, tipoEntrega, null);
+    ejecutarActualizacion(idPedido, 'Finalizado', telefono, cliente, tipoEntrega, null, "");
 }
 
-function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago) {
+function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago, tiempoEstimado = "") {
     const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
     const index = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(id));
     
     if (index === -1) return;
     const pedidoViejo = pedidosEnMemoria[index];
 
-    // Rescatamos lo que había
     const refGuardada = pedidoViejo.referencia_pago || pedidoViejo['Referencia_pago'] || pedidoViejo.Referencia_pago || "";
     const imgGuardada = pedidoViejo.imagen_pago || pedidoViejo['Imagen_pago'] || pedidoViejo['Imagen Pago'] || "";
 
     const nuevaRef = datosPago ? datosPago.referencia : refGuardada;
     const nuevaImg = datosPago ? datosPago.imagen : imgGuardada;
 
-    // ⚡ ACTUALIZACIÓN OPTIMISTA (La tarjeta se mueve al instante)
+    // ACTUALIZACIÓN OPTIMISTA
     pedidosEnMemoria[index].estado = estado;
     pedidosEnMemoria[index].procesado_por = operadorFirma;
     pedidosEnMemoria[index].referencia_pago = nuevaRef;
     pedidosEnMemoria[index].imagen_pago = nuevaImg;
     renderizarTablero(); 
 
-    // Preparamos payload para enviar en segundo plano
+    // Payload con el tiempo estimado incluido para n8n
     const payload = {
         id: id, 
         estado: estado, 
@@ -441,7 +467,8 @@ function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datos
         referencia_pago: nuevaRef, 
         imagen_pago: nuevaImg,
         pedido_detallado: pedidoViejo.pedido_detallado || pedidoViejo['Pedido Detallado'] || "",
-        total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0
+        total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0,
+        tiempo_estimado: tiempoEstimado
     };
 
     fetch(API_ACTUALIZAR_ESTADO, {
