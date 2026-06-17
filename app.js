@@ -188,7 +188,7 @@ function abrirModalEditarPedido(idReal, idVisual) {
         if (match) {
             const cant = parseInt(match[1]);
             const nombreStr = match[2].trim();
-            const itemCat = CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreStr.toLowerCase());
+            const itemCat = typeof CATALOGO_PRODUCTOS !== 'undefined' ? CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreStr.toLowerCase()) : null;
             const precio = itemCat ? itemCat.price : 0; 
             carritoEdicion.push({ id: itemCat ? itemCat.id : 'custom', name: nombreStr, price: precio, qty: cant });
         }
@@ -260,7 +260,7 @@ function buscarProducto(texto) {
     }
 
     const textoMinus = texto.toLowerCase();
-    const resultados = CATALOGO_PRODUCTOS.filter(p => p.name.toLowerCase().includes(textoMinus));
+    const resultados = typeof CATALOGO_PRODUCTOS !== 'undefined' ? CATALOGO_PRODUCTOS.filter(p => p.name.toLowerCase().includes(textoMinus)) : [];
 
     if (resultados.length > 0) {
         sugerenciasDiv.innerHTML = resultados.map(p => `
@@ -302,6 +302,10 @@ async function guardarEdicionPedido() {
     const pedidoAnterior = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
     if(!pedidoAnterior) return;
 
+    // RESCATE DE IMAGEN: Guardamos la imagen y referencia vieja para no sobreescribirla
+    const refGuardada = pedidoAnterior.referencia_pago || pedidoAnterior['Referencia_pago'] || pedidoAnterior.Referencia_pago || "";
+    const imgGuardada = pedidoAnterior.imagen_pago || pedidoAnterior['Imagen_pago'] || pedidoAnterior['Imagen Pago'] || "";
+
     const nuevoDetalle = carritoEdicion.map(item => `${item.qty}x ${item.name}`).join('\n');
 
     btn.disabled = true;
@@ -316,7 +320,9 @@ async function guardarEdicionPedido() {
             total_orden: totalEdicionUSD,   
             telefono: pedidoAnterior.telefono || '',
             tipo_entrega: pedidoAnterior.tipo_entrega || '',
-            procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado"
+            procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado",
+            referencia_pago: refGuardada, // Enviamos lo viejo para no borrarlo en Postgres
+            imagen_pago: imgGuardada      // Enviamos lo viejo para no borrarlo en Postgres
         };
 
         const response = await fetch(API_ACTUALIZAR_ESTADO, {
@@ -334,7 +340,7 @@ async function guardarEdicionPedido() {
     }
 }
 
-// --- COMPROBACIÓN DE COMPROBANTE DE PAGO MODIFICADO (FOTO OPCIONAL CORREGIDA) ---
+// --- COMPROBACIÓN DE COMPROBANTE DE PAGO ---
 document.getElementById('inputImagenPago').addEventListener('change', function(event) {
     const file = event.target.files[0];
     const preview = document.getElementById('previewComprobante');
@@ -377,7 +383,6 @@ function pedirComprobantePago(metodoPago) {
             }
             modal.classList.add('hidden');
             
-            // CORRECCIÓN VITAL: Si no se subió ningún archivo, enviamos un string vacío garantizado
             const base64Final = (inputImg.files.length > 0) ? preview.src : "";
             resolve({ referencia: inputRef.value, imagen: base64Final }); 
         };
@@ -418,14 +423,23 @@ async function procesarPasoFinalizado(idPedido) {
 async function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago) {
     try {
         const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
-        const pedidoViejo = pedidosEnMemoria.find(p => String(p.id_pedido) === String(id)) || {};
+        const pedidoViejo = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(id)) || {};
+
+        // RESCATE DE IMAGEN: Si datosPago viene vacío (porque pasamos a finalizado), mantenemos lo viejo.
+        const refGuardada = pedidoViejo.referencia_pago || pedidoViejo['Referencia_pago'] || pedidoViejo.Referencia_pago || "";
+        const imgGuardada = pedidoViejo.imagen_pago || pedidoViejo['Imagen_pago'] || pedidoViejo['Imagen Pago'] || "";
 
         const payload = {
-            id: id, estado: estado, telefono: telefono, cliente: cliente, tipo_entrega: tipoEntrega, procesado_por: operadorFirma,
-            referencia_pago: datosPago ? datosPago.referencia : "", 
-            imagen_pago: datosPago ? datosPago.imagen : "",
-            pedido_detallado: pedidoViejo.pedido_detallado || "",
-            total_orden: parseFloat(pedidoViejo.total_orden) || 0
+            id: id, 
+            estado: estado, 
+            telefono: telefono, 
+            cliente: cliente, 
+            tipo_entrega: tipoEntrega, 
+            procesado_por: operadorFirma,
+            referencia_pago: datosPago ? datosPago.referencia : refGuardada, 
+            imagen_pago: datosPago ? datosPago.imagen : imgGuardada,
+            pedido_detallado: pedidoViejo.pedido_detallado || pedidoViejo['Pedido Detallado'] || "",
+            total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0
         };
 
         const response = await fetch(API_ACTUALIZAR_ESTADO, {
@@ -680,7 +694,6 @@ function abrirModalDetalle(idPedido) {
         `;
     }
 
-    // RECONSTRUCCIÓN DEL MODAL ASEGURANDO QUE TODAS LAS VARIABLES SE IMPRIMAN
     document.getElementById('modalCuerpo').innerHTML = `
         <div class="space-y-3.5">
             <div class="flex justify-between">
