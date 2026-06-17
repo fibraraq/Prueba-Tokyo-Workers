@@ -68,10 +68,6 @@
                         <input type="number" id="tasaBCV" value="45.00" step="0.01" class="w-20 bg-slate-800 text-white text-sm font-semibold text-center border border-slate-600 rounded px-1 focus:outline-none focus:border-indigo-500">
                     </div>
                     
-                    <div class="flex items-center bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-500/30">
-                        <span class="text-xs text-emerald-400 font-bold" id="totalDia">Ventas: $0.00</span>
-                    </div>
-                    
                     <div class="flex items-center bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
                         <input type="date" id="calendarioFiltro" class="bg-slate-800 text-slate-300 text-sm font-semibold border-none focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert">
                     </div>
@@ -129,7 +125,13 @@
                         <span id="cantFinalizado" class="bg-emerald-400/10 text-emerald-400 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-400/20">0</span>
                     </div>
                     <div id="columnaFinalizado" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
-                </div>
+                    <div class="p-3 border-t border-slate-700/80 bg-slate-800/80 rounded-b-xl flex justify-between items-center mt-2 shadow-inner">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Ventas</span>
+                        <div id="totalDiaBottom" class="text-right">
+                            <span class="text-lg font-bold text-emerald-400">$0.00</span>
+                        </div>
+                    </div>
+                    </div>
             </div>
         </main>
     </div>
