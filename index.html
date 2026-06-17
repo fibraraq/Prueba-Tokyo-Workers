@@ -4,14 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tokio Sushi - Control de Operaciones</title>
-    <!-- Tailwind CSS v4 mediante CDN -->
     <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-    <!-- FontAwesome para iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
 
-    <!-- PANTALLA DE INICIO DE SESIÓN -->
     <div id="vistaLogin" class="fixed inset-0 bg-slate-950 flex items-center justify-center p-4 z-50">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-8 shadow-2xl space-y-6">
             <div class="text-center space-y-2">
@@ -42,9 +39,7 @@
         </div>
     </div>
 
-    <!-- VISTA PRINCIPAL DEL DASHBOARD -->
     <div id="vistaDashboard" class="hidden flex-col min-h-screen">
-        <!-- Encabezado del Sistema -->
         <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 shadow-lg">
             <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
                 <div class="flex items-center gap-3">
@@ -71,7 +66,6 @@
                         <span class="text-xs text-slate-300"><span id="contadorSegundos" class="font-mono">15</span>s</span>
                     </div>
 
-                    <!-- BOTÓN RESTAURADO: NUEVO PEDIDO MANUAL -->
                     <button onclick="abrirModalNuevoPedido()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2 cursor-pointer">
                         <i class="fa-solid fa-plus"></i> Nuevo Pedido
                     </button>
@@ -87,10 +81,8 @@
             </div>
         </header>
 
-        <!-- Tablero de Estados -->
         <main class="flex-1 max-w-7xl w-full mx-auto p-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
-                
                 <div class="bg-slate-800 rounded-xl p-4 border border-yellow-600/20 flex flex-col h-[calc(100vh-180px)] min-h-[500px] shadow-md">
                     <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
                         <h2 class="font-bold text-yellow-400 flex items-center gap-2 text-sm uppercase tracking-wide">
@@ -120,17 +112,15 @@
                     </div>
                     <div id="columnaFinalizado" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
                 </div>
-
             </div>
         </main>
     </div>
 
-    <!-- MODAL RESTAURADO: NUEVO PEDIDO MANUAL -->
     <div id="modalNuevoPedido" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
         <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
             <div class="p-4 border-b border-slate-700 flex justify-between items-center">
                 <h2 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
-                    <i class="fa-solid fa-pen-to-square"></i> Registrar Nuevo Pedido
+                    <i class="fa-solid fa-plus"></i> Registrar Nuevo Pedido
                 </h2>
                 <button onclick="cerrarModalNuevoPedido()" class="text-slate-400 hover:text-white transition cursor-pointer">
                     <i class="fa-solid fa-xmark text-lg"></i>
@@ -198,7 +188,44 @@
         </div>
     </div>
 
-    <!-- Modal Comprobante de Pago -->
+    <div id="modalEditarPedido" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl flex flex-col">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-pen"></i> Editar Pedido <span id="txtEditIdVisual" class="text-white"></span>
+                </h2>
+                <button onclick="cerrarModalEditar()" class="text-slate-400 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="editIdReal">
+                
+                <div>
+                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Cliente</label>
+                    <input type="text" id="editCliente" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm focus:border-amber-500 focus:outline-none">
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Detalle de Artículos</label>
+                    <textarea id="editDetalle" rows="5" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm font-mono focus:border-amber-500 focus:outline-none"></textarea>
+                    <p class="text-[10px] text-slate-500 mt-1">Edita este bloque de texto para agregar o quitar platos.</p>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Total de la Orden ($)</label>
+                    <input type="number" id="editTotal" step="0.01" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-emerald-400 text-xl font-bold focus:border-amber-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-700 flex justify-end gap-3 bg-slate-800/50 rounded-b-xl">
+                <button type="button" onclick="cerrarModalEditar()" class="px-4 py-2 text-slate-400 hover:text-white transition font-medium cursor-pointer text-sm">Cancelar</button>
+                <button type="button" onclick="guardarEdicionPedido()" id="btnGuardarEdicion" class="bg-amber-500 px-5 py-2 rounded-lg font-bold text-slate-900 hover:bg-amber-400 transition shadow-lg cursor-pointer text-sm flex items-center gap-2">
+                    Guardar Cambios <i class="fa-solid fa-floppy-disk"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalComprobante" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
         <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-sm shadow-2xl">
             <div class="p-4 border-b border-slate-700">
@@ -227,7 +254,6 @@
         </div>
     </div>
 
-    <!-- Modal Detallado (Recibo Digital) -->
     <div id="modalDetalle" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl relative">
             <div class="flex justify-between items-start border-b border-slate-700 pb-3 mb-4">
@@ -248,9 +274,7 @@
         </div>
     </div>
 
-    <!-- Motor JavaScript -->
     <script>
-        // Configuración de Webhooks en n8n
         const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
         const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
         const URL_NUEVO_PEDIDO = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo";
@@ -377,10 +401,7 @@
             const btn = document.getElementById('btnEnviarNuevoPedido');
             const cliente = document.getElementById('inputCliente').value.trim();
             
-            if(!cliente) {
-                alert("Por favor ingresa el nombre del cliente.");
-                return;
-            }
+            if(!cliente) { alert("Por favor ingresa el nombre del cliente."); return; }
 
             const articulos = Array.from(document.querySelectorAll('.articulo-fila')).map(f => ({
                 qty: parseInt(f.querySelector('.item-qty').value) || 1,
@@ -403,9 +424,7 @@
 
             try {
                 const res = await fetch(URL_NUEVO_PEDIDO, { 
-                    method: 'POST', 
-                    body: JSON.stringify(payload), 
-                    headers: {'Content-Type': 'application/json'} 
+                    method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} 
                 });
                 
                 if(res.ok) { 
@@ -419,14 +438,74 @@
                         </div>`;
                     cerrarModalNuevoPedido();
                     cargarPedidos(); 
-                } else {
-                    alert("Error al guardar el pedido en el servidor.");
-                }
-            } catch(e) { 
-                alert("Error de conexión al intentar enviar el pedido."); 
-            } finally {
+                } else { alert("Error al guardar el pedido en el servidor."); }
+            } catch(e) { alert("Error de conexión al intentar enviar el pedido."); } 
+            finally {
                 btn.disabled = false;
                 btn.innerHTML = 'Procesar Pedido <i class="fa-solid fa-paper-plane"></i>';
+            }
+        }
+
+        // --- LÓGICA DE EDITAR PEDIDO (NUEVO) ---
+        function abrirModalEditarPedido(idReal, idVisual) {
+            const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
+            if (!pedido) return;
+            
+            document.getElementById('editIdReal').value = idReal;
+            document.getElementById('txtEditIdVisual').innerText = `#${idVisual}`;
+            document.getElementById('editCliente').value = pedido.cliente || pedido['Cliente'] || '';
+            document.getElementById('editDetalle').value = pedido.pedido_detallado || pedido['Pedido Detallado'] || '';
+            
+            const montoRaw = pedido.total_orden || pedido['Total Orden'] || pedido.Total_Orden || pedido.monto || 0;
+            const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
+            document.getElementById('editTotal').value = parseFloat(montoNumerico || 0).toFixed(2);
+            
+            document.getElementById('modalEditarPedido').classList.remove('hidden');
+        }
+
+        function cerrarModalEditar() {
+            document.getElementById('modalEditarPedido').classList.add('hidden');
+        }
+
+        async function guardarEdicionPedido() {
+            const idReal = document.getElementById('editIdReal').value;
+            const nuevoCliente = document.getElementById('editCliente').value.trim();
+            const nuevoDetalle = document.getElementById('editDetalle').value.trim();
+            const nuevoTotal = parseFloat(document.getElementById('editTotal').value) || 0;
+            const btn = document.getElementById('btnGuardarEdicion');
+            
+            const pedidoAnterior = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
+            if(!pedidoAnterior) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+            try {
+                const payload = {
+                    id: idReal,
+                    estado: pedidoAnterior.estado || 'Pago Pendiente',
+                    cliente: nuevoCliente,
+                    pedido_detallado: nuevoDetalle, // SE DEBE ACTUALIZAR EN N8N
+                    total_orden: nuevoTotal,       // SE DEBE ACTUALIZAR EN N8N
+                    telefono: pedidoAnterior.telefono || '',
+                    tipo_entrega: pedidoAnterior.tipo_entrega || '',
+                    procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado"
+                };
+
+                const response = await fetch(API_ACTUALIZAR_ESTADO, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) throw new Error('Error al actualizar');
+                cerrarModalEditar();
+                cargarPedidos();
+            } catch (error) {
+                alert("Error al conectar con el servidor para editar el pedido.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Guardar Cambios <i class="fa-solid fa-floppy-disk"></i>';
             }
         }
 
@@ -441,10 +520,7 @@
                     preview.classList.remove('hidden');
                 }
                 reader.readAsDataURL(file);
-            } else {
-                preview.src = "";
-                preview.classList.add('hidden');
-            }
+            } else { preview.src = ""; preview.classList.add('hidden'); }
         });
 
         function pedirComprobantePago(metodoPago) {
@@ -456,39 +532,23 @@
                 const preview = document.getElementById('previewComprobante');
                 const txtMetodo = document.getElementById('txtMetodoPagoModal');
 
-                inputRef.value = '';
-                inputImg.value = '';
-                preview.src = '';
-                preview.classList.add('hidden');
-                
+                inputRef.value = ''; inputImg.value = ''; preview.src = ''; preview.classList.add('hidden');
                 const metodoLimpio = metodoPago || "Desconocido";
                 txtMetodo.innerText = `Método de pago del cliente: ${metodoLimpio}`;
 
-                if (metodoLimpio.toLowerCase().includes('efectivo')) {
-                    contenedorRef.classList.add('hidden');
-                } else {
-                    contenedorRef.classList.remove('hidden');
-                }
+                if (metodoLimpio.toLowerCase().includes('efectivo')) { contenedorRef.classList.add('hidden'); } 
+                else { contenedorRef.classList.remove('hidden'); }
 
                 modal.classList.remove('hidden');
 
                 document.getElementById('btnAceptarComprobante').onclick = () => {
-                    if (inputImg.files.length === 0) {
-                        alert("Para continuar, sube una imagen del comprobante o billete.");
-                        return;
-                    }
-                    if (!contenedorRef.classList.contains('hidden') && inputRef.value.trim() === '') {
-                        alert("Por favor, ingresa el número de referencia.");
-                        return;
-                    }
+                    if (inputImg.files.length === 0) { alert("Sube una imagen del comprobante o billete."); return; }
+                    if (!contenedorRef.classList.contains('hidden') && inputRef.value.trim() === '') { alert("Ingresa el número de referencia."); return; }
                     modal.classList.add('hidden');
                     resolve({ referencia: inputRef.value, imagen: preview.src }); 
                 };
 
-                document.getElementById('btnCancelarComprobante').onclick = () => {
-                    modal.classList.add('hidden');
-                    resolve(null); 
-                };
+                document.getElementById('btnCancelarComprobante').onclick = () => { modal.classList.add('hidden'); resolve(null); };
             });
         }
 
@@ -511,7 +571,6 @@
         async function procesarPasoFinalizado(idPedido) {
             const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
             if (!pedido) return;
-            
             const telefono = pedido.telefono || pedido['Teléfono'] || '';
             const cliente = pedido.cliente || pedido['Cliente'] || '';
             const tipoEntrega = pedido.tipo_entrega || pedido['Tipo de entrega'] || pedido.Tipo_entrega || '';
@@ -523,27 +582,17 @@
             try {
                 const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
                 const payload = {
-                    id: id, 
-                    estado: estado,
-                    telefono: telefono,
-                    cliente: cliente,
-                    tipo_entrega: tipoEntrega,
-                    procesado_por: operadorFirma,
-                    referencia_pago: datosPago ? datosPago.referencia : "",
-                    imagen_pago: datosPago ? datosPago.imagen : ""
+                    id: id, estado: estado, telefono: telefono, cliente: cliente, tipo_entrega: tipoEntrega, procesado_por: operadorFirma,
+                    referencia_pago: datosPago ? datosPago.referencia : "", imagen_pago: datosPago ? datosPago.imagen : ""
                 };
 
                 const response = await fetch(API_ACTUALIZAR_ESTADO, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
                 
                 if (!response.ok) throw new Error('Error al actualizar');
                 cargarPedidos();
-            } catch (error) {
-                alert("Error al conectar con el servidor de n8n.");
-            }
+            } catch (error) { alert("Error al conectar con el servidor de n8n."); }
         }
 
         // --- MANEJO DE FECHAS ---
@@ -569,8 +618,7 @@
         }
 
         function normalizarEstado(estadoRaw) {
-            if (!estadoRaw) return '';
-            return estadoRaw.replace(/[\s\uFEFF\xA0]+/g, '').toLowerCase();
+            return (!estadoRaw) ? '' : estadoRaw.replace(/[\s\uFEFF\xA0]+/g, '').toLowerCase();
         }
 
         // --- POLLING ---
@@ -597,9 +645,7 @@
                 pedidosEnMemoria = Array.isArray(datos) ? datos : [];
                 renderizarTablero();
                 resetearYArrancarPolling();
-            } catch (error) {
-                console.error("Error al cargar pedidos:", error);
-            }
+            } catch (error) { console.error("Error al cargar pedidos:", error); }
         }
 
         // --- RENDERIZAR TABLERO ---
@@ -608,21 +654,34 @@
             const colEnCocina = document.getElementById('columnaEnCocina');
             const colFinalizado = document.getElementById('columnaFinalizado');
 
-            colPagoPendiente.innerHTML = '';
-            colEnCocina.innerHTML = '';
-            colFinalizado.innerHTML = '';
+            colPagoPendiente.innerHTML = ''; colEnCocina.innerHTML = ''; colFinalizado.innerHTML = '';
 
             let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
             const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
+
+            // 1. LÓGICA DE ID SECUENCIAL DIARIO
+            const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeHoy(JSON.stringify(p)));
+            // Ordenamos cronológicamente extrayendo el número del ID
+            pedidosHoy.sort((a, b) => {
+                let valA = parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) || 0;
+                let valB = parseInt(String(b.id_pedido || b.ID || 0).replace(/\D/g,'')) || 0;
+                return valA - valB;
+            });
+
+            // Creamos un diccionario donde cada ID real tiene su número de turno del día
+            const mapaIdsDiarios = {};
+            pedidosHoy.forEach((p, index) => {
+                const id = p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID';
+                mapaIdsDiarios[id] = index + 1; // Empieza en 1
+            });
 
             pedidosEnMemoria.forEach(pedido => {
                 const filaTexto = JSON.stringify(pedido);
                 if (!esPedidoDeHoy(filaTexto)) return;
 
-                // Mapeo priorizando las columnas de PostgreSQL
                 const idReal = pedido.id_pedido || pedido['ID_Pedido'] || pedido.ID || 'S/ID';
-                const idParts = String(idReal).split('-');
-                const idVisual = idParts.length > 1 ? idParts[idParts.length - 1] : idReal;
+                // Asignamos el visual diario mágico
+                const idVisual = mapaIdsDiarios[idReal] || idReal;
 
                 const cliente = pedido.cliente || pedido['Cliente'] || 'Desconocido';
                 const metodoPago = String(pedido.metodo_pago || pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
@@ -675,6 +734,9 @@
                                     <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer" title="Ver detalle completo">
                                         <i class="fa-solid fa-file-lines"></i>
                                     </button>
+                                    <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-amber-400 transition cursor-pointer" title="Editar Pedido">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
                                 </div>
                                 <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                             </div>
@@ -699,6 +761,9 @@
                                     <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
                                     <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer" title="Ver detalle completo">
                                         <i class="fa-solid fa-file-lines"></i>
+                                    </button>
+                                    <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-sky-400 transition cursor-pointer" title="Editar Pedido">
+                                        <i class="fa-solid fa-pen"></i>
                                     </button>
                                 </div>
                                 <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
@@ -741,7 +806,7 @@
 
             const idReal = pedido.id_pedido || pedido['ID_Pedido'] || 'S/ID';
             const idParts = String(idReal).split('-');
-            const idVisual = idParts.length > 1 ? idParts[idParts.length - 1] : idReal;
+            const idVisualReal = idParts.length > 1 ? idParts[idParts.length - 1] : idReal;
 
             const cliente = pedido.cliente || pedido['Cliente'] || 'Cliente Registrado';
             const telefono = pedido.telefono || pedido['Teléfono'] || 'No registrado';
@@ -756,7 +821,7 @@
             
             const procesadoPor = pedido.procesado_por || pedido['Procesado Por'] || 'Sin registro de operador';
             
-            document.getElementById('modalID').innerText = `ID Pedido: #${idVisual}`;
+            document.getElementById('modalID').innerText = `ID Base de datos: #${idVisualReal}`;
 
             let seccionCambioVES = '';
             if (metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil') || metodoPago.toLowerCase().includes('móvil')) {
