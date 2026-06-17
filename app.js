@@ -609,33 +609,63 @@ function renderizarTablero() {
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
 }
 
-// --- RECIBO DETALLADO ---
-function abrirModalDetailFila(idPedido) {
-    const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p.ID || 'S/ID') === String(idPedido));
+// --- MODAL DETALLADO ---
+function abrirModalDetalle(idPedido) {
+    const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
 
-    const idReal = pedido.id_pedido || 'S/ID';
+    const idReal = pedido.id_pedido || pedido['ID_Pedido'] || 'S/ID';
     const idParts = String(idReal).split('-');
     const idVisualReal = idParts.length > 1 ? idParts[idParts.length - 1] : idReal;
 
-    const cliente = pedido.cliente || 'Desconocido';
-    const telefono = pedido.telefono || 'No registrado';
-    const tipoEntrega = pedido.tipo_entrega || 'No definido';
-    const direccion = pedido.direccion || 'No especificada';
-    const metodoPago = pedido.metodo_pago || 'No especificado';
-    const articlesStr = pedido.pedido_detallado || '';
-    const totalUSD = parseFloat(pedido.total_orden || 0);
-    const operador = pedido.procesado_por || 'Sin operador';
+    const cliente = pedido.cliente || pedido['Cliente'] || 'Cliente Registrado';
+    const telefono = pedido.telefono || pedido['Teléfono'] || 'No registrado';
+    const tipoEntrega = pedido.tipo_entrega || pedido['Tipo de entrega'] || 'No definido';
+    const direccion = pedido.direccion || pedido['Dirección'] || 'No especificada';
+    const metodoPago = pedido.metodo_pago || pedido['Método de pago'] || 'No especificado';
+    const articulos = pedido.pedido_detallado || pedido['Pedido Detallado'] || '';
+    
+    // EXTRAEMOS LA URL DE LA IMAGEN DE LA BASE DE DATOS
+    const imagenPago = pedido.imagen_pago || pedido.Imagen_pago || pedido['Imagen Pago'] || '';
+    
+    const montoRaw = pedido.total_orden || pedido['Total Orden'] || 0;
+    const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
+    const montoUSD = parseFloat(montoNumerico || 0);
+    
+    const procesadoPor = pedido.procesado_por || pedido['Procesado Por'] || 'Sin registro de operador';
     
     document.getElementById('modalID').innerText = `ID Base de datos: #${idVisualReal}`;
 
     let seccionCambioVES = '';
     if (metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil') || metodoPago.toLowerCase().includes('móvil')) {
         const tasaBCV = parseFloat(document.getElementById('tasaBCV').value) || 1.0;
+        const montoVES = (montoUSD * tasaBCV).toFixed(2);
         seccionCambioVES = `
             <div class="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg mt-2 text-amber-300 text-xs text-center font-bold">
-                Total en Bolívares: Bs. ${(totalUSD * tasaBCV).toFixed(2)} (Tasa: ${tasaBCV.toFixed(2)} Bs/$)
-            </div>`;
+                Total en Bolívares: Bs. ${montoVES} (Tasa: ${tasaBCV.toFixed(2)} Bs/$)
+            </div>
+        `;
+    }
+
+    // LÓGICA DEL BOTÓN DE COMPROBANTE: Solo se crea si hay un link válido
+    let botonComprobanteHtml = '';
+    if (imagenPago && imagenPago.startsWith('http')) {
+        botonComprobanteHtml = `
+            <div class="border-t border-slate-700/50 pt-3 flex justify-center">
+                <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md">
+                    <i class="fa-solid fa-image"></i> Ver Comprobante Adjunto
+                </a>
+            </div>
+        `;
+    } else if (imagenPago && imagenPago !== 'Sin comprobante') {
+         // Por si se guardó en Base64 crudo en pruebas anteriores
+         botonComprobanteHtml = `
+            <div class="border-t border-slate-700/50 pt-3 flex justify-center">
+                <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md">
+                    <i class="fa-solid fa-image"></i> Ver Comprobante
+                </a>
+            </div>
+        `;
     }
 
     document.getElementById('modalCuerpo').innerHTML = `
@@ -648,7 +678,7 @@ function abrirModalDetailFila(idPedido) {
                 </div>
                 <div class="text-right">
                     <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider text-right block">Despachado por</span>
-                    <p class="text-xs text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded mt-1 font-semibold">${operador}</p>
+                    <p class="text-xs text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded mt-1 font-semibold">${procesadoPor}</p>
                 </div>
             </div>
             <div class="border-t border-slate-700/50 pt-2.5">
@@ -658,7 +688,7 @@ function abrirModalDetailFila(idPedido) {
             </div>
             <div class="border-t border-slate-700/50 pt-2.5">
                 <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Productos</span>
-                <div class="text-xs bg-slate-900/40 p-2.5 rounded border border-slate-700/30 whitespace-pre-line max-h-32 overflow-y-auto text-slate-300 font-mono">${articlesStr}</div>
+                <div class="text-xs bg-slate-900/40 p-2.5 rounded border border-slate-700/30 whitespace-pre-line max-h-32 overflow-y-auto text-slate-300 font-mono">${articulos}</div>
             </div>
             <div class="border-t border-slate-700/50 pt-2.5 flex justify-between items-center">
                 <div>
@@ -667,11 +697,13 @@ function abrirModalDetailFila(idPedido) {
                 </div>
                 <div class="text-right">
                     <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Total</span>
-                    <p class="text-emerald-400 font-bold text-lg">$${totalUSD.toFixed(2)}</p>
+                    <p class="text-emerald-400 font-bold text-lg">$${montoUSD.toFixed(2)}</p>
                 </div>
             </div>
             ${seccionCambioVES}
-        </div>`;
+            ${botonComprobanteHtml}
+        </div>
+    `;
     document.getElementById('modalDetalle').classList.remove('hidden');
 }
 
