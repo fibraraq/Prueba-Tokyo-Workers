@@ -334,7 +334,7 @@ async function guardarEdicionPedido() {
     }
 }
 
-// --- COMPROBACIÓN DE COMPROBANTE DE PAGO MODIFICADO (FOTO OPCIONAL) ---
+// --- COMPROBACIÓN DE COMPROBANTE DE PAGO MODIFICADO (FOTO OPCIONAL CORREGIDA) ---
 document.getElementById('inputImagenPago').addEventListener('change', function(event) {
     const file = event.target.files[0];
     const preview = document.getElementById('previewComprobante');
@@ -354,26 +354,38 @@ function pedirComprobantePago(metodoPago) {
         const preview = document.getElementById('previewComprobante');
         const txtMetodo = document.getElementById('txtMetodoPagoModal');
 
-        inputRef.value = ''; inputImg.value = ''; preview.src = ''; preview.classList.add('hidden');
+        inputRef.value = ''; 
+        inputImg.value = ''; 
+        preview.src = ''; 
+        preview.classList.add('hidden');
+        
         const metodoLimpio = metodoPago || "Desconocido";
         txtMetodo.innerText = `Método de pago del cliente: ${metodoLimpio}`;
 
-        if (metodoLimpio.toLowerCase().includes('efectivo')) { contenedorRef.classList.add('hidden'); } 
-        else { contenedorRef.classList.remove('hidden'); }
+        if (metodoLimpio.toLowerCase().includes('efectivo')) { 
+            contenedorRef.classList.add('hidden'); 
+        } else { 
+            contenedorRef.classList.remove('hidden'); 
+        }
 
         modal.classList.remove('hidden');
 
         document.getElementById('btnAceptarComprobante').onclick = () => {
-            // OPTIMIZACIÓN REALIZADA: Eliminada la obligación de subir foto para agilizar flujos
             if (!contenedorRef.classList.contains('hidden') && inputRef.value.trim() === '') { 
                 alert("Por favor, ingresa el número de referencia."); 
                 return; 
             }
             modal.classList.add('hidden');
-            resolve({ referencia: inputRef.value, imagen: preview.src }); 
+            
+            // CORRECCIÓN VITAL: Si no se subió ningún archivo, enviamos un string vacío garantizado
+            const base64Final = (inputImg.files.length > 0) ? preview.src : "";
+            resolve({ referencia: inputRef.value, imagen: base64Final }); 
         };
 
-        document.getElementById('btnCancelarComprobante').onclick = () => { modal.classList.add('hidden'); resolve(null); };
+        document.getElementById('btnCancelarComprobante').onclick = () => { 
+            modal.classList.add('hidden'); 
+            resolve(null); 
+        };
     });
 }
 
@@ -556,7 +568,7 @@ function renderizarTablero() {
                     <div class="flex justify-between items-start">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">#${idVisual}</span>
-                            <button onclick="abrirModalDetailFila('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
+                            <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
                             <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-amber-400 transition cursor-pointer"><i class="fa-solid fa-pen"></i></button>
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
@@ -577,7 +589,7 @@ function renderizarTablero() {
                     <div class="flex justify-between items-start">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
-                            <button onclick="abrirModalDetailFila('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
+                            <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
                             <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-sky-400 transition cursor-pointer"><i class="fa-solid fa-pen"></i></button>
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
@@ -594,7 +606,7 @@ function renderizarTablero() {
         } else if (estadoLimpio === 'finalizado') {
             conteoFinalizado++;
             colFinalizado.innerHTML += `
-                <div onclick="abrirModalDetailFila('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition duration-150 flex justify-between items-center cursor-pointer">
+                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition duration-150 flex justify-between items-center cursor-pointer">
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span>
                         <span class="text-xs text-slate-400">Ver Recibo</span>
@@ -609,7 +621,7 @@ function renderizarTablero() {
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
 }
 
-// --- MODAL DETALLADO ---
+// --- MODAL DETALLADO CORREGIDO ---
 function abrirModalDetalle(idPedido) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
@@ -647,27 +659,28 @@ function abrirModalDetalle(idPedido) {
         `;
     }
 
-    // LÓGICA DEL BOTÓN DE COMPROBANTE: Solo se crea si hay un link válido
+    // LÓGICA DEL BOTÓN DE COMPROBANTE
     let botonComprobanteHtml = '';
     if (imagenPago && imagenPago.startsWith('http')) {
         botonComprobanteHtml = `
             <div class="border-t border-slate-700/50 pt-3 flex justify-center">
-                <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md">
+                <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md w-full justify-center">
                     <i class="fa-solid fa-image"></i> Ver Comprobante Adjunto
                 </a>
             </div>
         `;
-    } else if (imagenPago && imagenPago !== 'Sin comprobante') {
-         // Por si se guardó en Base64 crudo en pruebas anteriores
+    } else if (imagenPago && imagenPago.length > 50) {
+         // Por si es un Base64 largo guardado directamente
          botonComprobanteHtml = `
             <div class="border-t border-slate-700/50 pt-3 flex justify-center">
-                <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md">
-                    <i class="fa-solid fa-image"></i> Ver Comprobante
+                <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md w-full justify-center">
+                    <i class="fa-solid fa-image"></i> Ver Comprobante (Base64)
                 </a>
             </div>
         `;
     }
 
+    // RECONSTRUCCIÓN DEL MODAL ASEGURANDO QUE TODAS LAS VARIABLES SE IMPRIMAN
     document.getElementById('modalCuerpo').innerHTML = `
         <div class="space-y-3.5">
             <div class="flex justify-between">
@@ -704,6 +717,7 @@ function abrirModalDetalle(idPedido) {
             ${botonComprobanteHtml}
         </div>
     `;
+    
     document.getElementById('modalDetalle').classList.remove('hidden');
 }
 
