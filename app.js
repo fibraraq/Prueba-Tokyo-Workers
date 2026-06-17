@@ -704,7 +704,7 @@ function abrirModalDetalle(idPedido) {
 
     // LÓGICA DEL BOTÓN DE COMPROBANTE (Ahora usa la función hacker)
     let botonComprobanteHtml = '';
-    if (imagenPago && imagenPago.length > 50 && imagenPago !== 'Sin comprobante') {
+    if (imagenPago && imagenPago !== 'Sin comprobante' && (imagenPago.startsWith('http') || imagenPago.length > 50)) {
         botonComprobanteHtml = `
             <div class="border-t border-slate-700/50 pt-3 flex justify-center">
                 <button onclick="verComprobanteDeMemoria('${idReal}')" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md w-full justify-center">
