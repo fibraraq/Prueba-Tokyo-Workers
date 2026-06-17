@@ -189,7 +189,7 @@
     </div>
 
     <div id="modalEditarPedido" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl flex flex-col">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
             <div class="p-4 border-b border-slate-700 flex justify-between items-center">
                 <h2 class="text-lg font-bold text-amber-400 flex items-center gap-2">
                     <i class="fa-solid fa-pen"></i> Editar Pedido <span id="txtEditIdVisual" class="text-white"></span>
@@ -198,25 +198,37 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <div class="p-5 space-y-4">
+            
+            <div class="p-5 overflow-y-auto flex-1 space-y-4">
                 <input type="hidden" id="editIdReal">
                 
                 <div>
-                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Cliente</label>
+                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Nombre del Cliente</label>
                     <input type="text" id="editCliente" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm focus:border-amber-500 focus:outline-none">
                 </div>
                 
-                <div>
-                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Detalle de Artículos</label>
-                    <textarea id="editDetalle" rows="5" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-white text-sm font-mono focus:border-amber-500 focus:outline-none"></textarea>
-                    <p class="text-[10px] text-slate-500 mt-1">Edita este bloque de texto para agregar o quitar platos.</p>
+                <div class="relative">
+                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Añadir Producto</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500"></i>
+                        <input type="text" id="buscadorMenu" oninput="buscarProducto(this.value)" placeholder="Buscar plato o bebida..." class="w-full bg-slate-900 pl-9 pr-3 py-2.5 rounded-lg border border-slate-700 text-white text-sm focus:border-amber-500 focus:outline-none">
+                    </div>
+                    <div id="listaSugerencias" class="hidden absolute w-full bg-slate-700 border border-slate-600 rounded-lg mt-1 shadow-xl max-h-40 overflow-y-auto z-10">
+                        </div>
                 </div>
 
                 <div>
-                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-1">Total de la Orden ($)</label>
-                    <input type="number" id="editTotal" step="0.01" class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 text-emerald-400 text-xl font-bold focus:border-amber-500 focus:outline-none">
+                    <label class="block text-[10px] uppercase text-slate-400 font-bold mb-2">Artículos en la Orden</label>
+                    <div id="listaEdicionArticulos" class="space-y-2 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 min-h-[100px]">
+                        </div>
+                </div>
+
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 flex justify-between items-center">
+                    <span class="text-xs uppercase text-slate-400 font-bold">Total a Cobrar</span>
+                    <span class="text-2xl font-bold text-emerald-400" id="txtEditTotalVisual">$0.00</span>
                 </div>
             </div>
+
             <div class="p-4 border-t border-slate-700 flex justify-end gap-3 bg-slate-800/50 rounded-b-xl">
                 <button type="button" onclick="cerrarModalEditar()" class="px-4 py-2 text-slate-400 hover:text-white transition font-medium cursor-pointer text-sm">Cancelar</button>
                 <button type="button" onclick="guardarEdicionPedido()" id="btnGuardarEdicion" class="bg-amber-500 px-5 py-2 rounded-lg font-bold text-slate-900 hover:bg-amber-400 transition shadow-lg cursor-pointer text-sm flex items-center gap-2">
@@ -286,10 +298,35 @@
             { username: "cajero_maria", pin: "2345", nombre: "María Delgado", rol: "cajero" }
         ];
 
+        // CATÁLOGO DE PRODUCTOS (Inyectado para el buscador)
+        const CATALOGO_PRODUCTOS = [
+            { id: "c1", name: "Combo Económico Arroz Tres Carnes", price: 6.19 },
+            { id: "c2", name: "Combo Económico Arroz Oriental", price: 6.19 },
+            { id: "c3", name: "Promoción Ebby Roll (20 piezas)", price: 9.19 },
+            { id: "c4", name: "Combo Fusión Familiar", price: 17.69 },
+            { id: "p1", name: "Arroz Especial (Pollo y Camarón)", price: 8.20 },
+            { id: "p2", name: "Arroz 3 Carnes (Pollo, Carne, Cerdo)", price: 8.20 },
+            { id: "p3", name: "Tallarines de Carne y Camarón", price: 8.20 },
+            { id: "p4", name: "Pollo Agridulce con Papas", price: 8.20 },
+            { id: "s1", name: "Nozomi Roll Tempura (12 pzs)", price: 6.69 },
+            { id: "s2", name: "Okinawa Roll Tempura (12 pzs)", price: 6.69 },
+            { id: "s3", name: "Hiroshima Roll Tempura (12 pzs)", price: 6.69 },
+            { id: "e1", name: "Wakame (100g)", price: 4.50 },
+            { id: "e2", name: "Papas Cheddar", price: 4.00 },
+            { id: "e3", name: "Pepsi Grande (1.3 Litros)", price: 2.00 },
+            { id: "e4", name: "Pepsi Mediana (1 Litro)", price: 1.50 },
+            { id: "e5", name: "Salsa de Anguila Extra", price: 0.50 },
+            { id: "e6", name: "Salsa Fuji Extra", price: 0.50 }
+        ];
+
         let usuarioActivo = null;
         let pedidosEnMemoria = [];
         let segundosFaltantes = 15;
         let pollingTimer;
+
+        // Variables para el Editor de Pedidos
+        let carritoEdicion = []; 
+        let totalEdicionUSD = 0;
 
         // --- TASA BCV ---
         async function actualizarTasaBCV() {
@@ -446,7 +483,10 @@
             }
         }
 
-        // --- LÓGICA DE EDITAR PEDIDO (NUEVO) ---
+        // =========================================================================
+        // NUEVA LÓGICA DE EDICIÓN CON BUSCADOR INTERACTIVO
+        // =========================================================================
+        
         function abrirModalEditarPedido(idReal, idVisual) {
             const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
             if (!pedido) return;
@@ -454,13 +494,129 @@
             document.getElementById('editIdReal').value = idReal;
             document.getElementById('txtEditIdVisual').innerText = `#${idVisual}`;
             document.getElementById('editCliente').value = pedido.cliente || pedido['Cliente'] || '';
-            document.getElementById('editDetalle').value = pedido.pedido_detallado || pedido['Pedido Detallado'] || '';
+            document.getElementById('buscadorMenu').value = '';
+            document.getElementById('listaSugerencias').classList.add('hidden');
             
-            const montoRaw = pedido.total_orden || pedido['Total Orden'] || pedido.Total_Orden || pedido.monto || 0;
-            const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
-            document.getElementById('editTotal').value = parseFloat(montoNumerico || 0).toFixed(2);
+            // 1. Extraer e interpretar el texto plano de Postgres para crear el carrito editable
+            carritoEdicion = [];
+            const textoDetallado = pedido.pedido_detallado || pedido['Pedido Detallado'] || '';
+            const lineas = textoDetallado.split('\n');
             
+            lineas.forEach(linea => {
+                // Busca patrones como "2x Arroz Especial" o "1x Coca Cola"
+                const match = linea.trim().match(/^(\d+)[xX]\s+(.+)$/);
+                if (match) {
+                    const cant = parseInt(match[1]);
+                    const nombreStr = match[2].trim();
+                    // Buscar si existe en el catálogo para obtener el precio real
+                    const itemCat = CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreStr.toLowerCase());
+                    const precio = itemCat ? itemCat.price : 0; 
+                    carritoEdicion.push({ id: itemCat ? itemCat.id : 'custom', name: nombreStr, price: precio, qty: cant });
+                }
+            });
+
+            // Si el carrito está vacío pero Postgres decía que costaba $10, lo mantenemos como "Monto Manual"
+            if (carritoEdicion.length === 0 && textoDetallado !== '') {
+                 // Fallback: si escribieron cualquier locura, lo metemos como un solo producto
+                 carritoEdicion.push({ id: 'custom', name: textoDetallado, price: parseFloat(pedido.total_orden) || 0, qty: 1 });
+            }
+
+            renderizarCarritoEdicion();
             document.getElementById('modalEditarPedido').classList.remove('hidden');
+        }
+
+        function renderizarCarritoEdicion() {
+            const contenedor = document.getElementById('listaEdicionArticulos');
+            contenedor.innerHTML = '';
+            totalEdicionUSD = 0;
+
+            if (carritoEdicion.length === 0) {
+                contenedor.innerHTML = '<p class="text-xs text-slate-500 italic text-center py-4">El carrito está vacío. Busca un producto arriba.</p>';
+                document.getElementById('txtEditTotalVisual').innerText = '$0.00';
+                return;
+            }
+
+            carritoEdicion.forEach((item, index) => {
+                const subtotal = item.price * item.qty;
+                totalEdicionUSD += subtotal;
+
+                contenedor.innerHTML += `
+                    <div class="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700">
+                        <div class="flex-1">
+                            <p class="text-sm text-white font-semibold leading-tight">${item.name}</p>
+                            <p class="text-xs text-slate-400">$${item.price.toFixed(2)} c/u</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center bg-slate-900 border border-slate-700 rounded-md overflow-hidden">
+                                <button onclick="modificarCantEdicion(${index}, -1)" class="px-2 py-1 text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer"><i class="fa-solid fa-minus text-[10px]"></i></button>
+                                <span class="text-sm text-white w-6 text-center font-bold">${item.qty}</span>
+                                <button onclick="modificarCantEdicion(${index}, 1)" class="px-2 py-1 text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer"><i class="fa-solid fa-plus text-[10px]"></i></button>
+                            </div>
+                            <span class="text-sm font-bold text-amber-400 w-12 text-right">$${subtotal.toFixed(2)}</span>
+                            <button onclick="eliminarItemEdicion(${index})" class="text-red-500 hover:text-red-400 p-1 cursor-pointer">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('txtEditTotalVisual').innerText = `$${totalEdicionUSD.toFixed(2)}`;
+        }
+
+        function modificarCantEdicion(index, cambio) {
+            carritoEdicion[index].qty += cambio;
+            if (carritoEdicion[index].qty <= 0) {
+                carritoEdicion.splice(index, 1);
+            }
+            renderizarCarritoEdicion();
+        }
+
+        function eliminarItemEdicion(index) {
+            carritoEdicion.splice(index, 1);
+            renderizarCarritoEdicion();
+        }
+
+        // BUSCADOR EN TIEMPO REAL
+        function buscarProducto(texto) {
+            const sugerenciasDiv = document.getElementById('listaSugerencias');
+            if (!texto || texto.length < 2) {
+                sugerenciasDiv.classList.add('hidden');
+                return;
+            }
+
+            const textoMinus = texto.toLowerCase();
+            const resultados = CATALOGO_PRODUCTOS.filter(p => p.name.toLowerCase().includes(textoMinus));
+
+            if (resultados.length > 0) {
+                sugerenciasDiv.innerHTML = resultados.map(p => `
+                    <div onclick="agregarAlCarritoEdicion('${p.id}')" class="p-3 border-b border-slate-600 hover:bg-slate-600 cursor-pointer transition flex justify-between items-center">
+                        <span class="text-sm text-white">${p.name}</span>
+                        <span class="text-xs font-bold text-emerald-400">$${p.price.toFixed(2)}</span>
+                    </div>
+                `).join('');
+                sugerenciasDiv.classList.remove('hidden');
+            } else {
+                sugerenciasDiv.innerHTML = '<div class="p-3 text-sm text-slate-400 italic">No se encontraron productos</div>';
+                sugerenciasDiv.classList.remove('hidden');
+            }
+        }
+
+        function agregarAlCarritoEdicion(idProducto) {
+            const producto = CATALOGO_PRODUCTOS.find(p => p.id === idProducto);
+            if (!producto) return;
+
+            // Revisar si ya existe en la lista para solo sumarle 1
+            const existeIndex = carritoEdicion.findIndex(item => item.name === producto.name);
+            if (existeIndex >= 0) {
+                carritoEdicion[existeIndex].qty += 1;
+            } else {
+                carritoEdicion.push({ id: producto.id, name: producto.name, price: producto.price, qty: 1 });
+            }
+
+            document.getElementById('buscadorMenu').value = '';
+            document.getElementById('listaSugerencias').classList.add('hidden');
+            renderizarCarritoEdicion();
         }
 
         function cerrarModalEditar() {
@@ -470,12 +626,13 @@
         async function guardarEdicionPedido() {
             const idReal = document.getElementById('editIdReal').value;
             const nuevoCliente = document.getElementById('editCliente').value.trim();
-            const nuevoDetalle = document.getElementById('editDetalle').value.trim();
-            const nuevoTotal = parseFloat(document.getElementById('editTotal').value) || 0;
             const btn = document.getElementById('btnGuardarEdicion');
             
             const pedidoAnterior = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
             if(!pedidoAnterior) return;
+
+            // 2. Volver a empaquetar el Carrito a Texto para que Postgres lo entienda
+            const nuevoDetalle = carritoEdicion.map(item => `${item.qty}x ${item.name}`).join('\n');
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
@@ -485,8 +642,8 @@
                     id: idReal,
                     estado: pedidoAnterior.estado || 'Pago Pendiente',
                     cliente: nuevoCliente,
-                    pedido_detallado: nuevoDetalle, // SE DEBE ACTUALIZAR EN N8N
-                    total_orden: nuevoTotal,       // SE DEBE ACTUALIZAR EN N8N
+                    pedido_detallado: nuevoDetalle, // Ahora va perfectamente formateado
+                    total_orden: totalEdicionUSD,   // El cálculo matemático exacto
                     telefono: pedidoAnterior.telefono || '',
                     tipo_entrega: pedidoAnterior.tipo_entrega || '',
                     procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado"
@@ -508,6 +665,7 @@
                 btn.innerHTML = 'Guardar Cambios <i class="fa-solid fa-floppy-disk"></i>';
             }
         }
+        // =========================================================================
 
         // --- LÓGICA DEL MODAL DE COMPROBANTE ---
         document.getElementById('inputImagenPago').addEventListener('change', function(event) {
@@ -581,9 +739,15 @@
         async function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago) {
             try {
                 const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
+                // IMPORTANTE: Este Payload ahora va completo para que el UPDATE actualice texto y total.
+                const pedidoViejo = pedidosEnMemoria.find(p => String(p.id_pedido) === String(id)) || {};
+
                 const payload = {
                     id: id, estado: estado, telefono: telefono, cliente: cliente, tipo_entrega: tipoEntrega, procesado_por: operadorFirma,
-                    referencia_pago: datosPago ? datosPago.referencia : "", imagen_pago: datosPago ? datosPago.imagen : ""
+                    referencia_pago: datosPago ? datosPago.referencia : "", 
+                    imagen_pago: datosPago ? datosPago.imagen : "",
+                    pedido_detallado: pedidoViejo.pedido_detallado || "",
+                    total_orden: parseFloat(pedidoViejo.total_orden) || 0
                 };
 
                 const response = await fetch(API_ACTUALIZAR_ESTADO, {
@@ -659,20 +823,18 @@
             let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
             const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
 
-            // 1. LÓGICA DE ID SECUENCIAL DIARIO
+            // ID SECUENCIAL DIARIO
             const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeHoy(JSON.stringify(p)));
-            // Ordenamos cronológicamente extrayendo el número del ID
             pedidosHoy.sort((a, b) => {
                 let valA = parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) || 0;
                 let valB = parseInt(String(b.id_pedido || b.ID || 0).replace(/\D/g,'')) || 0;
                 return valA - valB;
             });
 
-            // Creamos un diccionario donde cada ID real tiene su número de turno del día
             const mapaIdsDiarios = {};
             pedidosHoy.forEach((p, index) => {
                 const id = p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID';
-                mapaIdsDiarios[id] = index + 1; // Empieza en 1
+                mapaIdsDiarios[id] = index + 1; 
             });
 
             pedidosEnMemoria.forEach(pedido => {
@@ -680,7 +842,6 @@
                 if (!esPedidoDeHoy(filaTexto)) return;
 
                 const idReal = pedido.id_pedido || pedido['ID_Pedido'] || pedido.ID || 'S/ID';
-                // Asignamos el visual diario mágico
                 const idVisual = mapaIdsDiarios[idReal] || idReal;
 
                 const cliente = pedido.cliente || pedido['Cliente'] || 'Desconocido';
