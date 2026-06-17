@@ -715,11 +715,17 @@ function renderizarTablero() {
     document.getElementById('cantEnCocina').innerText = conteoCocina;
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
 
-    // Escribe la suma total en el header de ventas
-    if(document.getElementById('totalDia')) {
-        document.getElementById('totalDia').innerText = `Ventas: $${totalVentasDia.toFixed(2)}`;
+    // Escribe la suma total en el pie de la columna Finalizado
+    if (document.getElementById('totalDiaBottom')) {
+        const totalVentasBs = (totalVentasDia * tasaActual).toFixed(2);
+        document.getElementById('totalDiaBottom').innerHTML = `
+            <div class="flex flex-col text-right leading-tight">
+                <span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span>
+                <span class="text-[10px] font-bold text-amber-400">Bs. ${totalVentasBs}</span>
+            </div>
+        `;
     }
-}
+} 
 
 // --- LÓGICA PARA VER COMPROBANTES SIN BLOQUEO DE NAVEGADOR ---
 function verComprobanteDeMemoria(idReal) {
