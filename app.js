@@ -9,7 +9,6 @@ let pedidosEnMemoria = [];
 let segundosFaltantes = 15;
 let pollingTimer;
 
-// Variables internas del motor POS de edición
 let carritoEdicion = []; 
 let totalEdicionUSD = 0;
 
@@ -294,50 +293,41 @@ function agregarAlCarritoEdicion(idProducto) {
 
 function cerrarModalEditar() { document.getElementById('modalEditarPedido').classList.add('hidden'); }
 
-async function guardarEdicionPedido() {
+function guardarEdicionPedido() {
     const idReal = document.getElementById('editIdReal').value;
     const nuevoCliente = document.getElementById('editCliente').value.trim();
     const btn = document.getElementById('btnGuardarEdicion');
     
-    const pedidoAnterior = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
-    if(!pedidoAnterior) return;
-
-    // RESCATE DE IMAGEN: Guardamos la imagen y referencia vieja para no sobreescribirla
-    const refGuardada = pedidoAnterior.referencia_pago || pedidoAnterior['Referencia_pago'] || pedidoAnterior.Referencia_pago || "";
-    const imgGuardada = pedidoAnterior.imagen_pago || pedidoAnterior['Imagen_pago'] || pedidoAnterior['Imagen Pago'] || "";
-
+    const pedidoIndex = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
+    if(pedidoIndex === -1) return;
+    
+    const pedidoAnterior = pedidosEnMemoria[pedidoIndex];
     const nuevoDetalle = carritoEdicion.map(item => `${item.qty}x ${item.name}`).join('\n');
 
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+    // ⚡ ACTUALIZACIÓN OPTIMISTA (La UI cambia al instante)
+    pedidosEnMemoria[pedidoIndex].cliente = nuevoCliente;
+    pedidosEnMemoria[pedidoIndex].pedido_detallado = nuevoDetalle;
+    pedidosEnMemoria[pedidoIndex].total_orden = totalEdicionUSD;
+    renderizarTablero();
+    cerrarModalEditar();
 
-    try {
-        const payload = {
-            id: idReal,
-            estado: pedidoAnterior.estado || 'Pago Pendiente',
-            cliente: nuevoCliente,
-            pedido_detallado: nuevoDetalle, 
-            total_orden: totalEdicionUSD,   
-            telefono: pedidoAnterior.telefono || '',
-            tipo_entrega: pedidoAnterior.tipo_entrega || '',
-            procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado",
-            referencia_pago: refGuardada, // Enviamos lo viejo para no borrarlo en Postgres
-            imagen_pago: imgGuardada      // Enviamos lo viejo para no borrarlo en Postgres
-        };
+    // Enviamos el dato al servidor silenciosamente
+    const payload = {
+        id: idReal,
+        estado: pedidoAnterior.estado || 'Pago Pendiente',
+        cliente: nuevoCliente,
+        pedido_detallado: nuevoDetalle, 
+        total_orden: totalEdicionUSD,   
+        telefono: pedidoAnterior.telefono || '',
+        tipo_entrega: pedidoAnterior.tipo_entrega || '',
+        procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado",
+        referencia_pago: pedidoAnterior.referencia_pago || pedidoAnterior.Referencia_pago || "", 
+        imagen_pago: pedidoAnterior.imagen_pago || pedidoAnterior.Imagen_pago || ""
+    };
 
-        const response = await fetch(API_ACTUALIZAR_ESTADO, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        
-        if (!response.ok) throw new Error('Error al actualizar');
-        cerrarModalEditar();
-        cargarPedidos();
-    } catch (error) {
-        alert("Error al conectar con el servidor para editar el pedido.");
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Guardar Cambios <i class="fa-solid fa-floppy-disk"></i>';
-    }
+    fetch(API_ACTUALIZAR_ESTADO, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }).catch(error => console.error("Error en background al editar:", error));
 }
 
 // --- COMPROBACIÓN DE COMPROBANTE DE PAGO ---
@@ -382,7 +372,6 @@ function pedirComprobantePago(metodoPago) {
                 return; 
             }
             modal.classList.add('hidden');
-            
             const base64Final = (inputImg.files.length > 0) ? preview.src : "";
             resolve({ referencia: inputRef.value, imagen: base64Final }); 
         };
@@ -410,7 +399,7 @@ async function procesarPasoCocina(idPedido) {
     ejecutarActualizacion(idPedido, 'En Cocina', telefono, cliente, tipoEntrega, datosPago);
 }
 
-async function procesarPasoFinalizado(idPedido) {
+function procesarPasoFinalizado(idPedido) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
     const telefono = pedido.telefono || pedido['Teléfono'] || '';
@@ -420,35 +409,44 @@ async function procesarPasoFinalizado(idPedido) {
     ejecutarActualizacion(idPedido, 'Finalizado', telefono, cliente, tipoEntrega, null);
 }
 
-async function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago) {
-    try {
-        const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
-        const pedidoViejo = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(id)) || {};
+function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago) {
+    const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
+    const index = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(id));
+    
+    if (index === -1) return;
+    const pedidoViejo = pedidosEnMemoria[index];
 
-        // RESCATE DE IMAGEN: Si datosPago viene vacío (porque pasamos a finalizado), mantenemos lo viejo.
-        const refGuardada = pedidoViejo.referencia_pago || pedidoViejo['Referencia_pago'] || pedidoViejo.Referencia_pago || "";
-        const imgGuardada = pedidoViejo.imagen_pago || pedidoViejo['Imagen_pago'] || pedidoViejo['Imagen Pago'] || "";
+    // Rescatamos lo que había
+    const refGuardada = pedidoViejo.referencia_pago || pedidoViejo['Referencia_pago'] || pedidoViejo.Referencia_pago || "";
+    const imgGuardada = pedidoViejo.imagen_pago || pedidoViejo['Imagen_pago'] || pedidoViejo['Imagen Pago'] || "";
 
-        const payload = {
-            id: id, 
-            estado: estado, 
-            telefono: telefono, 
-            cliente: cliente, 
-            tipo_entrega: tipoEntrega, 
-            procesado_por: operadorFirma,
-            referencia_pago: datosPago ? datosPago.referencia : refGuardada, 
-            imagen_pago: datosPago ? datosPago.imagen : imgGuardada,
-            pedido_detallado: pedidoViejo.pedido_detallado || pedidoViejo['Pedido Detallado'] || "",
-            total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0
-        };
+    const nuevaRef = datosPago ? datosPago.referencia : refGuardada;
+    const nuevaImg = datosPago ? datosPago.imagen : imgGuardada;
 
-        const response = await fetch(API_ACTUALIZAR_ESTADO, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        
-        if (!response.ok) throw new Error('Error al actualizar');
-        cargarPedidos();
-    } catch (error) { alert("Error al conectar con el servidor de n8n."); }
+    // ⚡ ACTUALIZACIÓN OPTIMISTA (La tarjeta se mueve al instante)
+    pedidosEnMemoria[index].estado = estado;
+    pedidosEnMemoria[index].procesado_por = operadorFirma;
+    pedidosEnMemoria[index].referencia_pago = nuevaRef;
+    pedidosEnMemoria[index].imagen_pago = nuevaImg;
+    renderizarTablero(); 
+
+    // Preparamos payload para enviar en segundo plano
+    const payload = {
+        id: id, 
+        estado: estado, 
+        telefono: telefono, 
+        cliente: cliente, 
+        tipo_entrega: tipoEntrega, 
+        procesado_por: operadorFirma,
+        referencia_pago: nuevaRef, 
+        imagen_pago: nuevaImg,
+        pedido_detallado: pedidoViejo.pedido_detallado || pedidoViejo['Pedido Detallado'] || "",
+        total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0
+    };
+
+    fetch(API_ACTUALIZAR_ESTADO, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }).catch(error => console.error("Error en background al actualizar estado:", error));
 }
 
 // --- MOTORES DE FECHAS EN CARACAS Y NORMALIZACIONES ---
@@ -635,7 +633,7 @@ function renderizarTablero() {
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
 }
 
-// --- MODAL DETALLADO CORREGIDO ---
+// --- MODAL DETALLADO MEJORADO ---
 function abrirModalDetalle(idPedido) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
@@ -651,8 +649,9 @@ function abrirModalDetalle(idPedido) {
     const metodoPago = pedido.metodo_pago || pedido['Método de pago'] || 'No especificado';
     const articulos = pedido.pedido_detallado || pedido['Pedido Detallado'] || '';
     
-    // EXTRAEMOS LA URL DE LA IMAGEN DE LA BASE DE DATOS
+    // Extracción de Imagen y Referencia
     const imagenPago = pedido.imagen_pago || pedido.Imagen_pago || pedido['Imagen Pago'] || '';
+    const referenciaPago = pedido.referencia_pago || pedido.Referencia_pago || pedido['Referencia Pago'] || '';
     
     const montoRaw = pedido.total_orden || pedido['Total Orden'] || 0;
     const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
@@ -673,22 +672,19 @@ function abrirModalDetalle(idPedido) {
         `;
     }
 
-    // LÓGICA DEL BOTÓN DE COMPROBANTE
+    // Lógica para mostrar Referencia
+    let infoReferenciaHtml = '';
+    if (referenciaPago && referenciaPago.trim() !== '') {
+        infoReferenciaHtml = `<p class="text-xs text-amber-400 mt-1 font-mono bg-slate-900 border border-slate-700 px-2 py-1 rounded inline-block">Ref: ${referenciaPago}</p>`;
+    }
+
+    // Lógica del Botón de Comprobante
     let botonComprobanteHtml = '';
-    if (imagenPago && imagenPago.startsWith('http')) {
+    if (imagenPago && imagenPago.trim() !== '' && imagenPago !== 'Sin comprobante') {
         botonComprobanteHtml = `
             <div class="border-t border-slate-700/50 pt-3 flex justify-center">
                 <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md w-full justify-center">
                     <i class="fa-solid fa-image"></i> Ver Comprobante Adjunto
-                </a>
-            </div>
-        `;
-    } else if (imagenPago && imagenPago.length > 50) {
-         // Por si es un Base64 largo guardado directamente
-         botonComprobanteHtml = `
-            <div class="border-t border-slate-700/50 pt-3 flex justify-center">
-                <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md w-full justify-center">
-                    <i class="fa-solid fa-image"></i> Ver Comprobante (Base64)
                 </a>
             </div>
         `;
@@ -720,6 +716,7 @@ function abrirModalDetalle(idPedido) {
                 <div>
                     <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Forma de Pago</span>
                     <p class="text-white text-xs font-semibold">${metodoPago}</p>
+                    ${infoReferenciaHtml}
                 </div>
                 <div class="text-right">
                     <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Total</span>
