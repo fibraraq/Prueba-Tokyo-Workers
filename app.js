@@ -429,23 +429,40 @@ function cancelarTiempoEstimado() {
     if (resolveTiempoEstimado) resolveTiempoEstimado(null);
 }
 
-async function procesarPasoCocina(idPedido) {
+// --- FUNCIÓN PARA CANCELAR/ELIMINAR PEDIDOS PENDIENTES ---
+function cancelarPedido(idPedido) {
+    if (!confirm("¿Estás seguro de que deseas eliminar este pedido sin pagar? Desaparecerá del tablero.")) return;
+
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
-    
-    const metodoPago = pedido.metodo_pago || pedido['Método de pago'] || pedido.Metodo_pago || '';
-    const telefono = pedido.telefono || pedido['Teléfono'] || '';
-    const cliente = pedido.cliente || pedido['Cliente'] || '';
-    const tipoEntrega = pedido.tipo_entrega || pedido['Tipo de entrega'] || pedido.Tipo_entrega || '';
 
-    const datosPago = await pedirComprobantePago(metodoPago);
-    if (!datosPago) return; 
+    // Actualización optimista: lo ocultamos al instante
+    const index = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(idPedido));
+    if (index !== -1) {
+        pedidosEnMemoria[index].estado = 'Cancelado';
+        renderizarTablero();
+    }
 
-    // NUEVO: Pedimos el tiempo estimado antes de avanzar
-    const tiempoEstimado = await pedirTiempoEstimado();
-    if (!tiempoEstimado) return; // Si cancela, se detiene el flujo
+    const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
 
-    ejecutarActualizacion(idPedido, 'En Cocina', telefono, cliente, tipoEntrega, datosPago, tiempoEstimado);
+    // Enviamos el estado "Cancelado" a n8n usando el webhook que ya tienes
+    const payload = {
+        id: idPedido, 
+        estado: 'Cancelado', 
+        telefono: pedido.telefono || '', 
+        cliente: pedido.cliente || '', 
+        tipo_entrega: pedido.tipo_entrega || '', 
+        procesado_por: operadorFirma,
+        referencia_pago: pedido.referencia_pago || "", 
+        imagen_pago: pedido.imagen_pago || "",
+        pedido_detallado: pedido.pedido_detallado || "",
+        total_orden: parseFloat(pedido.total_orden || pedido['Total Orden']) || 0,
+        tiempo_estimado: ""
+    };
+
+    fetch(API_ACTUALIZAR_ESTADO, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }).catch(error => console.error("Error al cancelar pedido:", error));
 }
 
 function procesarPasoFinalizado(idPedido) {
@@ -577,10 +594,9 @@ function renderizarTablero() {
     colPagoPendiente.innerHTML = ''; colEnCocina.innerHTML = ''; colFinalizado.innerHTML = '';
 
     let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
-    let totalVentasDia = 0; // Acumulador del total de ventas
+    let totalVentasDia = 0; 
     const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
 
-    // Conteo secuencial diario autolimpiable
     const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeLaFecha(JSON.stringify(p)));
     pedidosHoy.sort((a, b) => {
         let valA = parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) || 0;
@@ -610,7 +626,6 @@ function renderizarTablero() {
         const monto = parseFloat(montoNumerico || 0);
         const montoF = monto.toFixed(2);
         
-        // Bloque visual de monto (con o sin Bs) para tarjetas de Pendiente y Cocina
         let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${montoF}</span>`;
         if (esPagoMovil) {
             const montoBs = (monto * tasaActual).toFixed(2);
@@ -652,6 +667,7 @@ function renderizarTablero() {
                             <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">#${idVisual}</span>
                             <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
                             <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-amber-400 transition cursor-pointer"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="cancelarPedido('${idReal}')" class="text-slate-400 hover:text-red-500 transition cursor-pointer"><i class="fa-solid fa-trash"></i></button>
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                     </div>
@@ -672,8 +688,7 @@ function renderizarTablero() {
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
                             <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
-                            <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-sky-400 transition cursor-pointer"><i class="fa-solid fa-pen"></i></button>
-                        </div>
+                            </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                     </div>
                     <div>
@@ -687,9 +702,8 @@ function renderizarTablero() {
                 </div>`;
         } else if (estadoLimpio === 'finalizado') {
             conteoFinalizado++;
-            totalVentasDia += monto; // Se suma al header
+            totalVentasDia += monto; 
             
-            // Bloque visual de monto específico para la columna Finalizado
             let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${montoF}</span>`;
             if (esPagoMovil) {
                 const montoBs = (monto * tasaActual).toFixed(2);
@@ -715,7 +729,6 @@ function renderizarTablero() {
     document.getElementById('cantEnCocina').innerText = conteoCocina;
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
 
-    // Escribe la suma total en el pie de la columna Finalizado
     if (document.getElementById('totalDiaBottom')) {
         const totalVentasBs = (totalVentasDia * tasaActual).toFixed(2);
         document.getElementById('totalDiaBottom').innerHTML = `
@@ -725,7 +738,7 @@ function renderizarTablero() {
             </div>
         `;
     }
-} 
+}
 
 // --- LÓGICA PARA VER COMPROBANTES SIN BLOQUEO DE NAVEGADOR ---
 function verComprobanteDeMemoria(idReal) {
