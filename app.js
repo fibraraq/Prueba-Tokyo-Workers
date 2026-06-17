@@ -1,7 +1,7 @@
 // Tokio Sushi - Núcleo de Operaciones y Control del Sistema (Fase 2)
 
 const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
-const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
+const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook-test/actualizar-estado";
 const URL_NUEVO_PEDIDO = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo";
 
 let usuarioActivo = null;
