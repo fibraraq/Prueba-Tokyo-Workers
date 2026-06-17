@@ -700,14 +700,14 @@
                 modal.classList.remove('hidden');
 
                 document.getElementById('btnAceptarComprobante').onclick = () => {
-                    if (inputImg.files.length === 0) { alert("Sube una imagen del comprobante o billete."); return; }
-                    if (!contenedorRef.classList.contains('hidden') && inputRef.value.trim() === '') { alert("Ingresa el número de referencia."); return; }
-                    modal.classList.add('hidden');
-                    resolve({ referencia: inputRef.value, imagen: preview.src }); 
-                };
-
-                document.getElementById('btnCancelarComprobante').onclick = () => { modal.classList.add('hidden'); resolve(null); };
+                    if (!contenedorRef.classList.contains('hidden') && inputRef.value.trim() === '') {
+                    alert("Ingresa el número de referencia.");
+                    return;
+                }
+                modal.classList.add('hidden');
+                resolve({ referencia: inputRef.value, imagen: preview.src });
             });
+          }  
         }
 
         // --- PROCESAR BOTONES DE ACCIÓN ---
