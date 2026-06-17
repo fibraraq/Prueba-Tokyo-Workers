@@ -487,14 +487,25 @@ function obtenerFechaHoyCaracas() {
     return { dia, mes, anio };
 }
 
-function esPedidoDeHoy(filaTexto) {
+function esPedidoDeLaFecha(filaTexto) {
     if (!filaTexto) return false;
-    const { dia, mes, anio } = obtenerFechaHoyCaracas();
+    
+    const inputFecha = document.getElementById('calendarioFiltro') ? document.getElementById('calendarioFiltro').value : '';
+    const fechaBase = inputFecha ? new Date(inputFecha + 'T12:00:00-04:00') : new Date();
+
+    const opciones = { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const formateador = new Intl.DateTimeFormat('es-VE', opciones);
+    const partes = formateador.formatToParts(fechaBase);
+    const dia = partes.find(p => p.type === 'day').value;
+    const mes = partes.find(p => p.type === 'month').value;
+    const anio = partes.find(p => p.type === 'year').value;
+    
     const textoLimpio = filaTexto.replace(/[\s\uFEFF\xA0]+/g, '');
     const formato1 = `${anio}-${mes}-${dia}`;
     const formato2 = `${dia}${mes}${anio}`;
     const formato3 = `${dia}/${mes}/${anio}`;
     const formato4 = `${anio}${mes}${dia}`;
+    
     return textoLimpio.includes(formato1) || textoLimpio.includes(formato2) || textoLimpio.includes(formato3) || textoLimpio.includes(formato4);
 }
 
@@ -519,7 +530,14 @@ function resetearYArrancarPolling() {
 
 async function cargarPedidos() {
     try {
-        const response = await fetch(API_OBTENER_PEDIDOS + '?_t=' + new Date().getTime());
+        const fechaCalendario = document.getElementById('calendarioFiltro') ? document.getElementById('calendarioFiltro').value : '';
+        let urlFetch = API_OBTENER_PEDIDOS + '?_t=' + new Date().getTime();
+        
+        if (fechaCalendario) {
+            urlFetch += '&fecha=' + fechaCalendario;
+        }
+
+        const response = await fetch(urlFetch);
         if (!response.ok) throw new Error('Error al conectar con la API');
         const datos = await response.json();
         pedidosEnMemoria = Array.isArray(datos) ? datos : [];
@@ -541,7 +559,7 @@ function renderizarTablero() {
     const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
 
     // Conteo secuencial diario autolimpiable
-    const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeHoy(JSON.stringify(p)));
+    const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeLaFecha(JSON.stringify(p)));
     pedidosHoy.sort((a, b) => {
         let valA = parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) || 0;
         let valB = parseInt(String(b.id_pedido || b.ID || 0).replace(/\D/g,'')) || 0;
@@ -556,7 +574,7 @@ function renderizarTablero() {
 
     pedidosEnMemoria.forEach(pedido => {
         const filaTexto = JSON.stringify(pedido);
-        if (!esPedidoDeHoy(filaTexto)) return;
+        if (!esPedidoDeLaFecha(filaTexto)) return;
 
         const idReal = pedido.id_pedido || pedido['ID_Pedido'] || pedido.ID || 'S/ID';
         const idVisual = mapaIdsDiarios[idReal] || idReal;
@@ -807,6 +825,18 @@ function cerrarModal() { document.getElementById('modalDetalle').classList.add('
 
 // --- ARRANQUE INICIAL ---
 window.addEventListener('DOMContentLoaded', () => {
+    const cal = document.getElementById('calendarioFiltro');
+    if (cal) {
+        // Fijar el calendario al día de hoy en hora local
+        cal.value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
+        
+        // Escuchar cuando el usuario cambie la fecha
+        cal.addEventListener('change', () => {
+            document.getElementById('columnaFinalizado').innerHTML = '<p class="text-slate-400 text-center text-xs mt-4">Buscando en el historial...</p>';
+            cargarPedidos();
+        });
+    }
+    
     actualizarTasaBCV();
     verificarSesion();
 });
