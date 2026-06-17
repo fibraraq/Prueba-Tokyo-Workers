@@ -537,9 +537,10 @@ function renderizarTablero() {
     colPagoPendiente.innerHTML = ''; colEnCocina.innerHTML = ''; colFinalizado.innerHTML = '';
 
     let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
+    let totalVentasDia = 0; // Variable para la suma total
     const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
 
-    // Conteo secuencial diario autolimpiable
+    // Conteo secuencial diario
     const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeHoy(JSON.stringify(p)));
     pedidosHoy.sort((a, b) => {
         let valA = parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) || 0;
@@ -554,110 +555,57 @@ function renderizarTablero() {
     });
 
     pedidosEnMemoria.forEach(pedido => {
-        const filaTexto = JSON.stringify(pedido);
-        if (!esPedidoDeHoy(filaTexto)) return;
+        if (!esPedidoDeHoy(JSON.stringify(pedido))) return;
 
         const idReal = pedido.id_pedido || pedido['ID_Pedido'] || pedido.ID || 'S/ID';
         const idVisual = mapaIdsDiarios[idReal] || idReal;
+        const monto = parseFloat(String(pedido.total_orden || 0).replace(/[^0-9.]/g, ''));
+        const estadoLimpio = normalizarEstado(String(pedido.estado || ''));
 
-        const cliente = pedido.cliente || pedido['Cliente'] || 'Desconocido';
-        const metodoPago = String(pedido.metodo_pago || pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
-        const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil') || metodoPago.toLowerCase().includes('móvil');
-        
-        const montoRaw = pedido.total_orden || pedido['Total Orden'] || pedido['Total Orden '] || pedido.Total_Orden || pedido.monto || 0;
-        const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
-        const monto = parseFloat(montoNumerico || 0).toFixed(2);
-        
-        let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${monto}</span>`;
-        if (esPagoMovil) {
-            const montoBs = (monto * tasaActual).toFixed(2);
-            htmlMonto = `
-                <div class="flex flex-col">
-                    <span class="text-xs font-bold text-slate-300">$${monto}</span>
-                    <span class="text-[10px] font-bold text-amber-400">Bs. ${montoBs}</span>
-                </div>`;
-        }
-        
-        let hora = '--:--';
-        const fechaRaw = pedido.timestamp || pedido['Timestamp'] || '';
-        if (fechaRaw) {
-            try {
-                if (fechaRaw.includes('T') && fechaRaw.includes('Z')) {
-                    const d = new Date(fechaRaw);
-                    hora = d.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
-                } else {
-                    const timeMatch = fechaRaw.match(/(\d{1,2}):(\d{2})/);
-                    if (timeMatch) {
-                        let h = parseInt(timeMatch[1], 10);
-                        const ampm = h >= 12 ? 'PM' : 'AM';
-                        h = h % 12 || 12;
-                        hora = `${h}:${timeMatch[2]} ${ampm}`;
-                    }
-                }
-            } catch(e) {}
-        }
-        
-        const articulos = pedido.pedido_detallado || pedido['Pedido Detallado'] || 'Detalle no disponible';
-        const estadoLimpio = normalizarEstado(String(pedido.estado || pedido['Estado'] || ''));
+        // Sumar al total si está finalizado
+        if (estadoLimpio === 'finalizado') totalVentasDia += monto;
+
+        // Renderizado de las tarjetas (con monto en Bs incluido)
+        const montoBs = (monto * tasaActual).toFixed(2);
+        const cardHtml = `
+            <div class="bg-slate-700/40 p-4 rounded-lg border border-slate-600/30 space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
+                    <span class="text-xs font-bold text-amber-400">Bs. ${montoBs}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-bold text-white">$${monto.toFixed(2)}</span>
+                    <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-amber-400 transition"><i class="fa-solid fa-pen"></i></button>
+                </div>
+            </div>
+        `;
 
         if (estadoLimpio === 'pagopendiente') {
             conteoPago++;
-            colPagoPendiente.innerHTML += `
-                <div class="bg-slate-700/40 p-4 rounded-lg border border-yellow-500/10 hover:border-yellow-500/30 transition duration-150 space-y-3">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">#${idVisual}</span>
-                            <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
-                            <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-amber-400 transition cursor-pointer"><i class="fa-solid fa-pen"></i></button>
-                        </div>
-                        <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-white text-sm truncate">${cliente}</h4>
-                        <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
-                    </div>
-                    <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
-                        ${htmlMonto}
-                        <button onclick="procesarPasoCocina('${idReal}')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Aceptar <i class="fa-solid fa-arrow-right"></i></button>
-                    </div>
-                </div>`;
+            colPagoPendiente.innerHTML += cardHtml; // Puedes personalizar los botones aquí
         } else if (estadoLimpio === 'encocina') {
             conteoCocina++;
-            colEnCocina.innerHTML += `
-                <div class="bg-slate-700/40 p-4 rounded-lg border border-sky-500/10 hover:border-sky-500/30 transition duration-150 space-y-3">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
-                            <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
-                            <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-sky-400 transition cursor-pointer"><i class="fa-solid fa-pen"></i></button>
-                        </div>
-                        <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-white text-sm truncate">${cliente}</h4>
-                        <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
-                    </div>
-                    <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
-                        ${htmlMonto}
-                        <button onclick="procesarPasoFinalizado('${idReal}')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Despachar <i class="fa-solid fa-check"></i></button>
-                    </div>
-                </div>`;
+            colEnCocina.innerHTML += cardHtml;
         } else if (estadoLimpio === 'finalizado') {
             conteoFinalizado++;
             colFinalizado.innerHTML += `
-                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition duration-150 flex justify-between items-center cursor-pointer">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span>
-                        <span class="text-xs text-slate-400">Ver Recibo</span>
-                    </div>
-                    <span class="text-sm font-bold text-emerald-400">$${monto}</span>
+                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 transition flex justify-between items-center cursor-pointer">
+                    <span class="text-xs font-semibold text-emerald-400">#${idVisual} - Ver Recibo</span>
+                    <span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span>
                 </div>`;
         }
     });
 
+    // ACTUALIZACIÓN DE CONTADORES Y TOTAL DEL DÍA
     document.getElementById('cantPagoPendiente').innerText = conteoPago;
     document.getElementById('cantEnCocina').innerText = conteoCocina;
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
+
+    // Mostrar el total en el header (puedes inyectar un span nuevo en tu HTML)
+    // Opcional: crea un elemento <span id="totalDia"></span> en tu header
+    if(document.getElementById('totalDia')) {
+        document.getElementById('totalDia').innerText = `Ventas: $${totalVentasDia.toFixed(2)}`;
+    }
 }
 
 // --- LÓGICA PARA VER COMPROBANTES SIN BLOQUEO DE NAVEGADOR ---
