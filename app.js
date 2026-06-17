@@ -633,7 +633,32 @@ function renderizarTablero() {
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
 }
 
-// --- MODAL DETALLADO MEJORADO ---
+// --- LÓGICA PARA VER COMPROBANTES SIN BLOQUEO DE NAVEGADOR ---
+function verComprobanteDeMemoria(idReal) {
+    const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
+    if (!pedido) return;
+    
+    const imgData = pedido.imagen_pago || pedido.Imagen_pago || pedido['Imagen Pago'] || '';
+    
+    if (imgData.startsWith('http')) {
+        // Es un link limpio de ImgBB, lo abrimos normal
+        window.open(imgData, '_blank');
+    } else if (imgData.length > 50 && imgData !== 'Sin comprobante') {
+        // Es Base64 crudo (Recién subido). Construimos una ventana virtual para burlar el bloqueo
+        const ventanaVirtual = window.open('', '_blank');
+        ventanaVirtual.document.write(`
+            <html>
+                <head><title>Comprobante #${idReal}</title></head>
+                <body style="margin:0; background:#0f172a; display:flex; justify-content:center; align-items:center; min-height:100vh;">
+                    <img src="${imgData}" style="max-width:100%; max-height:100vh; border-radius:8px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3);"/>
+                </body>
+            </html>
+        `);
+        ventanaVirtual.document.close();
+    }
+}
+
+// --- MODAL DETALLADO CORREGIDO ---
 function abrirModalDetalle(idPedido) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
@@ -649,7 +674,7 @@ function abrirModalDetalle(idPedido) {
     const metodoPago = pedido.metodo_pago || pedido['Método de pago'] || 'No especificado';
     const articulos = pedido.pedido_detallado || pedido['Pedido Detallado'] || '';
     
-    // Extracción de Imagen y Referencia
+    // EXTRAEMOS LA URL DE LA IMAGEN DE LA BASE DE DATOS
     const imagenPago = pedido.imagen_pago || pedido.Imagen_pago || pedido['Imagen Pago'] || '';
     const referenciaPago = pedido.referencia_pago || pedido.Referencia_pago || pedido['Referencia Pago'] || '';
     
@@ -672,20 +697,19 @@ function abrirModalDetalle(idPedido) {
         `;
     }
 
-    // Lógica para mostrar Referencia
     let infoReferenciaHtml = '';
     if (referenciaPago && referenciaPago.trim() !== '') {
         infoReferenciaHtml = `<p class="text-xs text-amber-400 mt-1 font-mono bg-slate-900 border border-slate-700 px-2 py-1 rounded inline-block">Ref: ${referenciaPago}</p>`;
     }
 
-    // Lógica del Botón de Comprobante
+    // LÓGICA DEL BOTÓN DE COMPROBANTE (Ahora usa la función hacker)
     let botonComprobanteHtml = '';
-    if (imagenPago && imagenPago.trim() !== '' && imagenPago !== 'Sin comprobante') {
+    if (imagenPago && imagenPago.length > 50 && imagenPago !== 'Sin comprobante') {
         botonComprobanteHtml = `
             <div class="border-t border-slate-700/50 pt-3 flex justify-center">
-                <a href="${imagenPago}" target="_blank" rel="noopener noreferrer" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md w-full justify-center">
-                    <i class="fa-solid fa-image"></i> Ver Comprobante Adjunto
-                </a>
+                <button onclick="verComprobanteDeMemoria('${idReal}')" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2 cursor-pointer shadow-md w-full justify-center">
+                    <i class="fa-solid fa-image"></i> Ver Comprobante
+                </button>
             </div>
         `;
     }
