@@ -206,9 +206,12 @@ function renderizarCarritoEdicion() {
     contenedor.innerHTML = '';
     totalEdicionUSD = 0;
 
+    // 1. Obtenemos la tasa actual del BCV
+    const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
+
     if (carritoEdicion.length === 0) {
         contenedor.innerHTML = '<p class="text-xs text-slate-500 italic text-center py-4">El carrito está vacío. Busca un producto arriba.</p>';
-        document.getElementById('txtEditTotalVisual').innerText = '$0.00';
+        document.getElementById('txtEditTotalVisual').innerHTML = '$0.00';
         return;
     }
 
@@ -216,11 +219,18 @@ function renderizarCarritoEdicion() {
         const subtotal = item.price * item.qty;
         totalEdicionUSD += subtotal;
 
+        // 2. Calculamos los valores en Bolívares
+        const precioUnidadBs = (item.price * tasaActual).toFixed(2);
+        const subtotalBs = (subtotal * tasaActual).toFixed(2);
+
         contenedor.innerHTML += `
             <div class="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700">
                 <div class="flex-1">
                     <p class="text-sm text-white font-semibold leading-tight">${item.name}</p>
-                    <p class="text-xs text-slate-400">$${item.price.toFixed(2)} c/u</p>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        $${item.price.toFixed(2)} c/u 
+                        <span class="text-[10px] text-amber-400/80 ml-1">(Bs. ${precioUnidadBs})</span>
+                    </p>
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="flex items-center bg-slate-900 border border-slate-700 rounded-md overflow-hidden">
@@ -228,7 +238,12 @@ function renderizarCarritoEdicion() {
                         <span class="text-sm text-white w-6 text-center font-bold">${item.qty}</span>
                         <button onclick="modificarCantEdicion(${index}, 1)" class="px-2 py-1 text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer"><i class="fa-solid fa-plus text-[10px]"></i></button>
                     </div>
-                    <span class="text-sm font-bold text-amber-400 w-12 text-right">$${subtotal.toFixed(2)}</span>
+                    
+                    <div class="flex flex-col text-right w-16">
+                        <span class="text-sm font-bold text-amber-400">$${subtotal.toFixed(2)}</span>
+                        <span class="text-[10px] font-bold text-amber-400/80">Bs. ${subtotalBs}</span>
+                    </div>
+
                     <button onclick="eliminarItemEdicion(${index})" class="text-red-500 hover:text-red-400 p-1 cursor-pointer">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
@@ -237,7 +252,14 @@ function renderizarCarritoEdicion() {
         `;
     });
 
-    document.getElementById('txtEditTotalVisual').innerText = `$${totalEdicionUSD.toFixed(2)}`;
+    // 3. Actualizamos el TOTAL A COBRAR grande de la parte inferior
+    const totalEdicionBs = (totalEdicionUSD * tasaActual).toFixed(2);
+    document.getElementById('txtEditTotalVisual').innerHTML = `
+        <div class="flex flex-col text-right">
+            <span class="text-emerald-400">$${totalEdicionUSD.toFixed(2)}</span>
+            <span class="text-xs text-amber-400 mt-0.5">Bs. ${totalEdicionBs}</span>
+        </div>
+    `;
 }
 
 function modificarCantEdicion(index, cambio) {
