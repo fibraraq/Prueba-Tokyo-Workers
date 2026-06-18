@@ -391,50 +391,109 @@ async function cargarPedidos() {
     } catch (error) { console.error(error); }
 }
 
+// --- ALGORITMO RENDERIZADOR Y MAPEO DE TURNOS ---
 function renderizarTablero() {
-    const colPagoPendiente = document.getElementById('columnaPagoPendiente'); const colEnCocina = document.getElementById('columnaEnCocina'); const colFinalizado = document.getElementById('columnaFinalizado');
+    const colPagoPendiente = document.getElementById('columnaPagoPendiente');
+    const colEnCocina = document.getElementById('columnaEnCocina');
+    const colFinalizado = document.getElementById('columnaFinalizado');
+
     colPagoPendiente.innerHTML = ''; colEnCocina.innerHTML = ''; colFinalizado.innerHTML = '';
-    let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0; let totalVentasDia = 0; 
+
+    let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
+    let totalVentasDia = 0; 
     const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
 
     const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeLaFecha(JSON.stringify(p)));
-    pedidosHoy.sort((a, b) => parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) - parseInt(String(b.id_pedido || b.ID || 0).replace(/\D/g,'')));
-    const mapaIdsDiarios = {}; pedidosHoy.forEach((p, i) => { mapaIdsDiarios[p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID'] = i + 1; });
+    pedidosHoy.sort((a, b) => {
+        let valA = parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) || 0;
+        let valB = parseInt(String(b.id_pedido || b.ID || 0).replace(/\D/g,'')) || 0;
+        return valA - valB;
+    });
+
+    const mapaIdsDiarios = {};
+    pedidosHoy.forEach((p, index) => {
+        const id = p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID';
+        mapaIdsDiarios[id] = index + 1; 
+    });
 
     pedidosEnMemoria.forEach(pedido => {
-        if (!esPedidoDeLaFecha(JSON.stringify(pedido))) return;
-        const idReal = pedido.id_pedido || pedido['ID_Pedido'] || pedido.ID || 'S/ID'; const idVisual = mapaIdsDiarios[idReal] || idReal;
-        const cliente = pedido.cliente || 'Desconocido'; const metodoPago = String(pedido.metodo_pago || '').replace(/'/g, "\\'");
-        const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil');
-        const monto = parseFloat(String(pedido.total_orden || pedido.monto || 0).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+        const filaTexto = JSON.stringify(pedido);
+        if (!esPedidoDeLaFecha(filaTexto)) return;
+
+        const idReal = pedido.id_pedido || pedido['ID_Pedido'] || pedido.ID || 'S/ID';
+        const idVisual = mapaIdsDiarios[idReal] || idReal;
+
+        const cliente = pedido.cliente || pedido['Cliente'] || 'Desconocido';
+        const telefonoRaw = pedido.telefono || pedido['Teléfono'] || '';
+        const metodoPago = String(pedido.metodo_pago || pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
+        const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil') || metodoPago.toLowerCase().includes('móvil');
         
-        let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${monto.toFixed(2)}</span>`;
-        if (esPagoMovil) htmlMonto = `<div class="flex flex-col"><span class="text-xs font-bold text-slate-300">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
+        const montoRaw = pedido.total_orden || pedido['Total Orden'] || pedido['Total Orden '] || pedido.Total_Orden || pedido.monto || 0;
+        const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
+        const monto = parseFloat(montoNumerico || 0);
+        const montoF = monto.toFixed(2);
         
-        let hora = '--:--';
-        if (pedido.timestamp) {
-            try {
-                if (pedido.timestamp.includes('T')) hora = new Date(pedido.timestamp).toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
-                else { const m = pedido.timestamp.match(/(\d{1,2}):(\d{2})/); if(m) { let h = parseInt(m[1],10); const ampm = h >= 12 ? 'PM':'AM'; h = h % 12 || 12; hora = `${h}:${m[2]} ${ampm}`; } }
-            } catch(e){}
+        let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${montoF}</span>`;
+        if (esPagoMovil) {
+            const montoBs = (monto * tasaActual).toFixed(2);
+            htmlMonto = `
+                <div class="flex flex-col">
+                    <span class="text-xs font-bold text-slate-300">$${montoF}</span>
+                    <span class="text-[10px] font-bold text-amber-400">Bs. ${montoBs}</span>
+                </div>`;
         }
         
-        const art = pedido.pedido_detallado || 'Detalle no disponible'; const estadoLimpio = normalizarEstado(String(pedido.estado || ''));
+        let hora = '--:--';
+        const fechaRaw = pedido.timestamp || pedido['Timestamp'] || '';
+        if (fechaRaw) {
+            try {
+                if (fechaRaw.includes('T') && fechaRaw.includes('Z')) {
+                    const d = new Date(fechaRaw);
+                    hora = d.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
+                } else {
+                    const timeMatch = fechaRaw.match(/(\d{1,2}):(\d{2})/);
+                    if (timeMatch) {
+                        let h = parseInt(timeMatch[1], 10);
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        h = h % 12 || 12;
+                        hora = `${h}:${timeMatch[2]} ${ampm}`;
+                    }
+                }
+            } catch(e) {}
+        }
+        
+        const articulos = pedido.pedido_detallado || pedido['Pedido Detallado'] || 'Detalle no disponible';
+        const estadoLimpio = normalizarEstado(String(pedido.estado || pedido['Estado'] || ''));
+
+        // --- LÓGICA DEL BOTÓN DE WHATSAPP ---
+        let btnWhatsApp = '';
+        const telLimpio = String(telefonoRaw).replace(/\D/g, ''); // Dejamos solo los números
+        if (telLimpio.length >= 10) {
+            let telWA = telLimpio;
+            if (telWA.startsWith('0')) telWA = '58' + telWA.substring(1);
+            else if (!telWA.startsWith('58')) telWA = '58' + telWA;
+            
+            btnWhatsApp = `<a href="https://wa.me/${telWA}" target="_blank" onclick="event.stopPropagation()" class="text-slate-400 hover:text-emerald-400 transition cursor-pointer ml-1" title="Abrir chat en WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
+        }
 
         if (estadoLimpio === 'pagopendiente') {
             conteoPago++;
             colPagoPendiente.innerHTML += `
-                <div class="bg-slate-700/40 p-4 rounded-lg border border-yellow-500/10 hover:border-yellow-500/30 transition space-y-3">
+                <div class="bg-slate-700/40 p-4 rounded-lg border border-yellow-500/10 hover:border-yellow-500/30 transition duration-150 space-y-3">
                     <div class="flex justify-between items-start">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">#${idVisual}</span>
                             <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
                             <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-amber-400 transition cursor-pointer"><i class="fa-solid fa-pen"></i></button>
                             <button onclick="cancelarPedido('${idReal}')" class="text-slate-400 hover:text-red-500 transition cursor-pointer"><i class="fa-solid fa-trash"></i></button>
+                            ${btnWhatsApp}
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                     </div>
-                    <div><h4 class="font-bold text-white text-sm truncate">${cliente}</h4><p class="text-xs text-slate-400 mt-1 line-clamp-2">${art}</p></div>
+                    <div>
+                        <h4 class="font-bold text-white text-sm truncate">${cliente}</h4>
+                        <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
+                    </div>
                     <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
                         ${htmlMonto}
                         <button onclick="procesarPasoCocina('${idReal}')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Aceptar <i class="fa-solid fa-arrow-right"></i></button>
@@ -443,34 +502,63 @@ function renderizarTablero() {
         } else if (estadoLimpio === 'encocina') {
             conteoCocina++;
             colEnCocina.innerHTML += `
-                <div class="bg-slate-700/40 p-4 rounded-lg border border-sky-500/10 hover:border-sky-500/30 transition space-y-3">
+                <div class="bg-slate-700/40 p-4 rounded-lg border border-sky-500/10 hover:border-sky-500/30 transition duration-150 space-y-3">
                     <div class="flex justify-between items-start">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
                             <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
+                            ${btnWhatsApp}
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                     </div>
-                    <div><h4 class="font-bold text-white text-sm truncate">${cliente}</h4><p class="text-xs text-slate-400 mt-1 line-clamp-2">${art}</p></div>
+                    <div>
+                        <h4 class="font-bold text-white text-sm truncate">${cliente}</h4>
+                        <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
+                    </div>
                     <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
                         ${htmlMonto}
                         <button onclick="procesarPasoFinalizado('${idReal}')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Despachar <i class="fa-solid fa-check"></i></button>
                     </div>
                 </div>`;
         } else if (estadoLimpio === 'finalizado') {
-            conteoFinalizado++; totalVentasDia += monto; 
-            let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span>`;
-            if (esPagoMovil) htmlMontoFinalizado = `<div class="flex flex-col text-right"><span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
+            conteoFinalizado++;
+            totalVentasDia += monto; 
+            
+            let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${montoF}</span>`;
+            if (esPagoMovil) {
+                const montoBs = (monto * tasaActual).toFixed(2);
+                htmlMontoFinalizado = `
+                    <div class="flex flex-col text-right">
+                        <span class="text-sm font-bold text-emerald-400">$${montoF}</span>
+                        <span class="text-[10px] font-bold text-amber-400">Bs. ${montoBs}</span>
+                    </div>`;
+            }
+
             colFinalizado.innerHTML += `
-                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 transition flex justify-between items-center cursor-pointer">
-                    <div class="flex items-center gap-2"><span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span><span class="text-xs text-slate-400">Ver Recibo</span></div>
+                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition duration-150 flex justify-between items-center cursor-pointer">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span>
+                        <span class="text-xs text-slate-400">Ver Recibo</span>
+                        ${btnWhatsApp}
+                    </div>
                     ${htmlMontoFinalizado}
                 </div>`;
         }
     });
 
-    document.getElementById('cantPagoPendiente').innerText = conteoPago; document.getElementById('cantEnCocina').innerText = conteoCocina; document.getElementById('cantFinalizado').innerText = conteoFinalizado;
-    if (document.getElementById('totalDiaBottom')) document.getElementById('totalDiaBottom').innerHTML = `<div class="flex flex-col text-right leading-tight"><span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(totalVentasDia * tasaActual).toFixed(2)}</span></div>`;
+    document.getElementById('cantPagoPendiente').innerText = conteoPago;
+    document.getElementById('cantEnCocina').innerText = conteoCocina;
+    document.getElementById('cantFinalizado').innerText = conteoFinalizado;
+
+    if (document.getElementById('totalDiaBottom')) {
+        const totalVentasBs = (totalVentasDia * tasaActual).toFixed(2);
+        document.getElementById('totalDiaBottom').innerHTML = `
+            <div class="flex flex-col text-right leading-tight">
+                <span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span>
+                <span class="text-[10px] font-bold text-amber-400">Bs. ${totalVentasBs}</span>
+            </div>
+        `;
+    }
 }
 
 // --- VER RECIBOS ---
