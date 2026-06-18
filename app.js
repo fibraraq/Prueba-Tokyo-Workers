@@ -473,7 +473,7 @@ function renderizarTablero() {
             if (telWA.startsWith('0')) telWA = '58' + telWA.substring(1);
             else if (!telWA.startsWith('58')) telWA = '58' + telWA;
             
-            btnWhatsApp = `<a href="https://wa.me/${telWA}" target="_blank" onclick="event.stopPropagation()" class="text-slate-400 hover:text-emerald-400 transition cursor-pointer ml-1" title="Abrir chat en WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
+            btnWhatsApp = `<a href="https://web.whatsapp.com/send?phone=${telWA}" target="_blank" onclick="event.stopPropagation()" class="text-slate-400 hover:text-emerald-400 transition cursor-pointer ml-1" title="Abrir chat en WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
         }
 
         if (estadoLimpio === 'pagopendiente') {
