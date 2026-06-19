@@ -3,7 +3,9 @@
 const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
 const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
 const URL_NUEVO_PEDIDO = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo";
+const URL_OBTENER_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
 
+let CATALOGO_PRODUCTOS = [];
 let usuarioActivo = null;
 let pedidosEnMemoria = [];
 let segundosFaltantes = 15;
@@ -12,6 +14,25 @@ let pollingTimer;
 let carritoEdicion = []; 
 let totalEdicionUSD = 0;
 let resolveTiempoEstimado = null; 
+
+// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS ---
+async function cargarCatalogoDesdeDB() {
+    try {
+        const response = await fetch(URL_OBTENER_MENU);
+        if (!response.ok) throw new Error('Error al conectar con el servidor de menú');
+        
+        const productosRaw = await response.json();
+
+        // Mapeamos los datos de PostgreSQL al formato que usa tu buscador
+        CATALOGO_PRODUCTOS = productosRaw.map(prod => ({
+            id: prod.id,
+            name: prod.nombre,
+            price: parseFloat(prod.precio)
+        }));
+        
+        console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "productos listos para edición.");
+    } catch (error) {
+        console.error("Error obteniendo el catálogo interno:", error);
 
 // --- CONTROL DE TASA ---
 async function actualizarTasaBCV() {
@@ -152,7 +173,7 @@ async function enviarNuevoPedido() {
     finally { btn.disabled = false; btn.innerHTML = 'Procesar Pedido <i class="fa-solid fa-paper-plane"></i>'; }
 }
 
-// --- POS DE EDICIÓN ---
+
 function abrirModalEditarPedido(idReal, idVisual) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
     if (!pedido) return;
@@ -591,11 +612,17 @@ function abrirModalDetalle(idPedido) {
 function cerrarModal() { document.getElementById('modalDetalle').classList.add('hidden'); }
 
 // --- ARRANQUE ---
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     const cal = document.getElementById('calendarioFiltro');
     if (cal) {
         cal.value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
-        cal.addEventListener('change', () => { document.getElementById('columnaFinalizado').innerHTML = '<p class="text-slate-400 text-center text-xs mt-4">Buscando en el historial...</p>'; cargarPedidos(); });
+        cal.addEventListener('change', () => { 
+            document.getElementById('columnaFinalizado').innerHTML = '<p class="text-slate-400 text-center text-xs mt-4">Buscando en el historial...</p>'; 
+            cargarPedidos(); 
+        });
     }
-    actualizarTasaBCV(); verificarSesion();
+    
+    actualizarTasaBCV(); 
+    await cargarCatalogoDesdeDB(); // <-- Descarga los platos antes de abrir el sistema
+    verificarSesion();
 });
