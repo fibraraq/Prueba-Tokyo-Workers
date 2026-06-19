@@ -95,13 +95,28 @@ function verificarSesion() {
 
 // --- SESIONES (RBAC) ---
 function iniciarSesion(event) {
-    event.preventDefault();
+    // Si existe el evento, frena en seco la recarga de la página
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+
     const usernameInput = document.getElementById('loginUsername').value.trim();
     const pinInput = document.getElementById('loginPIN').value.trim();
     const errorMsg = document.getElementById('loginError');
-    errorMsg.classList.add('hidden');
+    
+    if (errorMsg) errorMsg.classList.add('hidden');
 
-    // Búsqueda a prueba de balas: Forzamos a que el PIN de la BD y el del input sean texto (String)
+    // Revisamos si la lista de usuarios se cargó correctamente desde n8n
+    if (!USUARIOS_SISTEMA || USUARIOS_SISTEMA.length === 0) {
+        console.error("La lista de usuarios está vacía. Verifica la conexión con n8n.");
+        if (errorMsg) {
+            errorMsg.innerText = "Error de conexión con la base de datos.";
+            errorMsg.classList.remove('hidden');
+        }
+        return; // Detenemos la función aquí
+    }
+
+    // Búsqueda a prueba de balas: Forzamos a que el PIN sea texto (String)
     const usuarioEncontrado = USUARIOS_SISTEMA.find(u => 
         String(u.username).toLowerCase() === usernameInput.toLowerCase() && 
         String(u.pin) === String(pinInput)
@@ -110,11 +125,18 @@ function iniciarSesion(event) {
     if (usuarioEncontrado) {
         usuarioActivo = { username: usuarioEncontrado.username, nombre: usuarioEncontrado.nombre, rol: usuarioEncontrado.rol };
         localStorage.setItem('usuarioActivo', JSON.stringify(usuarioActivo));
-        document.getElementById('formLogin').reset();
+        
+        const formLogin = document.getElementById('formLogin');
+        if (formLogin) formLogin.reset();
+        
         verificarSesion();
     } else {
-        errorMsg.innerText = "Usuario o PIN de acceso incorrectos.";
-        errorMsg.classList.remove('hidden');
+        if (errorMsg) {
+            errorMsg.innerText = "Usuario o PIN de acceso incorrectos.";
+            errorMsg.classList.remove('hidden');
+        } else {
+            alert("Usuario o PIN incorrectos.");
+        }
     }
 }
 
