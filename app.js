@@ -35,7 +35,8 @@ async function cargarCatalogoDesdeDB() {
         console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "productos listos para edición.");
     } catch (error) {
         console.error("Error obteniendo el catálogo interno:", error);
-
+    } 
+} 
 // --- CARGAR USUARIOS DESDE LA BASE DE DATOS ---
 async function cargarUsuariosDesdeDB() {
     try {
