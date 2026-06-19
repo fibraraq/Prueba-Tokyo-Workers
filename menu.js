@@ -1,35 +1,20 @@
-const menuData = {
-    combos: [
-        { id: "c1", name: "Combo Económico Arroz Tres Carnes", price: 6.19, desc: "450g de arroz, carne variada + 2 lumpias", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80" },
-        { id: "c2", name: "Combo Económico Arroz Oriental", price: 6.19, desc: "450g de arroz, camarón, vegetales + 2 lumpias", image: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&q=80" },
-        { id: "c3", name: "Promoción Ebby Roll (20 piezas)", price: 9.19, desc: "Roles fríos con camarón empanizado y salsa fuji", image: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=400&q=80" },
-        { id: "c4", name: "Combo Fusión Familiar", price: 17.69, desc: "1 Roll Frío + 1 Roll Tempura + 1 Plato + raciones", image: "https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=400&q=80" }
-    ],
-    cocina: [
-        { id: "p1", name: "Arroz Especial (Pollo y Camarón)", price: 8.20, desc: "Bandeja individual de la casa", image: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&q=80" },
-        { id: "p2", name: "Arroz 3 Carnes (Pollo, Carne, Cerdo)", price: 8.20, desc: "Bandeja individual", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&q=80" },
-        { id: "p3", name: "Tallarines de Carne y Camarón", price: 8.20, desc: "Bandeja individual", image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400&q=80" },
-        { id: "p4", name: "Pollo Agridulce con Papas", price: 8.20, desc: "Acompañado de papas fritas", image: "https://images.unsplash.com/photo-1525755662778-989d0524087e?w=400&q=80" }
-    ],
-    sushi: [
-        { id: "s1", name: "Nozomi Roll Tempura (12 pzs)", price: 6.69, desc: "Camarón tempura, cangrejo, queso crema y salsa anguila", image: "https://images.unsplash.com/photo-1617196034183-421b4917c92d?w=400&q=80" },
-        { id: "s2", name: "Okinawa Roll Tempura (12 pzs)", price: 6.69, desc: "Topping de camarón tempura y salsa fuji", image: "https://images.unsplash.com/photo-1559410545-0bdcd187e0a6?w=400&q=80" },
-        { id: "s3", name: "Hiroshima Roll Tempura (12 pzs)", price: 6.69, desc: "Pescado blanco tempura, aguacate y salsa anguila", image: "https://images.unsplash.com/photo-1582450871972-ab5ca641643d?w=400&q=80" }
-    ],
-    extras: [
-        { id: "e1", name: "Wakame (100g)", price: 4.50, desc: "Ensalada de algas marinas", image: "https://images.unsplash.com/photo-1633504535090-b33a8af79fa2?w=400&q=80" },
-        { id: "e2", name: "Papas Cheddar", price: 4.00, desc: "Ración con queso fundido", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&q=80" },
-        { id: "e3", name: "Pepsi Grande (1.3 Litros)", price: 2.00, desc: "Refresco ideal para compartir", image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80" },
-        { id: "e4", name: "Pepsi Mediana (1 Litro)", price: 1.50, desc: "Refresco individual", image: "https://images.unsplash.com/photo-1543257580-7269da773bf5?w=400&q=80" },
-        { id: "e5", name: "Salsa de Anguila Extra", price: 0.50, desc: "Porción adicional de salsa dulce", image: "https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=400&q=80" },
-        { id: "e6", name: "Salsa Fuji Extra", price: 0.50, desc: "Porción adicional de salsa de la casa", image: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=400&q=80" }
-    ]
+// URL de tu nuevo Webhook en n8n
+const URL_OBTENER_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
+
+// Estructura vacía que llenaremos con la base de datos
+let menuData = {
+    combos: [],
+    cocina: [],
+    sushi: [],
+    extras: []
 };
 
 let cart = {};
 
-window.onload = function() {
+// Al cargar la página, buscamos los platos en la base de datos
+window.onload = async function() {
     history.replaceState({ step: 1 }, "Paso 1");
+    await cargarMenuDesdeDB();
 };
 
 window.onpopstate = function(event) {
@@ -39,6 +24,41 @@ window.onpopstate = function(event) {
         goToStep(1, false);
     }
 };
+
+// --- FUNCIÓN MÁGICA: Conectar con n8n y Railway ---
+async function cargarMenuDesdeDB() {
+    try {
+        const response = await fetch(URL_OBTENER_MENU);
+        if (!response.ok) throw new Error('Error al conectar con el servidor');
+        
+        const productosRaw = await response.json();
+
+        // Limpiamos el menú por si acaso
+        menuData = { combos: [], cocina: [], sushi: [], extras: [] };
+
+        // Clasificamos cada producto que viene de la base de datos
+        productosRaw.forEach(prod => {
+            const categoria = String(prod.categoria).toLowerCase();
+            
+            // Si la categoría existe en nuestra estructura, metemos el plato ahí
+            if (menuData[categoria]) {
+                menuData[categoria].push({
+                    id: prod.id,
+                    name: prod.nombre,
+                    price: parseFloat(prod.precio),
+                    desc: prod.descripcion || "",
+                    image: prod.imagen || ""
+                });
+            }
+        });
+        
+        console.log("Menú cargado exitosamente desde PostgreSQL");
+
+    } catch (error) {
+        console.error("Error obteniendo el menú:", error);
+        // Si falla la conexión, podríamos mostrar una alerta o cargar un menú de respaldo
+    }
+}
 
 function goToStep(stepNumber, pushState = true) {
     document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
