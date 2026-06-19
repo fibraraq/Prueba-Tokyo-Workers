@@ -359,14 +359,27 @@ function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datos
 // --- FECHAS Y RENDERIZADO ---
 function esPedidoDeLaFecha(filaTexto) {
     if (!filaTexto) return false;
+    
+    // Parsear el texto a un objeto para leer la fecha exacta
+    let pedidoObj;
+    try { pedidoObj = JSON.parse(filaTexto); } 
+    catch(e) { return false; }
+
+    // Obtenemos la fecha seleccionada en tu calendario
     const inputFecha = document.getElementById('calendarioFiltro') ? document.getElementById('calendarioFiltro').value : '';
-    const fechaBase = inputFecha ? new Date(inputFecha + 'T12:00:00-04:00') : new Date();
-    const opciones = { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' };
-    const formateador = new Intl.DateTimeFormat('es-VE', opciones); const partes = formateador.formatToParts(fechaBase);
-    const dia = partes.find(p => p.type === 'day').value; const mes = partes.find(p => p.type === 'month').value; const anio = partes.find(p => p.type === 'year').value;
-    const textoLimpio = filaTexto.replace(/[\s\uFEFF\xA0]+/g, '');
-    const f1 = `${anio}-${mes}-${dia}`; const f2 = `${dia}${mes}${anio}`; const f3 = `${dia}/${mes}/${anio}`; const f4 = `${anio}${mes}${dia}`;
-    return textoLimpio.includes(f1) || textoLimpio.includes(f2) || textoLimpio.includes(f3) || textoLimpio.includes(f4);
+    const fechaDeseada = inputFecha || new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'}); 
+
+    const fechaRaw = pedidoObj.timestamp || pedidoObj['Timestamp'];
+    if (!fechaRaw) return true;
+
+    try {
+        // Magia: Convertimos la hora UTC del servidor a la hora local de Venezuela
+        const d = new Date(fechaRaw);
+        const fechaLocal = d.toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
+        return fechaLocal === fechaDeseada;
+    } catch(e) {
+        return true;
+    }
 }
 
 function normalizarEstado(estadoRaw) { return (!estadoRaw) ? '' : estadoRaw.replace(/[\s\uFEFF\xA0]+/g, '').toLowerCase(); }
@@ -404,12 +417,7 @@ function renderizarTablero() {
     const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
 
     const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeLaFecha(JSON.stringify(p)));
-    pedidosHoy.sort((a, b) => {
-        let valA = parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) || 0;
-        let valB = parseInt(String(b.id_pedido || b.ID || 0).replace(/\D/g,'')) || 0;
-        return valA - valB;
-    });
-
+    pedidosHoy.sort((a, b) => parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) - parseInt(String(b.id_pedido || b.ID || 0).replace(/\D/g,'')));
     const mapaIdsDiarios = {};
     pedidosHoy.forEach((p, index) => {
         const id = p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID';
@@ -417,63 +425,44 @@ function renderizarTablero() {
     });
 
     pedidosEnMemoria.forEach(pedido => {
-        const filaTexto = JSON.stringify(pedido);
-        if (!esPedidoDeLaFecha(filaTexto)) return;
+        if (!esPedidoDeLaFecha(JSON.stringify(pedido))) return;
 
         const idReal = pedido.id_pedido || pedido['ID_Pedido'] || pedido.ID || 'S/ID';
         const idVisual = mapaIdsDiarios[idReal] || idReal;
 
-        const cliente = pedido.cliente || pedido['Cliente'] || 'Desconocido';
-        const telefonoRaw = pedido.telefono || pedido['Teléfono'] || '';
-        const metodoPago = String(pedido.metodo_pago || pedido['Método de pago'] || pedido.Metodo_pago || '').replace(/'/g, "\\'");
-        const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil') || metodoPago.toLowerCase().includes('móvil');
+        const cliente = pedido.cliente || 'Desconocido';
+        const telefonoRaw = pedido.telefono || '';
+        const metodoPago = String(pedido.metodo_pago || '').replace(/'/g, "\\'");
+        const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil');
+        const monto = parseFloat(String(pedido.total_orden || pedido.monto || 0).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
         
-        const montoRaw = pedido.total_orden || pedido['Total Orden'] || pedido['Total Orden '] || pedido.Total_Orden || pedido.monto || 0;
-        const montoNumerico = String(montoRaw).replace(/[^0-9.,]/g, '').replace(',', '.');
-        const monto = parseFloat(montoNumerico || 0);
-        const montoF = monto.toFixed(2);
-        
-        let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${montoF}</span>`;
-        if (esPagoMovil) {
-            const montoBs = (monto * tasaActual).toFixed(2);
-            htmlMonto = `
-                <div class="flex flex-col">
-                    <span class="text-xs font-bold text-slate-300">$${montoF}</span>
-                    <span class="text-[10px] font-bold text-amber-400">Bs. ${montoBs}</span>
-                </div>`;
-        }
+        let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${monto.toFixed(2)}</span>`;
+        if (esPagoMovil) htmlMonto = `<div class="flex flex-col"><span class="text-xs font-bold text-slate-300">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
         
         let hora = '--:--';
-        const fechaRaw = pedido.timestamp || pedido['Timestamp'] || '';
-        if (fechaRaw) {
+        if (pedido.timestamp) {
             try {
-                if (fechaRaw.includes('T') && fechaRaw.includes('Z')) {
-                    const d = new Date(fechaRaw);
-                    hora = d.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
-                } else {
-                    const timeMatch = fechaRaw.match(/(\d{1,2}):(\d{2})/);
-                    if (timeMatch) {
-                        let h = parseInt(timeMatch[1], 10);
-                        const ampm = h >= 12 ? 'PM' : 'AM';
-                        h = h % 12 || 12;
-                        hora = `${h}:${timeMatch[2]} ${ampm}`;
-                    }
-                }
-            } catch(e) {}
+                if (pedido.timestamp.includes('T')) hora = new Date(pedido.timestamp).toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
+                else { const m = pedido.timestamp.match(/(\d{1,2}):(\d{2})/); if(m) { let h = parseInt(m[1],10); const ampm = h >= 12 ? 'PM':'AM'; h = h % 12 || 12; hora = `${h}:${m[2]} ${ampm}`; } }
+            } catch(e){}
         }
         
-        const articulos = pedido.pedido_detallado || pedido['Pedido Detallado'] || 'Detalle no disponible';
-        const estadoLimpio = normalizarEstado(String(pedido.estado || pedido['Estado'] || ''));
+        const art = pedido.pedido_detallado || 'Detalle no disponible'; 
+        const estadoLimpio = normalizarEstado(String(pedido.estado || ''));
 
-        // --- LÓGICA DEL BOTÓN DE WHATSAPP ---
+        // --- BOTÓN INTELIGENTE DE WHATSAPP ---
         let btnWhatsApp = '';
-        const telLimpio = String(telefonoRaw).replace(/\D/g, ''); // Dejamos solo los números
+        const telLimpio = String(telefonoRaw).replace(/\D/g, ''); 
         if (telLimpio.length >= 10) {
             let telWA = telLimpio;
             if (telWA.startsWith('0')) telWA = '58' + telWA.substring(1);
             else if (!telWA.startsWith('58')) telWA = '58' + telWA;
             
-            btnWhatsApp = `<a href="https://web.whatsapp.com/send?phone=${telWA}" target="_blank" onclick="event.stopPropagation()" class="text-slate-400 hover:text-emerald-400 transition cursor-pointer ml-1" title="Abrir chat en WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
+            // Detección automática de dispositivo
+            const esMovil = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const urlWA = esMovil ? `https://wa.me/${telWA}` : `https://web.whatsapp.com/send?phone=${telWA}`;
+            
+            btnWhatsApp = `<a href="${urlWA}" target="_blank" onclick="event.stopPropagation()" class="text-slate-400 hover:text-emerald-400 transition cursor-pointer ml-1" title="Abrir chat en WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
         }
 
         if (estadoLimpio === 'pagopendiente') {
@@ -490,10 +479,7 @@ function renderizarTablero() {
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                     </div>
-                    <div>
-                        <h4 class="font-bold text-white text-sm truncate">${cliente}</h4>
-                        <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
-                    </div>
+                    <div><h4 class="font-bold text-white text-sm truncate">${cliente}</h4><p class="text-xs text-slate-400 mt-1 line-clamp-2">${art}</p></div>
                     <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
                         ${htmlMonto}
                         <button onclick="procesarPasoCocina('${idReal}')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Aceptar <i class="fa-solid fa-arrow-right"></i></button>
@@ -511,54 +497,26 @@ function renderizarTablero() {
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
                     </div>
-                    <div>
-                        <h4 class="font-bold text-white text-sm truncate">${cliente}</h4>
-                        <p class="text-xs text-slate-400 mt-1 line-clamp-2">${articulos}</p>
-                    </div>
+                    <div><h4 class="font-bold text-white text-sm truncate">${cliente}</h4><p class="text-xs text-slate-400 mt-1 line-clamp-2">${art}</p></div>
                     <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
                         ${htmlMonto}
                         <button onclick="procesarPasoFinalizado('${idReal}')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Despachar <i class="fa-solid fa-check"></i></button>
                     </div>
                 </div>`;
         } else if (estadoLimpio === 'finalizado') {
-            conteoFinalizado++;
-            totalVentasDia += monto; 
-            
-            let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${montoF}</span>`;
-            if (esPagoMovil) {
-                const montoBs = (monto * tasaActual).toFixed(2);
-                htmlMontoFinalizado = `
-                    <div class="flex flex-col text-right">
-                        <span class="text-sm font-bold text-emerald-400">$${montoF}</span>
-                        <span class="text-[10px] font-bold text-amber-400">Bs. ${montoBs}</span>
-                    </div>`;
-            }
-
+            conteoFinalizado++; totalVentasDia += monto; 
+            let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span>`;
+            if (esPagoMovil) htmlMontoFinalizado = `<div class="flex flex-col text-right"><span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
             colFinalizado.innerHTML += `
-                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition duration-150 flex justify-between items-center cursor-pointer">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span>
-                        <span class="text-xs text-slate-400">Ver Recibo</span>
-                        ${btnWhatsApp}
-                    </div>
+                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition flex justify-between items-center cursor-pointer">
+                    <div class="flex items-center gap-2"><span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span><span class="text-xs text-slate-400">Ver Recibo</span>${btnWhatsApp}</div>
                     ${htmlMontoFinalizado}
                 </div>`;
         }
     });
 
-    document.getElementById('cantPagoPendiente').innerText = conteoPago;
-    document.getElementById('cantEnCocina').innerText = conteoCocina;
-    document.getElementById('cantFinalizado').innerText = conteoFinalizado;
-
-    if (document.getElementById('totalDiaBottom')) {
-        const totalVentasBs = (totalVentasDia * tasaActual).toFixed(2);
-        document.getElementById('totalDiaBottom').innerHTML = `
-            <div class="flex flex-col text-right leading-tight">
-                <span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span>
-                <span class="text-[10px] font-bold text-amber-400">Bs. ${totalVentasBs}</span>
-            </div>
-        `;
-    }
+    document.getElementById('cantPagoPendiente').innerText = conteoPago; document.getElementById('cantEnCocina').innerText = conteoCocina; document.getElementById('cantFinalizado').innerText = conteoFinalizado;
+    if (document.getElementById('totalDiaBottom')) document.getElementById('totalDiaBottom').innerHTML = `<div class="flex flex-col text-right leading-tight"><span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(totalVentasDia * tasaActual).toFixed(2)}</span></div>`;
 }
 
 // --- VER RECIBOS ---
