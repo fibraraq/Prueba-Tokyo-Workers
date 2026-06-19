@@ -244,20 +244,40 @@ function agregarAlCarritoEdicion(idProducto) {
 function cerrarModalEditar() { document.getElementById('modalEditarPedido').classList.add('hidden'); }
 
 function guardarEdicionPedido() {
-    const idReal = document.getElementById('editIdReal').value; const nuevoCliente = document.getElementById('editCliente').value.trim();
+    const idReal = document.getElementById('editIdReal').value; 
+    const nuevoCliente = document.getElementById('editCliente').value.trim();
     const pedidoIndex = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
+    
     if(pedidoIndex === -1) return;
-    const pedidoAnterior = pedidosEnMemoria[pedidoIndex]; const nuevoDetalle = carritoEdicion.map(item => `${item.qty}x ${item.name}`).join('\n');
+    
+    const pedidoAnterior = pedidosEnMemoria[pedidoIndex]; 
+    const nuevoDetalle = carritoEdicion.map(item => `${item.qty}x ${item.name}`).join('\n');
 
-    pedidosEnMemoria[pedidoIndex].cliente = nuevoCliente; pedidosEnMemoria[pedidoIndex].pedido_detallado = nuevoDetalle; pedidosEnMemoria[pedidoIndex].total_orden = totalEdicionUSD;
-    renderizarTablero(); cerrarModalEditar();
+    // Actualización visual inmediata
+    pedidosEnMemoria[pedidoIndex].cliente = nuevoCliente; 
+    pedidosEnMemoria[pedidoIndex].pedido_detallado = nuevoDetalle; 
+    pedidosEnMemoria[pedidoIndex].total_orden = totalEdicionUSD;
+    renderizarTablero(); 
+    cerrarModalEditar();
 
-    const payload = {
+    // 1. Enviar actualización a la Base de Datos (Tu flujo actual)
+    const payloadBD = {
         id: idReal, estado: pedidoAnterior.estado || 'Pago Pendiente', cliente: nuevoCliente, pedido_detallado: nuevoDetalle, total_orden: totalEdicionUSD,   
         telefono: pedidoAnterior.telefono || '', tipo_entrega: pedidoAnterior.tipo_entrega || '', procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado",
         referencia_pago: pedidoAnterior.referencia_pago || pedidoAnterior.Referencia_pago || "", imagen_pago: pedidoAnterior.imagen_pago || pedidoAnterior.Imagen_pago || ""
     };
-    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(e => console.error(e));
+    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadBD) }).catch(e => console.error("Error BD:", e));
+
+    // 2. NUEVO: Enviar notificación de WhatsApp al cliente
+    const payloadNotificacion = {
+        telefono: pedidoAnterior.telefono || '',
+        cliente: nuevoCliente,
+        pedido_detallado: nuevoDetalle,
+        total_orden: totalEdicionUSD
+    };
+    fetch("https://n8n-production-633e.up.railway.app/webhook/notificar-edicion", { 
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadNotificacion) 
+    }).catch(e => console.error("Error enviando WhatsApp:", e));
 }
 
 // --- CANCELAR PEDIDO ---
