@@ -4,7 +4,9 @@ const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/
 const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
 const URL_NUEVO_PEDIDO = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo";
 const URL_OBTENER_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
+const URL_OBTENER_USUARIOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-usuarios";
 
+let USUARIOS_SISTEMA = [];
 let CATALOGO_PRODUCTOS = [];
 let usuarioActivo = null;
 let pedidosEnMemoria = [];
@@ -33,6 +35,18 @@ async function cargarCatalogoDesdeDB() {
         console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "productos listos para edición.");
     } catch (error) {
         console.error("Error obteniendo el catálogo interno:", error);
+
+// --- CARGAR USUARIOS DESDE LA BASE DE DATOS ---
+async function cargarUsuariosDesdeDB() {
+    try {
+        const response = await fetch(URL_OBTENER_USUARIOS);
+        if (!response.ok) throw new Error('Error al conectar con el servidor de usuarios');
+        USUARIOS_SISTEMA = await response.json();
+        console.log("Usuarios cargados exitosamente.");
+    } catch (error) {
+        console.error("Error obteniendo los usuarios:", error);
+    }
+}
 
 // --- CONTROL DE TASA ---
 async function actualizarTasaBCV() {
@@ -624,5 +638,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     
     actualizarTasaBCV(); 
     await cargarCatalogoDesdeDB(); // <-- Descarga los platos antes de abrir el sistema
+    await cargarUsuariosDesdeDB(); // <-- Agregamos esta línea clave
     verificarSesion();
 });
