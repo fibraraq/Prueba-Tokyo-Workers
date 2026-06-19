@@ -41,8 +41,12 @@ async function cargarUsuariosDesdeDB() {
     try {
         const response = await fetch(URL_OBTENER_USUARIOS);
         if (!response.ok) throw new Error('Error al conectar con el servidor de usuarios');
-        USUARIOS_SISTEMA = await response.json();
-        console.log("Usuarios cargados exitosamente.");
+        
+        const data = await response.json();
+        
+        // Nos aseguramos de que siempre sea una lista (array) sin importar cómo lo envíe n8n
+        USUARIOS_SISTEMA = Array.isArray(data) ? data : (data.data || []);
+        console.log("Usuarios cargados desde BD:", USUARIOS_SISTEMA);
     } catch (error) {
         console.error("Error obteniendo los usuarios:", error);
     }
@@ -89,6 +93,7 @@ function verificarSesion() {
     }
 }
 
+// --- SESIONES (RBAC) ---
 function iniciarSesion(event) {
     event.preventDefault();
     const usernameInput = document.getElementById('loginUsername').value.trim();
@@ -96,7 +101,12 @@ function iniciarSesion(event) {
     const errorMsg = document.getElementById('loginError');
     errorMsg.classList.add('hidden');
 
-    const usuarioEncontrado = USUARIOS_SISTEMA.find(u => u.username.toLowerCase() === usernameInput.toLowerCase() && u.pin === pinInput);
+    // Búsqueda a prueba de balas: Forzamos a que el PIN de la BD y el del input sean texto (String)
+    const usuarioEncontrado = USUARIOS_SISTEMA.find(u => 
+        String(u.username).toLowerCase() === usernameInput.toLowerCase() && 
+        String(u.pin) === String(pinInput)
+    );
+
     if (usuarioEncontrado) {
         usuarioActivo = { username: usuarioEncontrado.username, nombre: usuarioEncontrado.nombre, rol: usuarioEncontrado.rol };
         localStorage.setItem('usuarioActivo', JSON.stringify(usuarioActivo));
