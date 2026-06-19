@@ -60,35 +60,32 @@
                     </div>
                 </div>
                 
-                <div class="flex flex-wrap items-center gap-3">
-                    <div id="badgeUsuario" class="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700"></div>
-
-                    <div class="flex items-center bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
-                        <span class="text-xs text-slate-400 mr-2">Tasa BCV:</span>
-                        <input type="number" id="tasaBCV" value="45.00" step="0.01" class="w-20 bg-slate-800 text-white text-sm font-semibold text-center border border-slate-600 rounded px-1 focus:outline-none focus:border-indigo-500">
+                <div class="flex flex-wrap items-center gap-2 md:gap-3">
+                    <div id="badgeUsuario" class="flex items-center justify-between gap-2 bg-slate-900 px-3 h-10 min-w-[220px] rounded-lg border border-slate-700"></div>
+                    
+                    <div class="flex items-center bg-slate-700 px-3 h-10 rounded-lg border border-slate-600">
+                        <span class="text-xs text-slate-400 mr-2 whitespace-nowrap">Tasa BCV:</span>
+                        <input type="number" id="tasaBCV" value="45.00" step="0.01" class="w-20 bg-slate-800 text-white text-sm font-semibold text-center border border-slate-600 rounded py-1 focus:outline-none focus:border-indigo-500">
                     </div>
                     
-                    <div class="flex items-center bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
-                        <input type="date" id="calendarioFiltro" class="bg-slate-800 text-slate-300 text-sm font-semibold border-none focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert">
+                    <div class="flex items-center bg-slate-700 px-3 h-10 rounded-lg border border-slate-600">
+                        <input type="date" id="calendarioFiltro" class="bg-slate-800 text-slate-300 text-sm font-semibold border-none focus:outline-none cursor-pointer py-1 px-2 rounded [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert">
                     </div>
                     
-                    <div class="flex items-center gap-2 bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
-                        <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                        </span>
-                        <span class="text-xs text-slate-300"><span id="contadorSegundos" class="font-mono">15</span>s</span>
-                    </div>
-
-                    <button onclick="abrirModalNuevoPedido()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2 cursor-pointer">
+                    <div class="flex items-center justify-center bg-slate-700 px-3 h-10 rounded-lg border border-slate-600 min-w-[60px]">
+                        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2"></div>
+                        <span id="contadorSegundos" class="text-xs font-bold text-slate-300">15s</span>   
+                        </div>
+                        
+                    <button onclick="abrirModalNuevoPedido()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold h-10 px-4 rounded-lg shadow-lg shadow-emerald-900/20 transition flex items-center gap-2 cursor-pointer">
                         <i class="fa-solid fa-plus"></i> Nuevo Pedido
                     </button>
 
-                    <button onclick="cargarPedidos()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3.5 py-2 rounded-lg shadow transition duration-200 flex items-center gap-2 cursor-pointer" title="Actualizar">
-                        <i class="fa-solid fa-rotate"></i>
+                    <button onclick="cargarPedidos()" class="bg-indigo-600 hover:bg-indigo-500 text-white h-10 w-10 rounded-lg shadow-lg shadow-indigo-900/20 transition flex items-center justify-center cursor-pointer" title="Actualizar ahora">
+                        <i class="fa-solid fa-rotate-right"></i>
                     </button>
 
-                    <button onclick="cerrarSesion()" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-xs font-medium px-3.5 py-2 rounded-lg border border-red-500/20 transition cursor-pointer" title="Salir">
+                    <button onclick="cerrarSesion()" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 h-10 w-10 rounded-lg transition flex items-center justify-center cursor-pointer" title="Cerrar Sesión">
                         <i class="fa-solid fa-power-off"></i>
                     </button>
                 </div>
