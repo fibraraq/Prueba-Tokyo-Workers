@@ -87,10 +87,13 @@ function aplicarRestriccionesRol() {
     if (usuarioActivo.rol === 'superadmin') colorRol = 'bg-red-500/10 text-red-400 border-red-500/20';
     if (usuarioActivo.rol === 'admin') colorRol = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
 
+    // Se modificó la estructura interna para usar el ancho de forma inteligente
     badgeUsuario.innerHTML = `
-        <span class="text-[10px] text-slate-400 uppercase font-semibold">Op:</span>
-        <span class="text-xs font-bold text-white">${usuarioActivo.nombre}</span>
-        <span class="text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border ${colorRol}">${usuarioActivo.rol}</span>
+        <div class="flex items-center gap-2 overflow-hidden">
+            <span class="text-[10px] text-slate-400 uppercase font-semibold shrink-0">Op:</span>
+            <span class="text-xs font-bold text-white truncate max-w-[110px]" title="${usuarioActivo.nombre}">${usuarioActivo.nombre}</span>
+        </div>
+        <span class="text-[9px] uppercase font-mono font-bold px-1.5 py-0.5 rounded border ${colorRol} shrink-0">${usuarioActivo.rol}</span>
     `;
 
     if (usuarioActivo.rol === 'cajero') {
