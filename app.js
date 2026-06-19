@@ -253,14 +253,13 @@ function guardarEdicionPedido() {
     const pedidoAnterior = pedidosEnMemoria[pedidoIndex]; 
     const nuevoDetalle = carritoEdicion.map(item => `${item.qty}x ${item.name}`).join('\n');
 
-    // Actualización visual inmediata
     pedidosEnMemoria[pedidoIndex].cliente = nuevoCliente; 
     pedidosEnMemoria[pedidoIndex].pedido_detallado = nuevoDetalle; 
     pedidosEnMemoria[pedidoIndex].total_orden = totalEdicionUSD;
     renderizarTablero(); 
     cerrarModalEditar();
 
-    // 1. Enviar actualización a la Base de Datos (Tu flujo actual)
+    // 1. Enviar actualización a la Base de Datos
     const payloadBD = {
         id: idReal, estado: pedidoAnterior.estado || 'Pago Pendiente', cliente: nuevoCliente, pedido_detallado: nuevoDetalle, total_orden: totalEdicionUSD,   
         telefono: pedidoAnterior.telefono || '', tipo_entrega: pedidoAnterior.tipo_entrega || '', procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado",
@@ -268,13 +267,26 @@ function guardarEdicionPedido() {
     };
     fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadBD) }).catch(e => console.error("Error BD:", e));
 
-    // 2. NUEVO: Enviar notificación de WhatsApp al cliente
+    // 2. Lógica para detectar Pago Móvil y calcular Bolívares
+    const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
+    const metodoPago = String(pedidoAnterior.metodo_pago || pedidoAnterior['Método de pago'] || pedidoAnterior.Metodo_pago || '').toLowerCase();
+    const esPagoMovil = metodoPago.includes('pago') || metodoPago.includes('movil') || metodoPago.includes('móvil');
+    
+    let textoAdicionalBs = "";
+    if (esPagoMovil) {
+        const totalBs = (totalEdicionUSD * tasaActual).toFixed(2);
+        textoAdicionalBs = `\nEquivalente en Bolívares: *Bs. ${totalBs}*`;
+    }
+
+    // 3. Enviar notificación de WhatsApp al webhook
     const payloadNotificacion = {
         telefono: pedidoAnterior.telefono || '',
         cliente: nuevoCliente,
         pedido_detallado: nuevoDetalle,
-        total_orden: totalEdicionUSD
+        total_orden: totalEdicionUSD,
+        texto_bolivares: textoAdicionalBs // Enviamos el texto calculado (o vacío si es zelle/efectivo)
     };
+    
     fetch("https://n8n-production-633e.up.railway.app/webhook/notificar-edicion", { 
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadNotificacion) 
     }).catch(e => console.error("Error enviando WhatsApp:", e));
