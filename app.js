@@ -647,7 +647,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     
     actualizarTasaBCV(); 
-    await cargarCatalogoDesdeDB(); // <-- Descarga los platos antes de abrir el sistema
-    await cargarUsuariosDesdeDB(); // <-- Agregamos esta línea clave
+    await cargarCatalogoDesdeDB(); 
+    await cargarUsuariosDesdeDB();
     verificarSesion();
 });
