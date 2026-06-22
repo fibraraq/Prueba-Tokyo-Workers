@@ -88,34 +88,34 @@ async function procesarVerificacionTelefono(event) {
     }
 }
 
+// --- REEMPLAZA LA FUNCIÓN DE REGISTRO ---
 async function procesarRegistroCliente(event) {
     event.preventDefault();
-    const txtTelefono = document.getElementById('auth-phone').value.trim();
+    
+    // Atrapamos los datos exactamente como el cliente los escribió
     const payload = {
-        telefono: txtTelefono,
+        telefono: document.getElementById('auth-phone').value.trim(),
         nombre: document.getElementById('reg-name').value.trim(),
         cedula: document.getElementById('reg-cedula').value.trim(),
-        direccion_principal: document.getElementById('reg-address').value.trim()
+        direccion_principal: document.getElementById('reg-address').value.trim(),
+        direcciones_extra: '[]' // Lo inicializamos vacío desde el principio
     };
 
     const btn = document.getElementById('btn-reg-submit');
     btn.disabled = true; btn.innerText = "Registrando...";
 
     try {
-        const response = await fetch(URL_REGISTRAR_CLIENTE, {
+        // Enviamos a la base de datos (n8n) para que se guarde
+        await fetch(URL_REGISTRAR_CLIENTE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) throw new Error('Error al registrar');
+        // EL TRUCO: Inyectamos directamente el 'payload' perfecto a la memoria viva.
+        // Así no dependemos de cómo responda n8n y evitamos que el usuario tenga que recargar.
+        datosClienteLogueado = payload;
         
-        const resData = await response.json();
-        const registrado = Array.isArray(resData) ? resData[0] : resData;
-
-        datosClienteLogueado = registrado || payload;
-        if (!datosClienteLogueado.direcciones_extra) datosClienteLogueado.direcciones_extra = '[]';
-
         localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
         document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
         
@@ -358,44 +358,81 @@ function prepareCheckout() {
 
 function toggleFormularioDatosEnvio() {
     const isChecked = document.getElementById('chk-usar-mis-datos').checked;
-    const wrapper = document.getElementById('wrapper-datos-destinatario');
+    const wrapperNuevosDatos = document.getElementById('wrapper-datos-destinatario');
     const inputNombre = document.getElementById('client-name');
     const inputTelefono = document.getElementById('client-phone');
+    const select = document.getElementById('sel-direccion-entrega');
 
     if (isChecked) {
-        wrapper.classList.add('hidden'); inputNombre.removeAttribute('required'); inputTelefono.removeAttribute('required');
+        // ES PARA MÍ: Oculto los campos extra
+        wrapperNuevosDatos.classList.add('hidden');
+        inputNombre.removeAttribute('required');
+        inputTelefono.removeAttribute('required');
+        
+        // Devuelvo el selector a la dirección principal
+        if (select && select.options.length > 0) {
+            select.selectedIndex = 0; 
+        }
     } else {
-        wrapper.classList.remove('hidden'); inputNombre.setAttribute('required', 'required'); inputTelefono.setAttribute('required', 'required');
+        // ES PARA OTRO: Muestro los campos extra
+        wrapperNuevosDatos.classList.remove('hidden');
+        inputNombre.setAttribute('required', 'required');
+        inputTelefono.setAttribute('required', 'required');
+        
+        // Lleno temporalmente con los datos del usuario por si solo quiere cambiar una letra
         inputNombre.value = datosClienteLogueado ? datosClienteLogueado.nombre : '';
         inputTelefono.value = datosClienteLogueado ? datosClienteLogueado.telefono : '';
+        
+        // Cambio el selector de direcciones a "Manual" para que escriba dónde entregarlo
+        if (select) {
+            select.value = "__MANUAL__";
+        }
     }
+    manejarSeleccionDireccion();
 }
-
 function cargarSelectorDirecciones() {
     const select = document.getElementById('sel-direccion-entrega');
     if (!select || !datosClienteLogueado) return;
 
-    select.innerHTML = '';
+    select.innerHTML = ''; 
+
+    // Extraemos la dirección principal de forma súper segura
+    const dirPrincipal = datosClienteLogueado.direccion_principal || "Mi dirección registrada";
+
+    // Opción 1: Dirección principal
     const optPrincipal = document.createElement('option');
-    optPrincipal.value = datosClienteLogueado.direccion_principal;
-    optPrincipal.innerText = `🏠 Principal: ${datosClienteLogueado.direccion_principal.substring(0, 35)}...`;
+    optPrincipal.value = dirPrincipal;
+    optPrincipal.innerText = `🏠 Principal: ${String(dirPrincipal).substring(0, 35)}...`;
     select.appendChild(optPrincipal);
 
+    // Opciones extras
     let extras = [];
-    try { extras = typeof datosClienteLogueado.direcciones_extra === 'string' ? JSON.parse(datosClienteLogueado.direcciones_extra || '[]') : (datosClienteLogueado.direcciones_extra || []);
+    try {
+        if (datosClienteLogueado.direcciones_extra) {
+            extras = typeof datosClienteLogueado.direcciones_extra === 'string' 
+                ? JSON.parse(datosClienteLogueado.direcciones_extra) 
+                : datosClienteLogueado.direcciones_extra;
+        }
     } catch(e) { extras = []; }
 
-    extras.forEach((dir, i) => {
-        const opt = document.createElement('option'); opt.value = dir;
-        opt.innerText = `📍 Frecuente ${i+1}: ${dir.substring(0, 35)}...`;
-        select.appendChild(opt);
-    });
+    if (Array.isArray(extras)) {
+        extras.forEach((dir, i) => {
+            if (dir && typeof dir === 'string') {
+                const opt = document.createElement('option');
+                opt.value = dir;
+                opt.innerText = `📍 Frecuente ${i+1}: ${dir.substring(0, 35)}...`;
+                select.appendChild(opt);
+            }
+        });
+    }
 
-    const optManual = document.createElement('option'); optManual.value = "__MANUAL__";
+    // Opción manual
+    const optManual = document.createElement('option');
+    optManual.value = "__MANUAL__";
     optManual.innerText = "🗺️ Usar otra dirección (Playa, trabajo, etc)...";
     select.appendChild(optManual);
 
-    manejarSeleccionDireccion();
+    manejarSeleccionDireccion(); 
 }
 
 function manejarSeleccionDireccion() {
