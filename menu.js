@@ -1,17 +1,19 @@
-// URLs de n8n actualizadas
+// ==========================================
+// TOKIO SUSHI - LÓGICA DEL CLIENTE (FRONTEND)
+// ==========================================
+
 const URL_OBTENER_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
 const URL_VERIFICAR_CLIENTE = "https://n8n-production-633e.up.railway.app/webhook/verificar-cliente";
 const URL_REGISTRAR_CLIENTE = "https://n8n-production-633e.up.railway.app/webhook/registrar-cliente";
 
 let menuData = { combos: [], cocina: [], sushi: [], extras: [] };
 let cart = {};
-let datosClienteLogueado = null; // Guardará el objeto completo del cliente
+let datosClienteLogueado = null; 
 
-// Manejo del arranque adaptado al Login de clientes
+// --- 1. ARRANQUE Y CONTROL DE ESTADOS ---
 window.onload = async function() {
     history.replaceState({ step: 'auth' }, "Autenticación");
     
-    // Verificamos si ya hay un cliente recordado en el navegador
     const sesionCliente = localStorage.getItem('sesionCliente');
     if (sesionCliente) {
         datosClienteLogueado = JSON.parse(sesionCliente);
@@ -31,8 +33,26 @@ window.onpopstate = function(event) {
     }
 };
 
-// --- CONTROL DE FLUJO DE CLIENTES (AUTENTICACIÓN Y REGISTRO) ---
+function goToStep(stepNumber, pushState = true) {
+    document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+    document.getElementById(`step-${stepNumber}`).classList.add('active');
+    window.scrollTo(0, 0);
+    
+    const backBtn = document.getElementById('header-back-btn');
+    if (stepNumber !== 'auth' && stepNumber !== 'registro' && stepNumber > 1 && stepNumber < 4) {
+        backBtn.classList.remove('invisible');
+    } else {
+        backBtn.classList.add('invisible');
+    }
 
+    updateStickyBarVisibility(stepNumber);
+
+    if (pushState) {
+        history.pushState({ step: stepNumber }, `Paso ${stepNumber}`);
+    }
+}
+
+// --- 2. AUTENTICACIÓN Y REGISTRO ---
 async function procesarVerificacionTelefono(event) {
     event.preventDefault();
     const txtTelefono = document.getElementById('auth-phone').value.trim();
@@ -49,14 +69,12 @@ async function procesarVerificacionTelefono(event) {
         const listaClientes = Array.isArray(resultado) ? resultado : (resultado.data || []);
 
         if (listaClientes.length > 0) {
-            // El cliente ya existe
             datosClienteLogueado = listaClientes[0];
             localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
             document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
             await cargarMenuDesdeDB();
             goToStep(1);
         } else {
-            // Cliente nuevo, lo mandamos al paso de registro
             document.getElementById('reg-name').value = '';
             document.getElementById('reg-cedula').value = '';
             document.getElementById('reg-address').value = '';
@@ -96,7 +114,6 @@ async function procesarRegistroCliente(event) {
         const registrado = Array.isArray(resData) ? resData[0] : resData;
 
         datosClienteLogueado = registrado || payload;
-        // Inicializamos las direcciones extra vacías
         if (!datosClienteLogueado.direcciones_extra) datosClienteLogueado.direcciones_extra = '[]';
 
         localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
@@ -119,24 +136,224 @@ function cerrarSesionCliente() {
     goToStep('auth');
 }
 
-// Modificación a la función goToStep para soportar strings 'auth' y 'registro'
-function goToStep(stepNumber, pushState = true) {
-    document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
-    document.getElementById(`step-${stepNumber}`).classList.add('active');
-    window.scrollTo(0, 0);
+// --- 3. CARGA DE MENÚ (DESDE RAILWAY) ---
+async function cargarMenuDesdeDB() {
+    try {
+        const response = await fetch(URL_OBTENER_MENU);
+        if (!response.ok) throw new Error('Error al conectar con el servidor');
+        
+        const productosRaw = await response.json();
+        menuData = { combos: [], cocina: [], sushi: [], extras: [] };
+
+        productosRaw.forEach(prod => {
+            const categoria = String(prod.categoria).toLowerCase();
+            if (menuData[categoria]) {
+                menuData[categoria].push({
+                    id: prod.id,
+                    name: prod.nombre,
+                    price: parseFloat(prod.precio),
+                    desc: prod.descripcion || "",
+                    image: prod.imagen || ""
+                });
+            }
+        });
+        console.log("Menú cargado exitosamente desde PostgreSQL");
+    } catch (error) {
+        console.error("Error obteniendo el menú:", error);
+    }
+}
+
+function selectCategory(category) {
+    const container = document.getElementById('items-container');
+    container.innerHTML = '';
     
-    const backBtn = document.getElementById('header-back-btn');
-    if (stepNumber !== 'auth' && stepNumber !== 'registro' && stepNumber > 1 && stepNumber < 4) {
-        backBtn.classList.remove('invisible');
+    const titles = { combos: "Promos y Combos", cocina: "Platos de Cocina", sushi: "Roles Especiales", extras: "Bebidas y Extras" };
+    document.getElementById('category-title').innerText = titles[category];
+
+    menuData[category].forEach(item => {
+        const currentQty = cart[item.id] ? cart[item.id].qty : 0;
+        const currentNote = cart[item.id] ? (cart[item.id].note || "") : "";
+        const hasNote = currentNote.length > 0;
+        
+        const itemHtml = `
+            <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-2">
+                <div class="flex items-center justify-between gap-3">
+                    <img src="${item.image}" alt="${item.name}" class="w-20 h-20 object-cover rounded-xl flex-shrink-0 bg-gray-100 border border-gray-100">
+                    <div class="flex-grow min-w-0 pr-1">
+                        <h4 class="text-sm font-bold text-gray-800 leading-snug">${item.name}</h4>
+                        <p class="text-xs text-gray-400 my-0.5 line-clamp-2">${item.desc}</p>
+                        <span class="text-red-600 font-bold text-sm block mt-0.5">$${item.price.toFixed(2)}</span>
+                    </div>
+                    <div class="flex items-center space-x-1 bg-gray-100 p-1 rounded-xl flex-shrink-0 border border-gray-200">
+                        <button type="button" onclick="updateQty('${item.id}', '${item.name}', ${item.price}, -1)" class="w-8 h-8 bg-white rounded-lg font-bold text-lg text-gray-700 shadow-sm select-none cursor-pointer">-</button>
+                        <input type="number" id="qty-${item.id}" value="${currentQty}" min="0" onchange="setExactQty('${item.id}', '${item.name}', ${item.price}, this.value)" class="w-9 text-center font-black bg-transparent focus:outline-none text-sm text-gray-800">
+                        <button type="button" onclick="updateQty('${item.id}', '${item.name}', ${item.price}, 1)" class="w-8 h-8 bg-white rounded-lg font-bold text-lg text-gray-700 shadow-sm select-none cursor-pointer">+</button>
+                    </div>
+                </div>
+                <div class="border-t border-gray-100 pt-1">
+                    <button type="button" onclick="toggleNoteField('${item.id}')" id="note-btn-${item.id}" class="text-[11px] font-medium text-gray-500 hover:text-red-600 flex items-center gap-1 cursor-pointer select-none">
+                        ${hasNote ? '❌ Quitar nota' : '📝 Añadir nota especial (ej. sin papas)'}
+                    </button>
+                    <input type="text" id="note-input-${item.id}" value="${currentNote}" oninput="updateItemNote('${item.id}', '${item.name}', ${item.price}, this.value)" class="${hasNote ? '' : 'hidden'} w-full mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-red-500 placeholder-gray-400" placeholder="Escribe aquí tu especificación para este plato...">
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', itemHtml);
+    });
+
+    goToStep(2);
+}
+
+// --- 4. LÓGICA DEL CARRITO ---
+function toggleNoteField(id) {
+    const input = document.getElementById(`note-input-${id}`);
+    const btn = document.getElementById(`note-btn-${id}`);
+    if (input.classList.contains('hidden')) {
+        input.classList.remove('hidden'); input.focus(); btn.innerHTML = '❌ Quitar nota';
     } else {
-        backBtn.classList.add('invisible');
+        input.classList.add('hidden'); input.value = '';
+        if (cart[id]) cart[id].note = '';
+        btn.innerHTML = '📝 Añadir nota especial (ej. sin papas)';
+        if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
     }
+}
 
-    updateStickyBarVisibility(stepNumber);
-
-    if (pushState) {
-        history.pushState({ step: stepNumber }, `Paso ${stepNumber}`);
+function updateItemNote(id, name, price, value) {
+    if (!cart[id]) {
+        cart[id] = { name: name, price: price, qty: 1, note: value };
+        const qtyInput = document.getElementById(`qty-${id}`); if (qtyInput) qtyInput.value = 1;
+        calculateTotals();
+    } else {
+        cart[id].note = value;
     }
+    if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
+}
+
+function removeNoteFromCheckout(id) {
+    if (cart[id]) {
+        cart[id].note = '';
+        const noteInput = document.getElementById(`note-input-${id}`); const noteBtn = document.getElementById(`note-btn-${id}`);
+        if (noteInput) { noteInput.classList.add('hidden'); noteInput.value = ''; }
+        if (noteBtn) noteBtn.innerHTML = '📝 Añadir nota especial (ej. sin papas)';
+        prepareCheckout();
+    }
+}
+
+function updateQty(id, name, price, change) {
+    if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
+    cart[id].qty += change;
+    
+    if (cart[id].qty <= 0) {
+        delete cart[id];
+        const element = document.getElementById(`qty-${id}`); if (element) element.value = 0;
+        const noteInput = document.getElementById(`note-input-${id}`); const noteBtn = document.getElementById(`note-btn-${id}`);
+        if (noteInput) { noteInput.classList.add('hidden'); noteInput.value = ''; }
+        if (noteBtn) noteBtn.innerHTML = '📝 Añadir nota especial (ej. sin papas)';
+    } else {
+        const element = document.getElementById(`qty-${id}`); if (element) element.value = cart[id].qty;
+    }
+    calculateTotals();
+    if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
+}
+
+function setExactQty(id, name, price, value) {
+    let parsedQty = parseInt(value, 10);
+    if (isNaN(parsedQty) || parsedQty <= 0) {
+        delete cart[id];
+        const element = document.getElementById(`qty-${id}`); if (element) element.value = 0;
+        const noteInput = document.getElementById(`note-input-${id}`); const noteBtn = document.getElementById(`note-btn-${id}`);
+        if (noteInput) { noteInput.classList.add('hidden'); noteInput.value = ''; }
+        if (noteBtn) noteBtn.innerHTML = '📝 Añadir nota especial (ej. sin papas)';
+    } else {
+        if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
+        cart[id].qty = parsedQty;
+        const element = document.getElementById(`qty-${id}`); if (element) element.value = parsedQty;
+    }
+    calculateTotals();
+    if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
+}
+
+function removeCartItem(id) {
+    delete cart[id];
+    const element = document.getElementById(`qty-${id}`); if (element) element.value = 0;
+    const noteInput = document.getElementById(`note-input-${id}`); const noteBtn = document.getElementById(`note-btn-${id}`);
+    if (noteInput) { noteInput.classList.add('hidden'); noteInput.value = ''; }
+    if (noteBtn) noteBtn.innerHTML = '📝 Añadir nota especial (ej. sin papas)';
+    calculateTotals();
+    if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
+}
+
+function calculateTotals() {
+    let total = 0; let count = 0;
+    Object.values(cart).forEach(item => { total += item.price * item.qty; count += item.qty; });
+    document.getElementById('sticky-cart-total').innerText = `$${total.toFixed(2)}`;
+    
+    const activeStep = document.querySelector('.step.active') ? document.querySelector('.step.active').id : 'step-1';
+    if (count > 0 && activeStep !== 'step-3' && activeStep !== 'step-4' && activeStep !== 'step-auth' && activeStep !== 'step-registro') {
+        document.getElementById('sticky-cart-bar').classList.remove('hidden');
+    } else {
+        document.getElementById('sticky-cart-bar').classList.add('hidden');
+    }
+}
+
+function updateStickyBarVisibility(currentStep) {
+    let count = 0; Object.values(cart).forEach(item => { count += item.qty; });
+    if (count > 0 && currentStep !== 3 && currentStep !== 4 && currentStep !== 'auth' && currentStep !== 'registro') {
+        document.getElementById('sticky-cart-bar').classList.remove('hidden');
+    } else {
+        document.getElementById('sticky-cart-bar').classList.add('hidden');
+    }
+}
+
+// --- 5. CHECKOUT Y FORMULARIOS ---
+function prepareCheckout() {
+    const summaryContainer = document.getElementById('checkout-cart-summary');
+    summaryContainer.innerHTML = '';
+    
+    const cartItems = Object.keys(cart);
+    if (cartItems.length === 0) {
+        document.getElementById('checkout-total-price').innerText = "$0.00";
+        goToStep(1); return;
+    }
+    
+    let total = 0;
+    cartItems.forEach(id => {
+        const item = cart[id]; const subtotal = item.price * item.qty; total += subtotal;
+        
+        const noteHtml = item.note ? `
+            <div class="flex items-center justify-between text-xs text-amber-900 bg-amber-100/70 px-2 py-1.5 rounded-xl mt-1 font-medium border border-amber-200 gap-2 shadow-xs">
+                <span class="truncate pr-1">📌 Nota: "${item.note}"</span>
+                <button type="button" onclick="removeNoteFromCheckout('${id}')" class="text-red-500 hover:text-red-700 font-bold p-1 cursor-pointer select-none text-[11px] flex-shrink-0 transition">❌</button>
+            </div>` : '';
+        
+        const summaryRowHtml = `
+            <div class="py-2 border-b border-amber-200">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex-grow">
+                        <p class="font-bold text-gray-800 text-sm leading-tight">${item.name}</p>
+                        <p class="text-xs text-amber-900 font-medium mt-0.5">$${item.price.toFixed(2)} c/u • Subtotal: <span class="font-bold">$${subtotal.toFixed(2)}</span></p>
+                    </div>
+                    <div class="flex items-center space-x-1.5 bg-white border border-amber-300 p-1 rounded-xl flex-shrink-0">
+                        <button type="button" onclick="updateQty('${id}', '${item.name}', ${item.price}, -1)" class="w-8 h-8 bg-amber-100 text-amber-900 rounded-lg font-bold text-md flex items-center justify-center cursor-pointer shadow-sm">-</button>
+                        <input type="number" value="${item.qty}" min="0" onchange="setExactQty('${id}', '${item.name}', ${item.price}, this.value)" class="w-10 text-center font-black text-sm text-gray-800 bg-transparent focus:outline-none">
+                        <button type="button" onclick="updateQty('${id}', '${item.name}', ${item.price}, 1)" class="w-8 h-8 bg-amber-100 text-amber-900 rounded-lg font-bold text-md flex items-center justify-center cursor-pointer shadow-sm">+</button>
+                    </div>
+                    <button type="button" onclick="removeCartItem('${id}')" class="text-red-500 hover:text-red-700 text-md p-1 cursor-pointer flex-shrink-0">❌</button>
+                </div>
+                ${noteHtml}
+            </div>`;
+        summaryContainer.insertAdjacentHTML('beforeend', summaryRowHtml);
+    });
+    
+    document.getElementById('checkout-total-price').innerText = `$${total.toFixed(2)}`;
+
+    // Inicializar formularios dinámicos
+    document.getElementById('chk-usar-mis-datos').checked = true;
+    toggleFormularioDatosEnvio();
+    cargarSelectorDirecciones();
+    toggleAddress();
+
+    if (!document.getElementById('step-3').classList.contains('active')) goToStep(3);
 }
 
 function toggleFormularioDatosEnvio() {
@@ -146,13 +363,9 @@ function toggleFormularioDatosEnvio() {
     const inputTelefono = document.getElementById('client-phone');
 
     if (isChecked) {
-        wrapper.classList.add('hidden');
-        inputNombre.removeAttribute('required');
-        inputTelefono.removeAttribute('required');
+        wrapper.classList.add('hidden'); inputNombre.removeAttribute('required'); inputTelefono.removeAttribute('required');
     } else {
-        wrapper.classList.remove('hidden');
-        inputNombre.setAttribute('required', 'required');
-        inputTelefono.setAttribute('required', 'required');
+        wrapper.classList.remove('hidden'); inputNombre.setAttribute('required', 'required'); inputTelefono.setAttribute('required', 'required');
         inputNombre.value = datosClienteLogueado ? datosClienteLogueado.nombre : '';
         inputTelefono.value = datosClienteLogueado ? datosClienteLogueado.telefono : '';
     }
@@ -163,31 +376,22 @@ function cargarSelectorDirecciones() {
     if (!select || !datosClienteLogueado) return;
 
     select.innerHTML = '';
-
-    // Opción 1: Dirección principal
     const optPrincipal = document.createElement('option');
     optPrincipal.value = datosClienteLogueado.direccion_principal;
     optPrincipal.innerText = `🏠 Principal: ${datosClienteLogueado.direccion_principal.substring(0, 35)}...`;
     select.appendChild(optPrincipal);
 
-    // Opciones extras mapeando el JSON string
     let extras = [];
-    try {
-        extras = typeof datosClienteLogueado.direcciones_extra === 'string' 
-            ? JSON.parse(datosClienteLogueado.direcciones_extra || '[]') 
-            : (datosClienteLogueado.direcciones_extra || []);
+    try { extras = typeof datosClienteLogueado.direcciones_extra === 'string' ? JSON.parse(datosClienteLogueado.direcciones_extra || '[]') : (datosClienteLogueado.direcciones_extra || []);
     } catch(e) { extras = []; }
 
     extras.forEach((dir, i) => {
-        const opt = document.createElement('option');
-        opt.value = dir;
+        const opt = document.createElement('option'); opt.value = dir;
         opt.innerText = `📍 Frecuente ${i+1}: ${dir.substring(0, 35)}...`;
         select.appendChild(opt);
     });
 
-    // Opción final: Dirección momentánea / manual
-    const optManual = document.createElement('option');
-    optManual.value = "__MANUAL__";
+    const optManual = document.createElement('option'); optManual.value = "__MANUAL__";
     optManual.innerText = "🗺️ Usar otra dirección (Playa, trabajo, etc)...";
     select.appendChild(optManual);
 
@@ -200,25 +404,11 @@ function manejarSeleccionDireccion() {
     const inputAddress = document.getElementById('client-address');
 
     if (select.value === "__MANUAL__") {
-        wrapperManual.classList.remove('hidden');
-        inputAddress.setAttribute('required', 'required');
-        inputAddress.value = '';
+        wrapperManual.classList.remove('hidden'); inputAddress.setAttribute('required', 'required'); inputAddress.value = '';
     } else {
-        wrapperManual.classList.add('hidden');
-        inputAddress.removeAttribute('required');
-        inputAddress.value = select.value;
+        wrapperManual.classList.add('hidden'); inputAddress.removeAttribute('required'); inputAddress.value = select.value;
     }
 }
-
-// Sobrescribimos el prepareCheckout original para enganchar el cargador de direcciones
-const prepareCheckoutOriginal = prepareCheckout;
-prepareCheckout = function() {
-    prepareCheckoutOriginal();
-    document.getElementById('chk-usar-mis-datos').checked = true;
-    toggleFormularioDatosEnvio();
-    cargarSelectorDirecciones();
-    toggleAddress();
-};
 
 function toggleAddress() {
     const type = document.getElementById('delivery-type').value;
@@ -227,37 +417,31 @@ function toggleAddress() {
     const select = document.getElementById('sel-direccion-entrega');
 
     if (type === 'Pickup') {
-        container.style.display = 'none';
-        input.removeAttribute('required');
-        select.removeAttribute('required');
+        container.style.display = 'none'; input.removeAttribute('required'); select.removeAttribute('required');
     } else {
-        container.style.display = 'block';
-        select.setAttribute('required', 'required');
-        manejarSeleccionDireccion();
+        container.style.display = 'block'; select.setAttribute('required', 'required'); manejarSeleccionDireccion();
     }
 }
 
-// Modificamos sendOrder para enviar los datos finales exactos organizados
+function resetForm() {
+    cart = {}; document.getElementById('order-form').reset();
+    calculateTotals(); toggleAddress(); goToStep(1); 
+}
+
+// --- 6. ENVÍO DE ORDEN A N8N ---
 async function sendOrder(event) {
     event.preventDefault();
     
     const itemsInCart = Object.values(cart);
-    if (itemsInCart.length === 0) {
-        alert("⚠️ Tu carrito está vacío.");
-        goToStep(1);
-        return;
-    }
+    if (itemsInCart.length === 0) { alert("⚠️ Tu carrito está vacío."); goToStep(1); return; }
 
     const submitBtn = document.getElementById('submit-btn');
-    submitBtn.innerText = "Enviando Orden...";
-    submitBtn.disabled = true;
+    submitBtn.innerText = "Enviando Orden..."; submitBtn.disabled = true;
 
-    // Evaluamos el origen de los datos del destinatario
     const esParaMi = document.getElementById('chk-usar-mis-datos').checked;
     const nombreFinal = esParaMi ? datosClienteLogueado.nombre : document.getElementById('client-name').value.trim();
     const telefonoFinal = esParaMi ? datosClienteLogueado.telefono : document.getElementById('client-phone').value.trim();
 
-    // Evaluamos la dirección final
     const tipoEntrega = document.getElementById('delivery-type').value;
     let direccionFinal = "Retiro por local";
     
@@ -265,8 +449,6 @@ async function sendOrder(event) {
         const select = document.getElementById('sel-direccion-entrega');
         if (select.value === "__MANUAL__") {
             direccionFinal = document.getElementById('client-address').value.trim();
-            
-            // Si el checkbox de guardar como frecuente está activo, lo gestionamos localmente
             if (document.getElementById('chk-guardar-frecuente').checked) {
                 let extras = [];
                 try { extras = JSON.parse(datosClienteLogueado.direcciones_extra || '[]'); } catch(e){}
@@ -275,10 +457,8 @@ async function sendOrder(event) {
                     datosClienteLogueado.direcciones_extra = JSON.stringify(extras);
                     localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
                     
-                    // Opcional: Enviar actualización de direcciones_extra a n8n por debajo de la mesa
                     fetch("https://n8n-production-633e.up.railway.app/webhook/actualizar-direcciones-cliente", {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ telefono: datosClienteLogueado.telefono, direcciones_extra: datosClienteLogueado.direcciones_extra })
                     }).catch(err => console.error(err));
                 }
@@ -299,25 +479,19 @@ async function sendOrder(event) {
         metadata_titular: datosClienteLogueado ? `Pedido por: ${datosClienteLogueado.nombre} (CI: ${datosClienteLogueado.cedula})` : "No registrado"
     };
 
+    // La URL original de tu webhook de creación de pedidos
     const n8nWebhookUrl = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo"; 
 
     try {
         const response = await fetch(n8nWebhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(orderPayload)
         });
-
-        if (response.ok || response.status === 200) {
-            goToStep(4);
-        } else {
-            goToStep(4); 
-        }
+        if (response.ok || response.status === 200) goToStep(4);
+        else goToStep(4); 
     } catch (error) {
-        console.error("Error:", error);
-        goToStep(4); 
+        console.error("Error:", error); goToStep(4); 
     } finally {
-        submitBtn.innerText = "🚀 Confirmar y Enviar Pedido";
-        submitBtn.disabled = false;
+        submitBtn.innerText = "🚀 Confirmar y Enviar Pedido"; submitBtn.disabled = false;
     }
 }
