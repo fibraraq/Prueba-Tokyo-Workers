@@ -232,5 +232,25 @@
     </div>
 
     <script src="menu.js"></script>
+    <div id="modal-combo" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden backdrop-blur-xs">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl overflow-y-auto max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+            <div class="text-center">
+                <div class="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center text-xl mx-auto font-bold">✨</div>
+                <h3 id="modal-combo-title" class="text-lg font-black text-gray-800 mt-2">Personaliza tu Combo</h3>
+                <p id="modal-combo-desc" class="text-xs text-gray-400 mt-0.5">Selecciona los componentes de tu preferencia</p>
+            </div>
+            
+            <div id="modal-combo-options-container" class="space-y-3.5 pt-1"></div>
+            
+            <div class="flex gap-2 pt-2 border-t border-gray-100">
+                <button type="button" onclick="cerrarModalCombo()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 rounded-xl transition text-sm cursor-pointer">
+                    Cancelar
+                </button>
+                <button type="button" id="btn-confirmar-combo" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition text-sm shadow-md cursor-pointer">
+                    Agregar 🍣
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
