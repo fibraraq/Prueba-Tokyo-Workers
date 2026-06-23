@@ -564,3 +564,97 @@ async function sendOrder(event) {
         submitBtn.innerText = "🚀 Confirmar y Enviar Pedido"; submitBtn.disabled = false;
     }
 }
+// --- CONTROL EXCLUSIVO DEL MODAL DE COMBOS ---
+let comboEnPersonalizacion = null;
+
+function abrirModalCombo(item) {
+    comboEnPersonalizacion = item;
+    document.getElementById('modal-combo-title').innerText = item.name;
+    
+    let gruposOpciones = [];
+    try {
+        gruposOpciones = typeof item.opciones_combo === 'string' 
+            ? JSON.parse(item.opciones_combo || '[]') 
+            : (item.opciones_combo || []);
+    } catch(e) { gruposOpciones = []; }
+
+    const container = document.getElementById('modal-combo-options-container');
+    container.innerHTML = '';
+
+    gruposOpciones.forEach((grupo, idx) => {
+        let optionsHtml = grupo.opciones.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+        let grupoHtml = `
+            <div class="space-y-1">
+                <label class="block text-gray-500 font-bold text-[10px] uppercase tracking-wider">${grupo.titulo}</label>
+                <select id="select-combo-grupo-${idx}" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-gray-50 focus:outline-none focus:border-red-500 font-medium text-gray-800">
+                    ${optionsHtml}
+                </select>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', grupoHtml);
+    });
+
+    // Inyectamos el evento de guardado en el botón
+    document.getElementById('btn-confirmar-combo').onclick = guardarSeleccionCombo;
+
+    document.getElementById('modal-combo').classList.remove('hidden');
+    document.getElementById('modal-combo').classList.add('flex');
+}
+
+function cerrarModalCombo() {
+    document.getElementById('modal-combo').classList.remove('flex');
+    document.getElementById('modal-combo').classList.add('hidden');
+    comboEnPersonalizacion = null;
+}
+
+function guardarSeleccionCombo() {
+    if (!comboEnPersonalizacion) return;
+
+    let gruposOpciones = [];
+    try {
+        gruposOpciones = typeof comboEnPersonalizacion.opciones_combo === 'string' 
+            ? JSON.parse(comboEnPersonalizacion.opciones_combo || '[]') 
+            : (comboEnPersonalizacion.opciones_combo || []);
+    } catch(e) { gruposOpciones = []; }
+
+    let elecciones = [];
+    gruposOpciones.forEach((grupo, idx) => {
+        let selectVal = document.getElementById(`select-combo-grupo-${idx}`).value;
+        elecciones.push(selectVal);
+    });
+
+    // Creamos la especificación automatizada del combo
+    let descripcionVariante = elecciones.join(', ');
+    
+    // Generamos un identificador único en base a lo que el cliente eligió
+    let stringClave = elecciones.join('_').replace(/[^a-zA-Z0-9]/g, '');
+    let variantKey = comboEnPersonalizacion.id + "_" + stringClave;
+
+    if (!cart[variantKey]) {
+        cart[variantKey] = {
+            id: comboEnPersonalizacion.id,
+            name: `${comboEnPersonalizacion.name} (${descripcionVariante})`,
+            price: comboEnPersonalizacion.price,
+            qty: 1,
+            note: "" // Queda libre para especificaciones extra del cliente
+        };
+    } else {
+        cart[variantKey].qty += 1;
+    }
+
+    // Buscamos la cantidad total agrupada para actualizar el contador de la tarjeta del menú
+    let totalQty = 0;
+    Object.keys(cart).forEach(k => {
+        if (k === String(comboEnPersonalizacion.id) || k.startsWith(comboEnPersonalizacion.id + "_")) {
+            totalQty += cart[k].qty;
+        }
+    });
+
+    const inputQty = document.getElementById(`qty-${comboEnPersonalizacion.id}`);
+    if (inputQty) inputQty.value = totalQty;
+
+    calculateTotals();
+    if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
+    
+    cerrarModalCombo();
+}
