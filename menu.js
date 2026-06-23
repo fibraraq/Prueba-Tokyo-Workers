@@ -153,7 +153,8 @@ async function cargarMenuDesdeDB() {
                     name: prod.nombre,
                     price: parseFloat(prod.precio),
                     desc: prod.descripcion || "",
-                    image: prod.imagen || ""
+                    image: prod.imagen || "",
+                    opciones_combo: prod.opciones_combo // ¡Guardamos el objeto/string JSON!
                 });
             }
         });
@@ -171,9 +172,15 @@ function selectCategory(category) {
     document.getElementById('category-title').innerText = titles[category];
 
     menuData[category].forEach(item => {
-        const currentQty = cart[item.id] ? cart[item.id].qty : 0;
-        const currentNote = cart[item.id] ? (cart[item.id].note || "") : "";
-        const hasNote = currentNote.length > 0;
+        // Calculamos la suma total de este ítem base dentro del carrito (sin importar sus variantes)
+        let currentQty = 0;
+        Object.keys(cart).forEach(key => {
+            if (key === String(item.id) || key.startsWith(item.id + "_")) {
+                currentQty += cart[key].qty;
+            }
+        });
+
+        const isComboCustom = item.opciones_combo !== undefined && item.opciones_combo !== null && item.opciones_combo !== '';
         
         const itemHtml = `
             <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-2">
@@ -186,15 +193,15 @@ function selectCategory(category) {
                     </div>
                     <div class="flex items-center space-x-1 bg-gray-100 p-1 rounded-xl flex-shrink-0 border border-gray-200">
                         <button type="button" onclick="updateQty('${item.id}', '${item.name}', ${item.price}, -1)" class="w-8 h-8 bg-white rounded-lg font-bold text-lg text-gray-700 shadow-sm select-none cursor-pointer">-</button>
-                        <input type="number" id="qty-${item.id}" value="${currentQty}" min="0" onchange="setExactQty('${item.id}', '${item.name}', ${item.price}, this.value)" class="w-9 text-center font-black bg-transparent focus:outline-none text-sm text-gray-800">
+                        <input type="number" id="qty-${item.id}" value="${currentQty}" min="0" ${isComboCustom ? 'readonly' : ''} onchange="setExactQty('${item.id}', '${item.name}', ${item.price}, this.value)" class="w-9 text-center font-black bg-transparent focus:outline-none text-sm text-gray-800">
                         <button type="button" onclick="updateQty('${item.id}', '${item.name}', ${item.price}, 1)" class="w-8 h-8 bg-white rounded-lg font-bold text-lg text-gray-700 shadow-sm select-none cursor-pointer">+</button>
                     </div>
                 </div>
                 <div class="border-t border-gray-100 pt-1">
                     <button type="button" onclick="toggleNoteField('${item.id}')" id="note-btn-${item.id}" class="text-[11px] font-medium text-gray-500 hover:text-red-600 flex items-center gap-1 cursor-pointer select-none">
-                        ${hasNote ? '❌ Quitar nota' : '📝 Añadir nota especial (ej. sin papas)'}
+                        📝 Añadir nota especial (ej. sin jengibre)
                     </button>
-                    <input type="text" id="note-input-${item.id}" value="${currentNote}" oninput="updateItemNote('${item.id}', '${item.name}', ${item.price}, this.value)" class="${hasNote ? '' : 'hidden'} w-full mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-red-500 placeholder-gray-400" placeholder="Escribe aquí tu especificación para este plato...">
+                    <input type="text" id="note-input-${item.id}" oninput="updateItemNote('${item.id}', '${item.name}', ${item.price}, this.value)" class="hidden w-full mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-red-500 placeholder-gray-400" placeholder="Escribe aquí tu especificación para este plato...">
                 </div>
             </div>
         `;
@@ -240,15 +247,40 @@ function removeNoteFromCheckout(id) {
 }
 
 function updateQty(id, name, price, change) {
+    let itemOriginal = null;
+    for (let cat in menuData) {
+        let found = menuData[cat].find(p => String(p.id) === String(id));
+        if (found) { itemOriginal = found; break; }
+    }
+
+    // SI ES UN COMBO CON OPCIONES JSON
+    if (itemOriginal && itemOriginal.opciones_combo && itemOriginal.opciones_combo !== '[]') {
+        if (change > 0) {
+            abrirModalCombo(itemOriginal);
+        } else {
+            // Si restan cantidad, eliminamos la última variante añadida de este combo
+            let keys = Object.keys(cart).filter(k => k.startsWith(id + "_"));
+            if (keys.length > 0) {
+                let lastKey = keys[keys.length - 1];
+                cart[lastKey].qty += change;
+                if (cart[lastKey].qty <= 0) delete cart[lastKey];
+            }
+            let totalQty = 0;
+            Object.keys(cart).forEach(k => { if (k.startsWith(id + "_")) totalQty += cart[k].qty; });
+            const element = document.getElementById(`qty-${id}`); if (element) element.value = totalQty;
+            calculateTotals();
+            if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
+        }
+        return;
+    }
+
+    // COMPORTAMIENTO NORMAL PARA PLATOS SIMPLES
     if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
     cart[id].qty += change;
     
     if (cart[id].qty <= 0) {
         delete cart[id];
         const element = document.getElementById(`qty-${id}`); if (element) element.value = 0;
-        const noteInput = document.getElementById(`note-input-${id}`); const noteBtn = document.getElementById(`note-btn-${id}`);
-        if (noteInput) { noteInput.classList.add('hidden'); noteInput.value = ''; }
-        if (noteBtn) noteBtn.innerHTML = '📝 Añadir nota especial (ej. sin papas)';
     } else {
         const element = document.getElementById(`qty-${id}`); if (element) element.value = cart[id].qty;
     }
