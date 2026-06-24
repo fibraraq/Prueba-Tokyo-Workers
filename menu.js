@@ -72,7 +72,7 @@ async function procesarVerificacionTelefono(event) {
             datosClienteLogueado = listaClientes[0];
             localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
             document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
-            await ();
+            await cargarMenuDesdeDB ();
             goToStep(1);
         } else {
             document.getElementById('reg-name').value = '';
@@ -119,7 +119,7 @@ async function procesarRegistroCliente(event) {
         localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
         document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
         
-        await ();
+        await cargarMenuDesdeDB ();
         goToStep(1);
     } catch(e) {
         console.error(e);
@@ -285,7 +285,6 @@ function removeNoteFromCheckout(id) {
     }
 }
 
-// --- 5. ACTUALIZACIÓN DEL BUSCADOR DE CANTIDADES ---
 function updateQty(id, name, price, change) {
     let itemOriginal = null;
     // Ahora buscamos dentro de la llave .items
@@ -312,19 +311,6 @@ function updateQty(id, name, price, change) {
         }
         return;
     }
-
-    if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
-    cart[id].qty += change;
-    
-    if (cart[id].qty <= 0) {
-        delete cart[id];
-        const element = document.getElementById(`qty-${id}`); if (element) element.value = 0;
-    } else {
-        const element = document.getElementById(`qty-${id}`); if (element) element.value = cart[id].qty;
-    }
-    calculateTotals();
-    if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
-}
 
     // COMPORTAMIENTO NORMAL PARA PLATOS SIMPLES
     if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
