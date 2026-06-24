@@ -72,7 +72,7 @@ async function procesarVerificacionTelefono(event) {
             datosClienteLogueado = listaClientes[0];
             localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
             document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
-            await cargarMenuDesdeDB();
+            await ();
             goToStep(1);
         } else {
             document.getElementById('reg-name').value = '';
@@ -119,7 +119,7 @@ async function procesarRegistroCliente(event) {
         localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
         document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
         
-        await cargarMenuDesdeDB();
+        await ();
         goToStep(1);
     } catch(e) {
         console.error(e);
@@ -136,43 +136,82 @@ function cerrarSesionCliente() {
     goToStep('auth');
 }
 
-// --- 3. CARGA DE MENÚ (DESDE RAILWAY) ---
+// --- 1. CARGA DINÁMICA DE LA BASE DE DATOS ---
 async function cargarMenuDesdeDB() {
     try {
         const response = await fetch(URL_OBTENER_MENU);
         if (!response.ok) throw new Error('Error al conectar con el servidor');
         
         const productosRaw = await response.json();
-        menuData = { combos: [], cocina: [], sushi: [], extras: [] };
+        menuData = {}; // Ahora es un objeto 100% dinámico
 
         productosRaw.forEach(prod => {
-            const categoria = String(prod.categoria).toLowerCase();
-            if (menuData[categoria]) {
-                menuData[categoria].push({
-                    id: prod.id,
-                    name: prod.nombre,
-                    price: parseFloat(prod.precio),
-                    desc: prod.descripcion || "",
-                    image: prod.imagen || "",
-                    opciones_combo: prod.opciones_combo // ¡Guardamos el objeto/string JSON!
-                });
+            // Limpiamos el nombre de la categoría para usarla como "llave"
+            const categoriaRaw = String(prod.categoria).trim();
+            const categoriaKey = categoriaRaw.toLowerCase().replace(/\s+/g, '_');
+
+            // Si la categoría no existe en menuData, la creamos
+            if (!menuData[categoriaKey]) {
+                menuData[categoriaKey] = {
+                    titulo: categoriaRaw.charAt(0).toUpperCase() + categoriaRaw.slice(1),
+                    items: []
+                };
             }
+
+            // Metemos el plato dentro de su categoría
+            menuData[categoriaKey].items.push({
+                id: prod.id,
+                name: prod.nombre,
+                price: parseFloat(prod.precio),
+                desc: prod.descripcion || "",
+                image: prod.imagen || "",
+                opciones_combo: prod.opciones_combo
+            });
         });
-        console.log("Menú cargado exitosamente desde PostgreSQL");
+        
+        console.log("Menú dinámico cargado exitosamente");
+        renderizarCategorias(); // Llamamos al pintor de botones
     } catch (error) {
         console.error("Error obteniendo el menú:", error);
     }
 }
 
-function selectCategory(category) {
+// --- 2. EL PINTOR DE BOTONES DE CATEGORÍAS ---
+function renderizarCategorias() {
+    const container = document.getElementById('contenedor-categorias');
+    if (!container) return;
+    container.innerHTML = ''; // Limpiamos el texto de "Cargando..."
+
+    // Una lista de iconos para que las categorías nuevas no se vean aburridas
+    const iconos = ['🍱', '🍙', '🍣', '🥤', '🍰', '🥟', '🍤']; 
+
+    Object.keys(menuData).forEach((catKey, index) => {
+        const catInfo = menuData[catKey];
+        const icon = iconos[index % iconos.length];
+
+        const btnHtml = `
+            <button type="button" onclick="selectCategory('${catKey}')" class="w-full bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-gray-100 hover:border-red-200 transition cursor-pointer text-left">
+                <div class="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">${icon}</div>
+                <div>
+                    <h3 class="font-bold text-gray-800 text-lg">${catInfo.titulo}</h3>
+                    <p class="text-xs text-gray-400">Ver platos disponibles</p>
+                </div>
+            </button>
+        `;
+        container.insertAdjacentHTML('beforeend', btnHtml);
+    });
+}
+
+// --- 3. ACTUALIZACIÓN DEL SELECTOR DE CATEGORÍAS ---
+function selectCategory(categoryKey) {
     const container = document.getElementById('items-container');
     container.innerHTML = '';
     
-    const titles = { combos: "Promos y Combos", cocina: "Platos de Cocina", sushi: "Roles Especiales", extras: "Bebidas y Extras" };
-    document.getElementById('category-title').innerText = titles[category];
+    // Leemos el título directamente de los datos dinámicos
+    document.getElementById('category-title').innerText = menuData[categoryKey].titulo;
 
-    menuData[category].forEach(item => {
-        // Calculamos la suma total de este ítem base dentro del carrito (sin importar sus variantes)
+    // Pintamos los platos (usando la nueva ruta .items)
+    menuData[categoryKey].items.forEach(item => {
         let currentQty = 0;
         Object.keys(cart).forEach(key => {
             if (key === String(item.id) || key.startsWith(item.id + "_")) {
@@ -180,7 +219,7 @@ function selectCategory(category) {
             }
         });
 
-        const isComboCustom = item.opciones_combo !== undefined && item.opciones_combo !== null && item.opciones_combo !== '';
+        const isComboCustom = item.opciones_combo !== undefined && item.opciones_combo !== null && item.opciones_combo !== '' && item.opciones_combo !== '[]';
         
         const itemHtml = `
             <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-2">
@@ -199,9 +238,9 @@ function selectCategory(category) {
                 </div>
                 <div class="border-t border-gray-100 pt-1">
                     <button type="button" onclick="toggleNoteField('${item.id}')" id="note-btn-${item.id}" class="text-[11px] font-medium text-gray-500 hover:text-red-600 flex items-center gap-1 cursor-pointer select-none">
-                        📝 Añadir nota especial (ej. sin jengibre)
+                        📝 Añadir nota especial
                     </button>
-                    <input type="text" id="note-input-${item.id}" oninput="updateItemNote('${item.id}', '${item.name}', ${item.price}, this.value)" class="hidden w-full mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-red-500 placeholder-gray-400" placeholder="Escribe aquí tu especificación para este plato...">
+                    <input type="text" id="note-input-${item.id}" oninput="updateItemNote('${item.id}', '${item.name}', ${item.price}, this.value)" class="hidden w-full mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-red-500 placeholder-gray-400" placeholder="Especificación para este plato...">
                 </div>
             </div>
         `;
@@ -246,19 +285,19 @@ function removeNoteFromCheckout(id) {
     }
 }
 
+// --- 5. ACTUALIZACIÓN DEL BUSCADOR DE CANTIDADES ---
 function updateQty(id, name, price, change) {
     let itemOriginal = null;
-    for (let cat in menuData) {
-        let found = menuData[cat].find(p => String(p.id) === String(id));
+    // Ahora buscamos dentro de la llave .items
+    for (let catKey in menuData) {
+        let found = menuData[catKey].items.find(p => String(p.id) === String(id));
         if (found) { itemOriginal = found; break; }
     }
 
-    // SI ES UN COMBO CON OPCIONES JSON
     if (itemOriginal && itemOriginal.opciones_combo && itemOriginal.opciones_combo !== '[]') {
         if (change > 0) {
             abrirModalCombo(itemOriginal);
         } else {
-            // Si restan cantidad, eliminamos la última variante añadida de este combo
             let keys = Object.keys(cart).filter(k => k.startsWith(id + "_"));
             if (keys.length > 0) {
                 let lastKey = keys[keys.length - 1];
@@ -273,6 +312,19 @@ function updateQty(id, name, price, change) {
         }
         return;
     }
+
+    if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
+    cart[id].qty += change;
+    
+    if (cart[id].qty <= 0) {
+        delete cart[id];
+        const element = document.getElementById(`qty-${id}`); if (element) element.value = 0;
+    } else {
+        const element = document.getElementById(`qty-${id}`); if (element) element.value = cart[id].qty;
+    }
+    calculateTotals();
+    if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
+}
 
     // COMPORTAMIENTO NORMAL PARA PLATOS SIMPLES
     if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
