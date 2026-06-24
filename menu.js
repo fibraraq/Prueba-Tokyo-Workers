@@ -698,3 +698,104 @@ function guardarSeleccionCombo() {
     
     cerrarModalCombo();
 }
+// ==========================================
+// GESTIÓN DE DIRECCIONES Y PERFIL
+// ==========================================
+
+function abrirModalEditarDatos() {
+    if (!datosClienteLogueado) return;
+    
+    // Cargar la dirección principal actual
+    document.getElementById('edit-dir-principal').value = datosClienteLogueado.direccion_principal || '';
+    
+    // Cargar las extra
+    renderizarDireccionesExtra();
+    
+    document.getElementById('modal-editar-datos').classList.remove('hidden');
+    document.getElementById('modal-editar-datos').classList.add('flex');
+}
+
+function cerrarModalEditarDatos() {
+    document.getElementById('modal-editar-datos').classList.remove('flex');
+    document.getElementById('modal-editar-datos').classList.add('hidden');
+}
+
+function renderizarDireccionesExtra() {
+    const contenedor = document.getElementById('lista-direcciones-extra');
+    contenedor.innerHTML = '';
+    
+    let extras = [];
+    try {
+        if (datosClienteLogueado.direcciones_extra) {
+            extras = typeof datosClienteLogueado.direcciones_extra === 'string' 
+                ? JSON.parse(datosClienteLogueado.direcciones_extra) 
+                : datosClienteLogueado.direcciones_extra;
+        }
+    } catch(e) { extras = []; }
+
+    if (!Array.isArray(extras) || extras.length === 0) {
+        contenedor.innerHTML = '<p class="text-xs text-gray-400 italic bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">No tienes direcciones adicionales guardadas aún.</p>';
+        return;
+    }
+
+    extras.forEach((dir, index) => {
+        if (!dir) return;
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between bg-white p-2.5 rounded-xl border border-gray-200 gap-3 shadow-sm";
+        div.innerHTML = `
+            <p class="text-[13px] text-gray-700 line-clamp-2 flex-grow font-medium leading-snug">${dir}</p>
+            <button type="button" onclick="eliminarDireccionExtra(${index})" class="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-lg text-sm transition flex-shrink-0 cursor-pointer" title="Eliminar">🗑️</button>
+        `;
+        contenedor.appendChild(div);
+    });
+}
+
+function eliminarDireccionExtra(index) {
+    let extras = [];
+    try {
+        extras = typeof datosClienteLogueado.direcciones_extra === 'string' 
+            ? JSON.parse(datosClienteLogueado.direcciones_extra) 
+            : datosClienteLogueado.direcciones_extra;
+    } catch(e) { return; }
+    
+    // Borramos el elemento seleccionado
+    extras.splice(index, 1);
+    
+    // Actualizamos la memoria viva y local
+    datosClienteLogueado.direcciones_extra = JSON.stringify(extras);
+    localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
+    
+    // Redibujamos la lista al instante
+    renderizarDireccionesExtra();
+    cargarSelectorDirecciones(); 
+}
+
+async function guardarEdicionDatos() {
+    const btn = document.getElementById('btn-guardar-datos');
+    const dirPrincipalNueva = document.getElementById('edit-dir-principal').value.trim();
+    
+    btn.disabled = true; btn.innerText = "Guardando...";
+
+    // Actualizamos localmente
+    datosClienteLogueado.direccion_principal = dirPrincipalNueva;
+    localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
+    cargarSelectorDirecciones();
+
+    try {
+        // Aprovechamos tu webhook actual para enviar ambas actualizaciones
+        await fetch("https://n8n-production-633e.up.railway.app/webhook/actualizar-direcciones-cliente", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                telefono: datosClienteLogueado.telefono, 
+                direccion_principal: datosClienteLogueado.direccion_principal,
+                direcciones_extra: datosClienteLogueado.direcciones_extra 
+            })
+        });
+    } catch(e) {
+        console.error("Error al guardar en servidor:", e);
+    } finally {
+        btn.disabled = false; btn.innerText = "💾 Guardar Cambios";
+        cerrarModalEditarDatos();
+    }
+}
