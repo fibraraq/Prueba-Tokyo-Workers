@@ -1,10 +1,10 @@
 // Tokio Sushi - Núcleo de Operaciones y Control del Sistema
 
-const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
-const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
-const URL_NUEVO_PEDIDO = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo";
-const URL_OBTENER_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
-const URL_OBTENER_USUARIOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-usuarios";
+const API_OBTENER_PEDIDOS = "http://localhost:5678/webhook/obtener-pedidos";
+const API_ACTUALIZAR_ESTADO = "http://localhost:5678/webhook/actualizar-estado";
+const URL_NUEVO_PEDIDO = "http://localhost:5678/webhook/Prueba-tokyo";
+const URL_OBTENER_MENU = "http://localhost:5678/webhook/obtener-menu";
+const URL_OBTENER_USUARIOS = "http://localhost:5678/webhook/obtener-usuarios";
 
 let USUARIOS_SISTEMA = [];
 let CATALOGO_PRODUCTOS = [];
