@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Tokio Sushi</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-900 font-sans text-slate-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-2xl mx-auto bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
+        <div class="bg-red-700 p-5 text-center">
+            <h1 class="text-2xl font-black text-white tracking-wide">🍣 PANEL DE ADMINISTRACIÓN</h1>
+            <p class="text-red-200 text-sm">Creación de Nuevos Platos y Categorías</p>
+        </div>
+
+        <form id="form-nuevo-plato" onsubmit="guardarPlato(event)" class="p-6 space-y-5">
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2 md:col-span-1">
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre del Plato</label>
+                    <input type="text" id="admin-nombre" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" placeholder="Ej. Combo Fusión">
+                </div>
+                <div class="col-span-2 md:col-span-1">
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Precio ($)</label>
+                    <input type="number" id="admin-precio" step="0.01" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" placeholder="Ej. 12.50">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2 md:col-span-1">
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Categoría / Sección</label>
+                    <input type="text" id="admin-categoria" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" placeholder="Ej. sushi, combos, postres...">
+                    <p class="text-[10px] text-slate-500 mt-1">Escribir una categoría nueva creará una sección nueva en el menú.</p>
+                </div>
+                <div class="col-span-2 md:col-span-1">
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">URL de la Imagen</label>
+                    <input type="url" id="admin-imagen" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" placeholder="https://ejemplo.com/foto.jpg">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Descripción corta</label>
+                <textarea id="admin-desc" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" rows="2" placeholder="Ej. 12 roles tempura, incluye salsa soya..."></textarea>
+            </div>
+
+            <div class="bg-slate-700/50 p-4 rounded-xl border border-slate-600">
+                <div class="flex items-center gap-2 mb-3">
+                    <input type="checkbox" id="chk-es-combo" onchange="toggleConstructorCombo()" class="w-5 h-5 rounded text-red-600 focus:ring-red-500 bg-slate-900 border-slate-600">
+                    <label for="chk-es-combo" class="font-bold text-white cursor-pointer text-sm">¿Este plato es un Combo con opciones elegibles?</label>
+                </div>
+
+                <div id="constructor-combo" class="hidden space-y-3 pt-3 border-t border-slate-600">
+                    <div id="lista-grupos-opciones" class="space-y-3"></div>
+                    <button type="button" onclick="agregarGrupoOpciones()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 px-4 rounded-lg border border-slate-600 transition flex items-center gap-2">
+                        ➕ Añadir Grupo de Opciones (Ej. Elige tu Roll Frío)
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" id="btn-submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold text-lg py-4 rounded-xl shadow-lg mt-4 cursor-pointer transition">
+                💾 Guardar Plato en la Base de Datos
+            </button>
+            <p id="msg-exito" class="hidden text-emerald-400 text-center font-bold text-sm mt-2">¡Plato guardado exitosamente!</p>
+        </form>
+    </div>
+
+    <script>
+        const URL_GUARDAR_PLATO = "https://n8n-production-633e.up.railway.app/webhook/admin-guardar-plato";
+        
+        // Constructor de combos dinámico
+        function toggleConstructorCombo() {
+            const isChecked = document.getElementById('chk-es-combo').checked;
+            const constructor = document.getElementById('constructor-combo');
+            const lista = document.getElementById('lista-grupos-opciones');
+            
+            if (isChecked) {
+                constructor.classList.remove('hidden');
+                if (lista.children.length === 0) agregarGrupoOpciones();
+            } else {
+                constructor.classList.add('hidden');
+                lista.innerHTML = ''; // Limpiamos si se desmarca
+            }
+        }
+
+        function agregarGrupoOpciones() {
+            const lista = document.getElementById('lista-grupos-opciones');
+            const id = Date.now();
+            const html = `
+                <div id="grupo-${id}" class="bg-slate-900 p-3 rounded-lg border border-slate-700 flex gap-3 items-start grupo-opcion">
+                    <div class="flex-grow space-y-2">
+                        <input type="text" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-xs text-white input-titulo" placeholder="Título. Ej: Elige tu Roll Frío" required>
+                        <input type="text" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-xs text-white input-opciones" placeholder="Opciones separadas por coma. Ej: Alaska, Dinamita, Fuji" required>
+                    </div>
+                    <button type="button" onclick="document.getElementById('grupo-${id}').remove()" class="bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition cursor-pointer">❌</button>
+                </div>
+            `;
+            lista.insertAdjacentHTML('beforeend', html);
+        }
+
+        async function guardarPlato(event) {
+            event.preventDefault();
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true; btn.innerText = "Guardando...";
+
+            // Armar el JSON de opciones si el checkbox está activo
+            let opcionesComboData = null;
+            if (document.getElementById('chk-es-combo').checked) {
+                opcionesComboData = [];
+                const grupos = document.querySelectorAll('.grupo-opcion');
+                grupos.forEach(g => {
+                    const titulo = g.querySelector('.input-titulo').value.trim();
+                    const opcionesRaw = g.querySelector('.input-opciones').value.split(',').map(o => o.trim()).filter(o => o !== '');
+                    if (titulo && opcionesRaw.length > 0) {
+                        opcionesComboData.push({ titulo: titulo, opciones: opcionesRaw });
+                    }
+                });
+            }
+
+            const payload = {
+                nombre: document.getElementById('admin-nombre').value.trim(),
+                precio: parseFloat(document.getElementById('admin-precio').value),
+                categoria: document.getElementById('admin-categoria').value.trim().toLowerCase(),
+                imagen: document.getElementById('admin-imagen').value.trim(),
+                descripcion: document.getElementById('admin-desc').value.trim(),
+                opciones_combo: opcionesComboData
+            };
+
+            try {
+                const response = await fetch(URL_GUARDAR_PLATO, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    document.getElementById('form-nuevo-plato').reset();
+                    document.getElementById('constructor-combo').classList.add('hidden');
+                    document.getElementById('lista-grupos-opciones').innerHTML = '';
+                    const msg = document.getElementById('msg-exito');
+                    msg.classList.remove('hidden');
+                    setTimeout(() => msg.classList.add('hidden'), 4000);
+                } else {
+                    alert("Error al guardar en la base de datos.");
+                }
+            } catch (e) {
+                alert("Error de conexión.");
+            } finally {
+                btn.disabled = false; btn.innerText = "💾 Guardar Plato en la Base de Datos";
+            }
+        }
+    </script>
+</body>
+</html>
