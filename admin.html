@@ -11,142 +11,237 @@
     <div class="max-w-2xl mx-auto bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
         <div class="bg-red-700 p-5 text-center">
             <h1 class="text-2xl font-black text-white tracking-wide">🍣 PANEL DE ADMINISTRACIÓN</h1>
-            <p class="text-red-200 text-sm">Creación de Nuevos Platos y Categorías</p>
+            <p class="text-red-200 text-sm">Gestión del Menú de Tokio Sushi</p>
         </div>
 
-        <form id="form-nuevo-plato" onsubmit="guardarPlato(event)" class="p-6 space-y-5">
-            
+        <div class="p-6 bg-slate-800/80 border-b border-slate-700">
+            <label class="block text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">¿Qué deseas hacer?</label>
+            <select id="modo-admin" onchange="cambiarModo()" class="w-full p-3 bg-slate-900 border border-slate-600 rounded-xl text-white font-bold focus:border-red-500 outline-none">
+                <option value="crear">✨ Crear un Plato Nuevo</option>
+                <option value="editar">✏️ Editar / Deshabilitar un Plato Existente</option>
+            </select>
+
+            <div id="selector-plato-editar" class="hidden mt-4 pt-4 border-t border-slate-700">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Selecciona el plato a modificar:</label>
+                <select id="plato-seleccionado" onchange="cargarDatosPlato()" class="w-full p-3 bg-slate-700 border border-slate-500 rounded-xl text-white font-medium focus:border-red-500 outline-none">
+                    <option value="">Cargando catálogo...</option>
+                </select>
+            </div>
+        </div>
+
+        <form id="form-plato" onsubmit="guardarPlato(event)" class="p-6 space-y-5">
+            <input type="hidden" id="admin-id-plato" value="">
+
+            <div id="zona-disponibilidad" class="hidden flex items-center justify-between bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <div>
+                    <p class="font-bold text-white">Estado del Plato</p>
+                    <p class="text-xs text-slate-400">Si está inactivo, los clientes no lo verán en el menú.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="admin-disponible" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2 md:col-span-1">
                     <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre del Plato</label>
-                    <input type="text" id="admin-nombre" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" placeholder="Ej. Combo Fusión">
+                    <input type="text" id="admin-nombre" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500">
                 </div>
                 <div class="col-span-2 md:col-span-1">
                     <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Precio ($)</label>
-                    <input type="number" id="admin-precio" step="0.01" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" placeholder="Ej. 12.50">
+                    <input type="number" id="admin-precio" step="0.01" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500">
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2 md:col-span-1">
                     <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Categoría / Sección</label>
-                    <input type="text" id="admin-categoria" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" placeholder="Ej. sushi, combos, postres...">
-                    <p class="text-[10px] text-slate-500 mt-1">Escribir una categoría nueva creará una sección nueva en el menú.</p>
+                    <input type="text" id="admin-categoria" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500">
                 </div>
                 <div class="col-span-2 md:col-span-1">
-                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">URL de la Imagen</label>
-                    <input type="url" id="admin-imagen" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" placeholder="https://ejemplo.com/foto.jpg">
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">URL de la Imagen (Terminada en .jpg / .png)</label>
+                    <input type="url" id="admin-imagen" required class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500">
                 </div>
             </div>
 
             <div>
                 <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Descripción corta</label>
-                <textarea id="admin-desc" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" rows="2" placeholder="Ej. 12 roles tempura, incluye salsa soya..."></textarea>
+                <textarea id="admin-desc" class="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-red-500" rows="2"></textarea>
             </div>
 
             <div class="bg-slate-700/50 p-4 rounded-xl border border-slate-600">
                 <div class="flex items-center gap-2 mb-3">
-                    <input type="checkbox" id="chk-es-combo" onchange="toggleConstructorCombo()" class="w-5 h-5 rounded text-red-600 focus:ring-red-500 bg-slate-900 border-slate-600">
+                    <input type="checkbox" id="chk-es-combo" onchange="toggleConstructorCombo()" class="w-5 h-5 rounded text-red-600 bg-slate-900 border-slate-600">
                     <label for="chk-es-combo" class="font-bold text-white cursor-pointer text-sm">¿Este plato es un Combo con opciones elegibles?</label>
                 </div>
-
                 <div id="constructor-combo" class="hidden space-y-3 pt-3 border-t border-slate-600">
                     <div id="lista-grupos-opciones" class="space-y-3"></div>
                     <button type="button" onclick="agregarGrupoOpciones()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold py-2 px-4 rounded-lg border border-slate-600 transition flex items-center gap-2">
-                        ➕ Añadir Grupo de Opciones (Ej. Elige tu Roll Frío)
+                        ➕ Añadir Grupo de Opciones
                     </button>
                 </div>
             </div>
 
             <button type="submit" id="btn-submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold text-lg py-4 rounded-xl shadow-lg mt-4 cursor-pointer transition">
-                💾 Guardar Plato en la Base de Datos
+                💾 Guardar Plato
             </button>
-            <p id="msg-exito" class="hidden text-emerald-400 text-center font-bold text-sm mt-2">¡Plato guardado exitosamente!</p>
+            <p id="msg-exito" class="hidden text-emerald-400 text-center font-bold text-sm mt-2">¡Operación exitosa!</p>
         </form>
     </div>
 
     <script>
-        const URL_GUARDAR_PLATO = "https://n8n-production-633e.up.railway.app/webhook/admin-guardar-plato";
+        const URL_GUARDAR_NUEVO = "https://n8n-production-633e.up.railway.app/webhook/admin-guardar-plato";
+        const URL_ACTUALIZAR = "https://n8n-production-633e.up.railway.app/webhook/admin-actualizar-plato";
+        const URL_OBTENER_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
         
-        // Constructor de combos dinámico
+        let menuCompletoDB = [];
+
+        async function cambiarModo() {
+            const modo = document.getElementById('modo-admin').value;
+            const selectorPlato = document.getElementById('selector-plato-editar');
+            const zonaDisp = document.getElementById('zona-disponibilidad');
+            
+            document.getElementById('form-plato').reset();
+            document.getElementById('admin-id-plato').value = '';
+            document.getElementById('constructor-combo').classList.add('hidden');
+            document.getElementById('lista-grupos-opciones').innerHTML = '';
+
+            if (modo === 'editar') {
+                selectorPlato.classList.remove('hidden');
+                zonaDisp.classList.remove('hidden');
+                await cargarCatalogoEnSelector();
+            } else {
+                selectorPlato.classList.add('hidden');
+                zonaDisp.classList.add('hidden');
+            }
+        }
+
+        async function cargarCatalogoEnSelector() {
+            try {
+                const response = await fetch(URL_OBTENER_MENU);
+                menuCompletoDB = await response.json();
+                
+                const select = document.getElementById('plato-seleccionado');
+                select.innerHTML = '<option value="">-- Elige un plato para modificar --</option>';
+                
+                menuCompletoDB.forEach(plato => {
+                    const estado = plato.disponible === false ? "🔴 (Deshabilitado)" : "🟢";
+                    select.innerHTML += `<option value="${plato.id}">${estado} ${plato.nombre} - $${plato.precio}</option>`;
+                });
+            } catch (e) {
+                alert("Error cargando el catálogo de platos.");
+            }
+        }
+
+        function cargarDatosPlato() {
+            const idSeleccionado = document.getElementById('plato-seleccionado').value;
+            if (!idSeleccionado) return;
+
+            const plato = menuCompletoDB.find(p => String(p.id) === String(idSeleccionado));
+            if (!plato) return;
+
+            document.getElementById('admin-id-plato').value = plato.id;
+            document.getElementById('admin-nombre').value = plato.nombre;
+            document.getElementById('admin-precio').value = plato.precio;
+            document.getElementById('admin-categoria').value = plato.categoria;
+            document.getElementById('admin-imagen').value = plato.imagen;
+            document.getElementById('admin-desc').value = plato.descripcion || '';
+            
+            // Setear toggle de disponibilidad
+            document.getElementById('admin-disponible').checked = plato.disponible !== false;
+
+            // Manejo del combo JSON
+            const listaGrupos = document.getElementById('lista-grupos-opciones');
+            listaGrupos.innerHTML = '';
+            if (plato.opciones_combo && plato.opciones_combo !== '[]') {
+                document.getElementById('chk-es-combo').checked = true;
+                document.getElementById('constructor-combo').classList.remove('hidden');
+                
+                let grupos = typeof plato.opciones_combo === 'string' ? JSON.parse(plato.opciones_combo) : plato.opciones_combo;
+                grupos.forEach(grupo => {
+                    agregarGrupoOpciones(grupo.titulo, grupo.opciones.join(', '));
+                });
+            } else {
+                document.getElementById('chk-es-combo').checked = false;
+                document.getElementById('constructor-combo').classList.add('hidden');
+            }
+        }
+
         function toggleConstructorCombo() {
             const isChecked = document.getElementById('chk-es-combo').checked;
             const constructor = document.getElementById('constructor-combo');
             const lista = document.getElementById('lista-grupos-opciones');
-            
             if (isChecked) {
                 constructor.classList.remove('hidden');
                 if (lista.children.length === 0) agregarGrupoOpciones();
             } else {
                 constructor.classList.add('hidden');
-                lista.innerHTML = ''; // Limpiamos si se desmarca
+                lista.innerHTML = '';
             }
         }
 
-        function agregarGrupoOpciones() {
+        function agregarGrupoOpciones(tituloVal = '', opcionesVal = '') {
             const lista = document.getElementById('lista-grupos-opciones');
-            const id = Date.now();
+            const id = Date.now() + Math.random();
             const html = `
                 <div id="grupo-${id}" class="bg-slate-900 p-3 rounded-lg border border-slate-700 flex gap-3 items-start grupo-opcion">
                     <div class="flex-grow space-y-2">
-                        <input type="text" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-xs text-white input-titulo" placeholder="Título. Ej: Elige tu Roll Frío" required>
-                        <input type="text" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-xs text-white input-opciones" placeholder="Opciones separadas por coma. Ej: Alaska, Dinamita, Fuji" required>
+                        <input type="text" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-xs text-white input-titulo" value="${tituloVal}" placeholder="Título. Ej: Elige tu Roll" required>
+                        <input type="text" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-xs text-white input-opciones" value="${opcionesVal}" placeholder="Ej: Alaska, Dinamita" required>
                     </div>
-                    <button type="button" onclick="document.getElementById('grupo-${id}').remove()" class="bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition cursor-pointer">❌</button>
-                </div>
-            `;
+                    <button type="button" onclick="document.getElementById('grupo-${id}').remove()" class="bg-red-500/20 text-red-500 p-2 rounded">❌</button>
+                </div>`;
             lista.insertAdjacentHTML('beforeend', html);
         }
 
         async function guardarPlato(event) {
             event.preventDefault();
             const btn = document.getElementById('btn-submit');
-            btn.disabled = true; btn.innerText = "Guardando...";
+            btn.disabled = true; btn.innerText = "Procesando...";
 
-            // Armar el JSON de opciones si el checkbox está activo
             let opcionesComboData = null;
             if (document.getElementById('chk-es-combo').checked) {
                 opcionesComboData = [];
-                const grupos = document.querySelectorAll('.grupo-opcion');
-                grupos.forEach(g => {
+                document.querySelectorAll('.grupo-opcion').forEach(g => {
                     const titulo = g.querySelector('.input-titulo').value.trim();
                     const opcionesRaw = g.querySelector('.input-opciones').value.split(',').map(o => o.trim()).filter(o => o !== '');
-                    if (titulo && opcionesRaw.length > 0) {
-                        opcionesComboData.push({ titulo: titulo, opciones: opcionesRaw });
-                    }
+                    if (titulo && opcionesRaw.length > 0) opcionesComboData.push({ titulo, opciones: opcionesRaw });
                 });
             }
 
+            const modo = document.getElementById('modo-admin').value;
             const payload = {
+                id: document.getElementById('admin-id-plato').value,
                 nombre: document.getElementById('admin-nombre').value.trim(),
                 precio: parseFloat(document.getElementById('admin-precio').value),
                 categoria: document.getElementById('admin-categoria').value.trim().toLowerCase(),
                 imagen: document.getElementById('admin-imagen').value.trim(),
                 descripcion: document.getElementById('admin-desc').value.trim(),
+                disponible: document.getElementById('admin-disponible').checked,
                 opciones_combo: opcionesComboData
             };
 
+            const URL_DESTINO = modo === 'editar' ? URL_ACTUALIZAR : URL_GUARDAR_NUEVO;
+
             try {
-                const response = await fetch(URL_GUARDAR_PLATO, {
+                const response = await fetch(URL_DESTINO, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
                 if (response.ok) {
-                    document.getElementById('form-nuevo-plato').reset();
-                    document.getElementById('constructor-combo').classList.add('hidden');
-                    document.getElementById('lista-grupos-opciones').innerHTML = '';
                     const msg = document.getElementById('msg-exito');
                     msg.classList.remove('hidden');
                     setTimeout(() => msg.classList.add('hidden'), 4000);
-                } else {
-                    alert("Error al guardar en la base de datos.");
-                }
+                    if(modo === 'editar') cargarCatalogoEnSelector(); 
+                    else document.getElementById('form-plato').reset();
+                } else alert("Error en base de datos.");
             } catch (e) {
-                alert("Error de conexión.");
+                alert("Error de red.");
             } finally {
-                btn.disabled = false; btn.innerText = "💾 Guardar Plato en la Base de Datos";
+                btn.disabled = false; btn.innerText = "💾 Guardar Plato";
             }
         }
     </script>
