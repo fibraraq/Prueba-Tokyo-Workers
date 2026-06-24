@@ -1,5 +1,7 @@
 // Tokio Sushi - Núcleo de Operaciones y Control del Sistema
 
+// IMPORTANTE: Si subes esto a GitHub Pages, debes cambiar estos 'localhost' 
+// por tu URL terminada en .loca.lt, de lo contrario GitHub bloqueará la conexión.
 const API_OBTENER_PEDIDOS = "http://localhost:5678/webhook/obtener-pedidos";
 const API_ACTUALIZAR_ESTADO = "http://localhost:5678/webhook/actualizar-estado";
 const URL_NUEVO_PEDIDO = "http://localhost:5678/webhook/Prueba-tokyo";
@@ -17,26 +19,34 @@ let carritoEdicion = [];
 let totalEdicionUSD = 0;
 let resolveTiempoEstimado = null; 
 
-// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS ---
+// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS (ACTUALIZADO PARA MODULARIDAD) ---
 async function cargarCatalogoDesdeDB() {
     try {
         const response = await fetch(URL_OBTENER_MENU);
         if (!response.ok) throw new Error('Error al conectar con el servidor de menú');
         
-        const productosRaw = await response.json();
+        const data = await response.json();
 
-        // Mapeamos los datos de PostgreSQL al formato que usa tu buscador
-        CATALOGO_PRODUCTOS = productosRaw.map(prod => ({
-            id: prod.id,
-            name: prod.nombre,
-            price: parseFloat(prod.precio)
+        // Extraemos los arrays que nos envía el nuevo flujo de n8n
+        const productos = data.menu.productos || [];
+        const combos = data.menu.combos || [];
+
+        // Unificamos ambos en una sola lista plana para que el buscador del cajero funcione igual
+        const catalogoUnificado = [...productos, ...combos];
+
+        // Mapeamos los datos unificados al formato que usa el buscador del dashboard
+        CATALOGO_PRODUCTOS = catalogoUnificado.map(item => ({
+            id: item.id,
+            name: item.nombre,
+            price: parseFloat(item.precio)
         }));
         
-        console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "productos listos para edición.");
+        console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "ítems listos para edición.");
     } catch (error) {
         console.error("Error obteniendo el catálogo interno:", error);
     } 
-} 
+}
+
 // --- CARGAR USUARIOS DESDE LA BASE DE DATOS ---
 async function cargarUsuariosDesdeDB() {
     try {
@@ -94,9 +104,7 @@ function verificarSesion() {
     }
 }
 
-// --- SESIONES (RBAC) ---
 function iniciarSesion(event) {
-    // Si existe el evento, frena en seco la recarga de la página
     if (event && typeof event.preventDefault === 'function') {
         event.preventDefault();
     }
@@ -107,17 +115,15 @@ function iniciarSesion(event) {
     
     if (errorMsg) errorMsg.classList.add('hidden');
 
-    // Revisamos si la lista de usuarios se cargó correctamente desde n8n
     if (!USUARIOS_SISTEMA || USUARIOS_SISTEMA.length === 0) {
         console.error("La lista de usuarios está vacía. Verifica la conexión con n8n.");
         if (errorMsg) {
             errorMsg.innerText = "Error de conexión con la base de datos.";
             errorMsg.classList.remove('hidden');
         }
-        return; // Detenemos la función aquí
+        return; 
     }
 
-    // Búsqueda a prueba de balas: Forzamos a que el PIN sea texto (String)
     const usuarioEncontrado = USUARIOS_SISTEMA.find(u => 
         String(u.username).toLowerCase() === usernameInput.toLowerCase() && 
         String(u.pin) === String(pinInput)
@@ -155,7 +161,6 @@ function aplicarRestriccionesRol() {
     if (usuarioActivo.rol === 'superadmin') colorRol = 'bg-red-500/10 text-red-400 border-red-500/20';
     if (usuarioActivo.rol === 'admin') colorRol = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
 
-    // Se modificó la estructura interna para usar el ancho de forma inteligente
     badgeUsuario.innerHTML = `
         <div class="flex items-center gap-2 overflow-hidden">
             <span class="text-[10px] text-slate-400 uppercase font-semibold shrink-0">Op:</span>
@@ -219,7 +224,6 @@ async function enviarNuevoPedido() {
     } catch(e) { alert("Error de conexión al intentar enviar el pedido."); } 
     finally { btn.disabled = false; btn.innerHTML = 'Procesar Pedido <i class="fa-solid fa-paper-plane"></i>'; }
 }
-
 
 function abrirModalEditarPedido(idReal, idVisual) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
@@ -327,7 +331,6 @@ function guardarEdicionPedido() {
     renderizarTablero(); 
     cerrarModalEditar();
 
-    // 1. Enviar actualización a la Base de Datos
     const payloadBD = {
         id: idReal, estado: pedidoAnterior.estado || 'Pago Pendiente', cliente: nuevoCliente, pedido_detallado: nuevoDetalle, total_orden: totalEdicionUSD,   
         telefono: pedidoAnterior.telefono || '', tipo_entrega: pedidoAnterior.tipo_entrega || '', procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado",
@@ -335,7 +338,6 @@ function guardarEdicionPedido() {
     };
     fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadBD) }).catch(e => console.error("Error BD:", e));
 
-    // 2. Lógica para detectar Pago Móvil y calcular Bolívares
     const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
     const metodoPago = String(pedidoAnterior.metodo_pago || pedidoAnterior['Método de pago'] || pedidoAnterior.Metodo_pago || '').toLowerCase();
     const esPagoMovil = metodoPago.includes('pago') || metodoPago.includes('movil') || metodoPago.includes('móvil');
@@ -346,13 +348,12 @@ function guardarEdicionPedido() {
         textoAdicionalBs = `\nEquivalente en Bolívares: *Bs. ${totalBs}*`;
     }
 
-    // 3. Enviar notificación de WhatsApp al webhook
     const payloadNotificacion = {
         telefono: pedidoAnterior.telefono || '',
         cliente: nuevoCliente,
         pedido_detallado: nuevoDetalle,
         total_orden: totalEdicionUSD,
-        texto_bolivares: textoAdicionalBs // Enviamos el texto calculado (o vacío si es zelle/efectivo)
+        texto_bolivares: textoAdicionalBs 
     };
     
     fetch("https://n8n-production-633e.up.railway.app/webhook/notificar-edicion", { 
@@ -438,239 +439,4 @@ function procesarPasoFinalizado(idPedido) {
     ejecutarActualizacion(idPedido, 'Finalizado', telefono, cliente, tipoEntrega, null, "");
 }
 
-function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datosPago, tiempoEstimado = "") {
-    const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
-    const index = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(id));
-    if (index === -1) return; const pedidoViejo = pedidosEnMemoria[index];
-
-    const refGuardada = pedidoViejo.referencia_pago || pedidoViejo['Referencia_pago'] || pedidoViejo.Referencia_pago || "";
-    const imgGuardada = pedidoViejo.imagen_pago || pedidoViejo['Imagen_pago'] || pedidoViejo['Imagen Pago'] || "";
-    const nuevaRef = datosPago ? datosPago.referencia : refGuardada; const nuevaImg = datosPago ? datosPago.imagen : imgGuardada;
-
-    pedidosEnMemoria[index].estado = estado; pedidosEnMemoria[index].procesado_por = operadorFirma;
-    pedidosEnMemoria[index].referencia_pago = nuevaRef; pedidosEnMemoria[index].imagen_pago = nuevaImg;
-    renderizarTablero(); 
-
-    const payload = {
-        id: id, estado: estado, telefono: telefono, cliente: cliente, tipo_entrega: tipoEntrega, procesado_por: operadorFirma,
-        referencia_pago: nuevaRef, imagen_pago: nuevaImg, pedido_detallado: pedidoViejo.pedido_detallado || pedidoViejo['Pedido Detallado'] || "",
-        total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0, tiempo_estimado: tiempoEstimado
-    };
-    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(e => console.error(e));
-}
-
-// --- FECHAS Y RENDERIZADO ---
-function esPedidoDeLaFecha(filaTexto) {
-    if (!filaTexto) return false;
-    
-    // Parsear el texto a un objeto para leer la fecha exacta
-    let pedidoObj;
-    try { pedidoObj = JSON.parse(filaTexto); } 
-    catch(e) { return false; }
-
-    // Obtenemos la fecha seleccionada en tu calendario
-    const inputFecha = document.getElementById('calendarioFiltro') ? document.getElementById('calendarioFiltro').value : '';
-    const fechaDeseada = inputFecha || new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'}); 
-
-    const fechaRaw = pedidoObj.timestamp || pedidoObj['Timestamp'];
-    if (!fechaRaw) return true;
-
-    try {
-        // Magia: Convertimos la hora UTC del servidor a la hora local de Venezuela
-        const d = new Date(fechaRaw);
-        const fechaLocal = d.toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
-        return fechaLocal === fechaDeseada;
-    } catch(e) {
-        return true;
-    }
-}
-
-function normalizarEstado(estadoRaw) { return (!estadoRaw) ? '' : estadoRaw.replace(/[\s\uFEFF\xA0]+/g, '').toLowerCase(); }
-
-function resetearYArrancarPolling() {
-    segundosFaltantes = 15; document.getElementById('contadorSegundos').innerText = segundosFaltantes;
-    clearInterval(pollingTimer);
-    pollingTimer = setInterval(() => {
-        segundosFaltantes--; document.getElementById('contadorSegundos').innerText = segundosFaltantes;
-        if (segundosFaltantes <= 0) { cargarPedidos(); segundosFaltantes = 15; }
-    }, 1000);
-}
-
-async function cargarPedidos() {
-    try {
-        const fechaCalendario = document.getElementById('calendarioFiltro') ? document.getElementById('calendarioFiltro').value : '';
-        let urlFetch = API_OBTENER_PEDIDOS + '?_t=' + new Date().getTime();
-        if (fechaCalendario) urlFetch += '&fecha=' + fechaCalendario;
-        const response = await fetch(urlFetch); if (!response.ok) throw new Error('Error API');
-        const datos = await response.json(); pedidosEnMemoria = Array.isArray(datos) ? datos : [];
-        renderizarTablero(); resetearYArrancarPolling();
-    } catch (error) { console.error(error); }
-}
-
-// --- ALGORITMO RENDERIZADOR Y MAPEO DE TURNOS ---
-function renderizarTablero() {
-    const colPagoPendiente = document.getElementById('columnaPagoPendiente');
-    const colEnCocina = document.getElementById('columnaEnCocina');
-    const colFinalizado = document.getElementById('columnaFinalizado');
-
-    colPagoPendiente.innerHTML = ''; colEnCocina.innerHTML = ''; colFinalizado.innerHTML = '';
-
-    let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
-    let totalVentasDia = 0; 
-    const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
-
-    const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeLaFecha(JSON.stringify(p)));
-    pedidosHoy.sort((a, b) => parseInt(String(a.id_pedido || a.ID || 0).replace(/\D/g,'')) - parseInt(String(b.id_pedido || b.ID || 0).replace(/\D/g,'')));
-    const mapaIdsDiarios = {};
-    pedidosHoy.forEach((p, index) => {
-        const id = p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID';
-        mapaIdsDiarios[id] = index + 1; 
-    });
-
-    pedidosEnMemoria.forEach(pedido => {
-        if (!esPedidoDeLaFecha(JSON.stringify(pedido))) return;
-
-        const idReal = pedido.id_pedido || pedido['ID_Pedido'] || pedido.ID || 'S/ID';
-        const idVisual = mapaIdsDiarios[idReal] || idReal;
-
-        const cliente = pedido.cliente || 'Desconocido';
-        const telefonoRaw = pedido.telefono || '';
-        const metodoPago = String(pedido.metodo_pago || '').replace(/'/g, "\\'");
-        const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil');
-        const monto = parseFloat(String(pedido.total_orden || pedido.monto || 0).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
-        
-        let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${monto.toFixed(2)}</span>`;
-        if (esPagoMovil) htmlMonto = `<div class="flex flex-col"><span class="text-xs font-bold text-slate-300">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
-        
-        let hora = '--:--';
-        if (pedido.timestamp) {
-            try {
-                if (pedido.timestamp.includes('T')) hora = new Date(pedido.timestamp).toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
-                else { const m = pedido.timestamp.match(/(\d{1,2}):(\d{2})/); if(m) { let h = parseInt(m[1],10); const ampm = h >= 12 ? 'PM':'AM'; h = h % 12 || 12; hora = `${h}:${m[2]} ${ampm}`; } }
-            } catch(e){}
-        }
-        
-        const art = pedido.pedido_detallado || 'Detalle no disponible'; 
-        const estadoLimpio = normalizarEstado(String(pedido.estado || ''));
-
-        // --- BOTÓN INTELIGENTE DE WHATSAPP ---
-        let btnWhatsApp = '';
-        const telLimpio = String(telefonoRaw).replace(/\D/g, ''); 
-        if (telLimpio.length >= 10) {
-            let telWA = telLimpio;
-            if (telWA.startsWith('0')) telWA = '58' + telWA.substring(1);
-            else if (!telWA.startsWith('58')) telWA = '58' + telWA;
-            
-            // Detección automática de dispositivo
-            const esMovil = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            const urlWA = esMovil ? `https://wa.me/${telWA}` : `https://web.whatsapp.com/send?phone=${telWA}`;
-            
-            btnWhatsApp = `<a href="${urlWA}" target="_blank" onclick="event.stopPropagation()" class="text-slate-400 hover:text-emerald-400 transition cursor-pointer ml-1" title="Abrir chat en WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
-        }
-
-        if (estadoLimpio === 'pagopendiente') {
-            conteoPago++;
-            colPagoPendiente.innerHTML += `
-                <div class="bg-slate-700/40 p-4 rounded-lg border border-yellow-500/10 hover:border-yellow-500/30 transition duration-150 space-y-3">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">#${idVisual}</span>
-                            <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
-                            <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-amber-400 transition cursor-pointer"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="cancelarPedido('${idReal}')" class="text-slate-400 hover:text-red-500 transition cursor-pointer"><i class="fa-solid fa-trash"></i></button>
-                            ${btnWhatsApp}
-                        </div>
-                        <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
-                    </div>
-                    <div><h4 class="font-bold text-white text-sm truncate">${cliente}</h4><p class="text-xs text-slate-400 mt-1 line-clamp-2">${art}</p></div>
-                    <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
-                        ${htmlMonto}
-                        <button onclick="procesarPasoCocina('${idReal}')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Aceptar <i class="fa-solid fa-arrow-right"></i></button>
-                    </div>
-                </div>`;
-        } else if (estadoLimpio === 'encocina') {
-            conteoCocina++;
-            colEnCocina.innerHTML += `
-                <div class="bg-slate-700/40 p-4 rounded-lg border border-sky-500/10 hover:border-sky-500/30 transition duration-150 space-y-3">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-sky-400 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20">#${idVisual}</span>
-                            <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
-                            ${btnWhatsApp}
-                        </div>
-                        <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
-                    </div>
-                    <div><h4 class="font-bold text-white text-sm truncate">${cliente}</h4><p class="text-xs text-slate-400 mt-1 line-clamp-2">${art}</p></div>
-                    <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
-                        ${htmlMonto}
-                        <button onclick="procesarPasoFinalizado('${idReal}')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Despachar <i class="fa-solid fa-check"></i></button>
-                    </div>
-                </div>`;
-        } else if (estadoLimpio === 'finalizado') {
-            conteoFinalizado++; totalVentasDia += monto; 
-            let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span>`;
-            if (esPagoMovil) htmlMontoFinalizado = `<div class="flex flex-col text-right"><span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
-            colFinalizado.innerHTML += `
-                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition flex justify-between items-center cursor-pointer">
-                    <div class="flex items-center gap-2"><span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span><span class="text-xs text-slate-400">Ver Recibo</span>${btnWhatsApp}</div>
-                    ${htmlMontoFinalizado}
-                </div>`;
-        }
-    });
-
-    document.getElementById('cantPagoPendiente').innerText = conteoPago; document.getElementById('cantEnCocina').innerText = conteoCocina; document.getElementById('cantFinalizado').innerText = conteoFinalizado;
-    if (document.getElementById('totalDiaBottom')) document.getElementById('totalDiaBottom').innerHTML = `<div class="flex flex-col text-right leading-tight"><span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(totalVentasDia * tasaActual).toFixed(2)}</span></div>`;
-}
-
-// --- VER RECIBOS ---
-function verComprobanteDeMemoria(idReal) {
-    const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal)); if (!pedido) return;
-    const imgData = pedido.imagen_pago || pedido.Imagen_pago || '';
-    if (imgData.startsWith('http')) window.open(imgData, '_blank');
-    else if (imgData.length > 50) {
-        const w = window.open('', '_blank');
-        w.document.write(`<html><head><title>Comprobante #${idReal}</title></head><body style="margin:0; background:#0f172a; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${imgData}" style="max-width:100%; max-height:100vh; border-radius:8px;"/></body></html>`);
-        w.document.close();
-    }
-}
-
-function abrirModalDetalle(idPedido) {
-    const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido)); if (!pedido) return;
-    const idReal = pedido.id_pedido || pedido['ID_Pedido'] || 'S/ID'; const idVisual = String(idReal).split('-').pop();
-    const cliente = pedido.cliente || 'Registrado'; const tel = pedido.telefono || 'No registrado';
-    const entrega = pedido.tipo_entrega || 'No definido'; const dir = pedido.direccion || 'No especificada';
-    const pago = pedido.metodo_pago || 'No especificado'; const arts = pedido.pedido_detallado || '';
-    const img = pedido.imagen_pago || ''; const ref = pedido.referencia_pago || '';
-    const monto = parseFloat(String(pedido.total_orden || 0).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
-    const operador = pedido.procesado_por || 'Sin registro';
-
-    document.getElementById('modalID').innerText = `ID Base de datos: #${idVisual}`;
-    let seccionVES = '';
-    if (pago.toLowerCase().includes('pago') || pago.toLowerCase().includes('movil')) {
-        const t = parseFloat(document.getElementById('tasaBCV').value) || 1.0;
-        seccionVES = `<div class="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg mt-2 text-amber-300 text-xs text-center font-bold">Total en Bolívares: Bs. ${(monto * t).toFixed(2)} (Tasa: ${t.toFixed(2)} Bs/$)</div>`;
-    }
-    let refHtml = ref ? `<p class="text-xs text-amber-400 mt-1 font-mono bg-slate-900 border border-slate-700 px-2 py-1 rounded inline-block">Ref: ${ref}</p>` : '';
-    let btnImg = (img && img !== 'Sin comprobante' && (img.startsWith('http') || img.length > 50)) ? `<div class="border-t border-slate-700/50 pt-3 flex justify-center"><button onclick="verComprobanteDeMemoria('${idReal}')" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition flex items-center gap-2 cursor-pointer w-full justify-center"><i class="fa-solid fa-image"></i> Ver Comprobante</button></div>` : '';
-
-    document.getElementById('modalCuerpo').innerHTML = `<div class="space-y-3.5"><div class="flex justify-between"><div><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Cliente</span><p class="font-bold text-white text-base">${cliente}</p><p class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-phone"></i> ${tel}</p></div><div class="text-right"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Despachado por</span><p class="text-xs text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded mt-1 font-semibold">${operador}</p></div></div><div class="border-t border-slate-700/50 pt-2.5"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Método de Distribución</span><p class="text-white text-xs mt-0.5 font-medium">${entrega}</p><p class="text-xs text-slate-400 mt-1 bg-slate-900/40 p-2 rounded border border-slate-700/30 italic">${dir}</p></div><div class="border-t border-slate-700/50 pt-2.5"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Productos</span><div class="text-xs bg-slate-900/40 p-2.5 rounded border border-slate-700/30 whitespace-pre-line max-h-32 overflow-y-auto text-slate-300 font-mono">${arts}</div></div><div class="border-t border-slate-700/50 pt-2.5 flex justify-between items-center"><div><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Forma de Pago</span><p class="text-white text-xs font-semibold">${pago}</p>${refHtml}</div><div class="text-right"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Total</span><p class="text-emerald-400 font-bold text-lg">$${monto.toFixed(2)}</p></div></div>${seccionVES}${btnImg}</div>`;
-    document.getElementById('modalDetalle').classList.remove('hidden');
-}
-function cerrarModal() { document.getElementById('modalDetalle').classList.add('hidden'); }
-
-// --- ARRANQUE ---
-window.addEventListener('DOMContentLoaded', async () => {
-    const cal = document.getElementById('calendarioFiltro');
-    if (cal) {
-        cal.value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
-        cal.addEventListener('change', () => { 
-            document.getElementById('columnaFinalizado').innerHTML = '<p class="text-slate-400 text-center text-xs mt-4">Buscando en el historial...</p>'; 
-            cargarPedidos(); 
-        });
-    }
-    
-    actualizarTasaBCV(); 
-    await cargarCatalogoDesdeDB(); 
-    await cargarUsuariosDesdeDB();
-    verificarSesion();
-});
+function ejecutarActual
