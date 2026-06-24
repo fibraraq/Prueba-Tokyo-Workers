@@ -75,13 +75,15 @@
             </form>
         </div>
         
-        <div id="step-1" class="step space-y-4">
-            <div class="bg-red-50 border border-red-100 p-3 rounded-xl flex justify-between items-center text-xs">
+        <div class="bg-red-50 border border-red-100 p-3 rounded-xl flex justify-between items-center text-xs">
                 <div>
                     <p class="text-gray-500 font-medium">Cliente Activo:</p>
                     <p class="font-bold text-red-800 text-sm" id="lbl-cliente-activo">Cargando...</p>
                 </div>
-                <button onclick="cerrarSesionCliente()" class="text-red-600 font-bold hover:underline bg-white px-2 py-1 rounded-lg border border-red-200">Cambiar datos</button>
+                <div class="flex gap-2">
+                    <button onclick="abrirModalEditarDatos()" class="text-red-600 font-bold hover:underline bg-white px-2 py-1 rounded-lg border border-red-200 shadow-sm cursor-pointer">Mis Datos</button>
+                    <button onclick="cerrarSesionCliente()" class="text-red-600 font-bold hover:underline bg-white px-2 py-1 rounded-lg border border-red-200 shadow-sm cursor-pointer">Salir</button>
+                </div>
             </div>
 
             <h2 class="text-2xl font-bold text-center my-3 text-gray-800">¿Qué te provoca comer hoy?</h2>
@@ -220,6 +222,34 @@
                     Agregar 🍣
                 </button>
             </div>
+        </div>
+    </div>
+    <div id="modal-editar-datos" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden backdrop-blur-xs">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl overflow-y-auto max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+            <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                <div>
+                    <h3 class="text-lg font-black text-gray-800">Mis Direcciones 📍</h3>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Administra tus lugares de entrega</p>
+                </div>
+                <button onclick="cerrarModalEditarDatos()" class="text-gray-400 hover:text-red-600 text-2xl font-bold cursor-pointer">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Dirección Principal</label>
+                    <textarea id="edit-dir-principal" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-red-500 text-gray-700" rows="2"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Direcciones Frecuentes</label>
+                    <div id="lista-direcciones-extra" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        </div>
+                </div>
+            </div>
+            
+            <button type="button" id="btn-guardar-datos" onclick="guardarEdicionDatos()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl transition text-sm shadow-md cursor-pointer mt-2">
+                💾 Guardar Cambios
+            </button>
         </div>
     </div>
 </body>
