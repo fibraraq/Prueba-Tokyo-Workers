@@ -87,40 +87,9 @@
             <h2 class="text-2xl font-bold text-center my-3 text-gray-800">¿Qué te provoca comer hoy?</h2>
             <p class="text-center text-gray-500 text-sm mb-4">Toca una categoría para agregar platos a tu carrito</p>
             
-            <div class="grid grid-cols-1 gap-3">
-                <button onclick="selectCategory('combos')" class="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-sm hover:border-red-500 transition flex items-center space-x-4 text-left cursor-pointer">
-                    <div class="w-16 h-16 bg-red-50 rounded-xl flex-shrink-0 flex items-center justify-center text-3xl">🍱</div>
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-800">Promos y Combos</h3>
-                        <p class="text-xs text-gray-500">Los favoritos desde $6.19</p>
-                    </div>
-                </button>
-
-                <button onclick="selectCategory('cocina')" class="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-sm hover:border-red-500 transition flex items-center space-x-4 text-left cursor-pointer">
-                    <div class="w-16 h-16 bg-amber-50 rounded-xl flex-shrink-0 flex items-center justify-center text-3xl">🍚</div>
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-800">Platos de Cocina</h3>
-                        <p class="text-xs text-gray-500">Arroces individuales y tallarines</p>
-                    </div>
-                </button>
-
-                <button onclick="selectCategory('sushi')" class="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-sm hover:border-red-500 transition flex items-center space-x-4 text-left cursor-pointer">
-                    <div class="w-16 h-16 bg-orange-50 rounded-xl flex-shrink-0 flex items-center justify-center text-3xl">🍣</div>
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-800">Sushi Especial</h3>
-                        <p class="text-xs text-gray-500">Roles Tempura de 12 piezas</p>
-                    </div>
-                </button>
-
-                <button onclick="selectCategory('extras')" class="w-full bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-sm hover:border-red-500 transition flex items-center space-x-4 text-left cursor-pointer">
-                    <div class="w-16 h-16 bg-blue-50 rounded-xl flex-shrink-0 flex items-center justify-center text-3xl">🥤</div>
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-800">Bebidas y Extras</h3>
-                        <p class="text-xs text-gray-500">Refrescos, salsas extras y acompañantes</p>
-                    </div>
-                </button>
+            <div id="contenedor-categorias" class="grid grid-cols-1 gap-4 mt-4">
+                <div class="text-center text-gray-400 text-sm py-4">Cargando menú...</div>
             </div>
-        </div>
 
         <div id="step-2" class="step space-y-4">
             <div class="my-3 text-center">
