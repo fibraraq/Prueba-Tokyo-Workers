@@ -146,6 +146,8 @@ async function cargarMenuDesdeDB() {
         menuData = {}; // Ahora es un objeto 100% dinámico
 
         productosRaw.forEach(prod => {
+            // EL FILTRO MÁGICO: Si el plato está apagado, nos lo saltamos y no lo dibujamos
+            if (prod.disponible === false) return;
             // Limpiamos el nombre de la categoría para usarla como "llave"
             const categoriaRaw = String(prod.categoria).trim();
             const categoriaKey = categoriaRaw.toLowerCase().replace(/\s+/g, '_');
