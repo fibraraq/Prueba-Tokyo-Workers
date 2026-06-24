@@ -72,7 +72,7 @@ async function procesarVerificacionTelefono(event) {
             datosClienteLogueado = listaClientes[0];
             localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
             document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
-            await cargarMenuDesdeDB ();
+            await  ();
             goToStep(1);
         } else {
             document.getElementById('reg-name').value = '';
@@ -119,7 +119,7 @@ async function procesarRegistroCliente(event) {
         localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
         document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
         
-        await cargarMenuDesdeDB ();
+        await  ();
         goToStep(1);
     } catch(e) {
         console.error(e);
@@ -142,17 +142,19 @@ async function cargarMenuDesdeDB() {
         const response = await fetch(URL_OBTENER_MENU);
         if (!response.ok) throw new Error('Error al conectar con el servidor');
         
-        const productosRaw = await response.json();
-        menuData = {}; // Ahora es un objeto 100% dinámico
+        const data = await response.json();
+        menuData = {}; // Objeto limpio para empezar
 
-        productosRaw.forEach(prod => {
-            // EL FILTRO MÁGICO: Si el plato está apagado, nos lo saltamos y no lo dibujamos
+        // Identificamos si es la estructura modular nueva o el array antiguo
+        const productosBase = data.menu ? data.menu.productos : (Array.isArray(data) ? data : []);
+        const combos = data.menu ? data.menu.combos : [];
+
+        // Función auxiliar para procesar items
+        const procesarItem = (prod, esCombo = false) => {
             if (prod.disponible === false) return;
-            // Limpiamos el nombre de la categoría para usarla como "llave"
-            const categoriaRaw = String(prod.categoria).trim();
+            const categoriaRaw = String(prod.categoria || (esCombo ? 'Combos' : 'Otros')).trim();
             const categoriaKey = categoriaRaw.toLowerCase().replace(/\s+/g, '_');
 
-            // Si la categoría no existe en menuData, la creamos
             if (!menuData[categoriaKey]) {
                 menuData[categoriaKey] = {
                     titulo: categoriaRaw.charAt(0).toUpperCase() + categoriaRaw.slice(1),
@@ -160,19 +162,24 @@ async function cargarMenuDesdeDB() {
                 };
             }
 
-            // Metemos el plato dentro de su categoría
             menuData[categoriaKey].items.push({
                 id: prod.id,
                 name: prod.nombre,
                 price: parseFloat(prod.precio),
                 desc: prod.descripcion || "",
                 image: prod.imagen || "",
-                opciones_combo: prod.opciones_combo
+                // Si es combo, le pasamos los items_json, si no, lo dejamos null/undefined
+                opciones_combo: esCombo ? prod.items_json : null 
             });
-        });
+        };
+
+        // Procesar Productos Individuales
+        productosBase.forEach(p => procesarItem(p, false));
+        // Procesar Combos
+        combos.forEach(c => procesarItem(c, true));
         
-        console.log("Menú dinámico cargado exitosamente");
-        renderizarCategorias(); // Llamamos al pintor de botones
+        console.log("Menú modular cargado con éxito");
+        renderizarCategorias(); 
     } catch (error) {
         console.error("Error obteniendo el menú:", error);
     }
@@ -182,10 +189,9 @@ async function cargarMenuDesdeDB() {
 function renderizarCategorias() {
     const container = document.getElementById('contenedor-categorias');
     if (!container) return;
-    container.innerHTML = ''; // Limpiamos el texto de "Cargando..."
+    container.innerHTML = ''; 
 
-    // Una lista de iconos para que las categorías nuevas no se vean aburridas
-    const iconos = ['🍱', '🍙', '🍣', '🥤', '🍰', '🥟', '🍤']; 
+    const iconos = ['🍱', '🍙', '🍣', '🥤', '🍰', '🥟', '🍤', '🔥']; 
 
     Object.keys(menuData).forEach((catKey, index) => {
         const catInfo = menuData[catKey];
@@ -196,7 +202,7 @@ function renderizarCategorias() {
                 <div class="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">${icon}</div>
                 <div>
                     <h3 class="font-bold text-gray-800 text-lg">${catInfo.titulo}</h3>
-                    <p class="text-xs text-gray-400">Ver platos disponibles</p>
+                    <p class="text-xs text-gray-400">${catInfo.items.length} platos disponibles</p>
                 </div>
             </button>
         `;
