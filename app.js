@@ -1019,3 +1019,19 @@ function resetFormCombo() {
     document.getElementById('btn-save-combo').innerText = "🍱 Guardar Combo";
     document.getElementById('btn-cancel-combo').style.display = "none";
 }
+// ==========================================
+// ARRANQUE PRINCIPAL (PANTALLA DE OPERACIONES)
+// ==========================================
+if (document.getElementById('vistaLogin')) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarUsuariosDesdeDB();
+            verificarSesion();
+            actualizarTasaBCV();
+        });
+    } else {
+        cargarUsuariosDesdeDB();
+        verificarSesion();
+        actualizarTasaBCV();
+    }
+}
