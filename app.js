@@ -742,18 +742,18 @@ async function cargarDatosAdmin() {
     }
 }
 
-// --- RENDERIZADO DE LISTAS ---
-function renderListaCategorias() {
+// --- RENDERIZADO DE CATEGORÍAS ---
+function renderListaCategorias(lista = adminCategorias) {
     const cont = document.getElementById('lista-categorias-container');
     if(!cont) return;
     cont.innerHTML = '';
     
-    if (adminCategorias.length === 0) {
-        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No hay categorías aún.</p>';
+    if (lista.length === 0) {
+        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No se encontraron categorías.</p>';
         return;
     }
 
-    adminCategorias.forEach(cat => {
+    lista.forEach(cat => {
         cont.innerHTML += `
             <div class="list-item">
                 <div class="item-info">
@@ -808,17 +808,18 @@ function filtrarProductosAdmin() {
     renderListaProductos(resultados);
 }
 
-function renderListaCombos() {
+// --- RENDERIZADO DE COMBOS ---
+function renderListaCombos(lista = adminCombos) {
     const cont = document.getElementById('lista-combos-container');
     if(!cont) return;
     cont.innerHTML = '';
     
-    if (adminCombos.length === 0) {
-        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No hay combos aún.</p>';
+    if (lista.length === 0) {
+        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No se encontraron combos.</p>';
         return;
     }
 
-    adminCombos.forEach(c => {
+    lista.forEach(c => {
         const opacityClass = c.disponible ? '' : 'deshabilitado';
         cont.innerHTML += `
             <div class="list-item ${opacityClass}">
@@ -832,6 +833,20 @@ function renderListaCombos() {
                 </div>
             </div>`;
     });
+}
+
+// Buscador para Categorías
+function filtrarCategoriasAdmin() {
+    const textoBuscado = document.getElementById('buscador-categorias-admin').value.toLowerCase();
+    const resultados = adminCategorias.filter(c => c.nombre.toLowerCase().includes(textoBuscado));
+    renderListaCategorias(resultados);
+}
+
+// Buscador para Combos
+function filtrarCombosAdmin() {
+    const textoBuscado = document.getElementById('buscador-combos-admin').value.toLowerCase();
+    const resultados = adminCombos.filter(c => c.nombre.toLowerCase().includes(textoBuscado));
+    renderListaCombos(resultados);
 }
 
 function actualizarSelectCategorias() {
@@ -909,6 +924,7 @@ function resetFormCat() {
     document.getElementById('titulo-form-cat').innerText = "Crear Categoría";
     document.getElementById('btn-save-cat').innerText = "💾 Guardar Categoría";
     document.getElementById('btn-cancel-cat').style.display = "none";
+    if(document.getElementById('buscador-categorias-admin')) document.getElementById('buscador-categorias-admin').value = '';
 }
 
 // --- FORMULARIOS: PRODUCTO ---
@@ -1052,6 +1068,7 @@ function resetFormCombo() {
     document.getElementById('titulo-form-combo').innerText = "Crear Combo";
     document.getElementById('btn-save-combo').innerText = "🍱 Guardar Combo";
     document.getElementById('btn-cancel-combo').style.display = "none";
+    if(document.getElementById('buscador-combos-admin')) document.getElementById('buscador-combos-admin').value = '';
 }
 // ==========================================
 // ARRANQUE PRINCIPAL (PANTALLA DE OPERACIONES)
