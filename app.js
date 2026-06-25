@@ -1196,6 +1196,7 @@ if (document.getElementById('vistaLogin')) {
         });
     } else {
         cargarUsuariosDesdeDB();
+        cargarCatalogoDesdeDb();
         verificarSesion();
         actualizarTasaBCV();
     }
