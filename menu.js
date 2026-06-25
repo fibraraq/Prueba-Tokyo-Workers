@@ -147,16 +147,21 @@ async function cargarMenuDesdeDB() {
         const response = await fetch(URL_OBTENER_MENU);
         if (!response.ok) throw new Error('Error al conectar con el servidor');
         
-        const data = await response.json();
+        const rawData = await response.json();
+        
+        // EL TRUCO: Desempaquetamos el array [0] tal como hicimos en app.js
+        const data = (Array.isArray(rawData) && rawData[0].menu) ? rawData[0] : rawData;
+
         menuData = {}; // Objeto limpio para empezar
 
-        // Identificamos si es la estructura modular nueva o el array antiguo
-        const productosBase = data.menu ? data.menu.productos : (Array.isArray(data) ? data : []);
-        const combos = data.menu ? data.menu.combos : [];
+        // Identificamos los productos y combos desde el nuevo formato
+        const productosBase = data.menu ? (data.menu.productos || []) : (Array.isArray(data) ? data : []);
+        const combos = data.menu ? (data.menu.combos || []) : [];
 
         // Función auxiliar para procesar items
         const procesarItem = (prod, esCombo = false) => {
             if (prod.disponible === false) return;
+            // Si la categoría viene vacía, le asignamos 'Combos' o 'Otros'
             const categoriaRaw = String(prod.categoria || (esCombo ? 'Combos' : 'Otros')).trim();
             const categoriaKey = categoriaRaw.toLowerCase().replace(/\s+/g, '_');
 
