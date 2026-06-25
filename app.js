@@ -28,7 +28,11 @@ async function cargarCatalogoDesdeDB() {
         const response = await fetch(URL_OBTENER_MENU);
         if (!response.ok) throw new Error('Error al conectar con el servidor de menú');
         
-        const data = await response.json();
+        const rawData = await response.json();
+        
+        // Desempaquetamos el Array si viene de n8n
+        const data = (Array.isArray(rawData) && rawData[0].menu) ? rawData[0] : rawData;
+        
         let todosLosItems = [];
 
         // Si viene con la nueva estructura modular de n8n
@@ -52,7 +56,7 @@ async function cargarCatalogoDesdeDB() {
         
         console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "ítems totales listos para edición.");
         
-        // CORREGIDO: El nombre exacto de la función
+        // Si estamos en admin.html, actualizamos la primera fila del combo
         if (document.getElementById('lista-items-combo') && document.getElementById('lista-items-combo').innerHTML === '') {
             agregarFilaProductoCombo(); 
         }
@@ -60,7 +64,6 @@ async function cargarCatalogoDesdeDB() {
         console.error("Error obteniendo el catálogo interno:", error);
     } 
 }
-
 // --- CARGAR USUARIOS DESDE LA BASE DE DATOS ---
 async function cargarUsuariosDesdeDB() {
     try {
@@ -712,11 +715,14 @@ if (document.getElementById('form-categoria')) {
 async function cargarDatosAdmin() {
     try {
         const res = await fetch(ADMIN_URL_MENU);
-        const data = await res.json();
+        const rawData = await res.json();
         
-        adminCategorias = data.menu.categorias || [];
-        adminProductos = data.menu.productos || [];
-        adminCombos = data.menu.combos || [];
+        // EL TRUCO: Si n8n lo envía envuelto en un Array [], sacamos el primer elemento [0]
+        const data = Array.isArray(rawData) ? rawData[0] : rawData;
+        
+        adminCategorias = data.menu ? (data.menu.categorias || []) : [];
+        adminProductos = data.menu ? (data.menu.productos || []) : [];
+        adminCombos = data.menu ? (data.menu.combos || []) : [];
 
         renderListaCategorias();
         renderListaProductos();
