@@ -690,109 +690,323 @@ function cerrarModal() { document.getElementById('modalDetalle').classList.add('
 // --- LÓGICA EXCLUSIVA DEL PANEL DE ADMINISTRACIÓN (admin.html) ---
 // =====================================================================
 
-function agregarFilaProducto() {
-    const contenedor = document.getElementById('lista-items-combo');
-    if (!contenedor) return; 
+// ⚠️ RECUERDA: Cambiar "localhost:5678" por tu URL pública de loca.lt 
+const ADMIN_URL_MENU = "http://localhost:5678/webhook/obtener-menu";
+const ADMIN_URL_GUARDAR_CAT = "http://localhost:5678/webhook/guardar-categoria";
+const ADMIN_URL_GUARDAR_PROD = "http://localhost:5678/webhook/guardar-producto";
+const ADMIN_URL_GUARDAR_COMBO = "http://localhost:5678/webhook/guardar-combo";
+const ADMIN_URL_ELIMINAR = "http://localhost:5678/webhook/eliminar-item";
 
+let adminCategorias = [];
+let adminProductos = [];
+let adminCombos = [];
+
+// Arrancar solo si estamos en la pantalla de admin.html
+if (document.getElementById('form-categoria')) {
+    document.addEventListener('DOMContentLoaded', cargarDatosAdmin);
+}
+
+async function cargarDatosAdmin() {
+    try {
+        const res = await fetch(ADMIN_URL_MENU);
+        const data = await res.json();
+        
+        adminCategorias = data.menu.categorias || [];
+        adminProductos = data.menu.productos || [];
+        adminCombos = data.menu.combos || [];
+
+        renderListaCategorias();
+        renderListaProductos();
+        renderListaCombos();
+        actualizarSelectCategorias();
+        
+        // Si el contenedor de items de combo está vacío, añadimos una fila por defecto
+        const listaItems = document.getElementById('lista-items-combo');
+        if (listaItems && listaItems.innerHTML === '') {
+            agregarFilaProductoCombo();
+        }
+    } catch (error) {
+        console.error("Error cargando datos del admin:", error);
+    }
+}
+
+// --- RENDERIZADO DE LISTAS ---
+function renderListaCategorias() {
+    const cont = document.getElementById('lista-categorias-container');
+    if(!cont) return;
+    cont.innerHTML = '';
+    
+    if (adminCategorias.length === 0) {
+        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No hay categorías aún.</p>';
+        return;
+    }
+
+    adminCategorias.forEach(cat => {
+        cont.innerHTML += `
+            <div class="list-item">
+                <div class="item-info">
+                    <p class="item-title">${cat.nombre}</p>
+                </div>
+                <div class="item-actions">
+                    <button class="action-btn btn-edit" onclick="editarCategoria(${cat.id})" title="Editar">✏️</button>
+                    <button class="action-btn btn-delete" onclick="eliminarItem(${cat.id}, 'categoria')" title="Eliminar">🗑️</button>
+                </div>
+            </div>`;
+    });
+}
+
+function renderListaProductos() {
+    const cont = document.getElementById('lista-productos-container');
+    if(!cont) return;
+    cont.innerHTML = '';
+    
+    if (adminProductos.length === 0) {
+        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No hay productos aún.</p>';
+        return;
+    }
+
+    adminProductos.forEach(p => {
+        const opacityClass = p.disponible ? '' : 'deshabilitado';
+        cont.innerHTML += `
+            <div class="list-item ${opacityClass}">
+                <div class="item-info">
+                    <p class="item-title">${p.nombre} <span style="color:#10b981">$${p.precio}</span></p>
+                    <p class="item-meta">Cat: ${p.categoria} | Disp: ${p.disponible ? 'Sí' : 'No'}</p>
+                </div>
+                <div class="item-actions">
+                    <button class="action-btn btn-edit" onclick="editarProducto(${p.id})" title="Editar">✏️</button>
+                    <button class="action-btn btn-delete" onclick="eliminarItem(${p.id}, 'producto')" title="Eliminar">🗑️</button>
+                </div>
+            </div>`;
+    });
+}
+
+function renderListaCombos() {
+    const cont = document.getElementById('lista-combos-container');
+    if(!cont) return;
+    cont.innerHTML = '';
+    
+    if (adminCombos.length === 0) {
+        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No hay combos aún.</p>';
+        return;
+    }
+
+    adminCombos.forEach(c => {
+        const opacityClass = c.disponible ? '' : 'deshabilitado';
+        cont.innerHTML += `
+            <div class="list-item ${opacityClass}">
+                <div class="item-info">
+                    <p class="item-title">${c.nombre} <span style="color:#10b981">$${c.precio}</span></p>
+                    <p class="item-meta">Disp: ${c.disponible ? 'Sí' : 'No'}</p>
+                </div>
+                <div class="item-actions">
+                    <button class="action-btn btn-edit" onclick="editarCombo(${c.id})" title="Editar">✏️</button>
+                    <button class="action-btn btn-delete" onclick="eliminarItem(${c.id}, 'combo')" title="Eliminar">🗑️</button>
+                </div>
+            </div>`;
+    });
+}
+
+function actualizarSelectCategorias() {
+    const select = document.getElementById('prod-categoria');
+    if(!select) return;
+    select.innerHTML = '<option value="">-- Selecciona Categoría --</option>';
+    adminCategorias.forEach(cat => {
+        select.innerHTML += `<option value="${cat.nombre}">${cat.nombre}</option>`;
+    });
+}
+
+// --- ELIMINAR ---
+async function eliminarItem(id, tipo) {
+    if (!confirm(`¿Seguro que deseas eliminar este ${tipo}? Esta acción no se puede deshacer.`)) return;
+    
+    try {
+        await fetch(ADMIN_URL_ELIMINAR, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, tipo: tipo })
+        });
+        cargarDatosAdmin();
+    } catch(e) {
+        alert('Error al intentar eliminar el elemento.');
+    }
+}
+
+// --- FORMULARIOS: CATEGORÍA ---
+if (document.getElementById('form-categoria')) {
+    document.getElementById('form-categoria').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('cat-id').value;
+        const payload = {
+            id: id ? parseInt(id) : null,
+            nombre: document.getElementById('cat-nombre').value.trim()
+        };
+        try {
+            await fetch(ADMIN_URL_GUARDAR_CAT, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            resetFormCat();
+            cargarDatosAdmin();
+        } catch (error) { alert('Error al guardar la categoría.'); }
+    });
+}
+
+function editarCategoria(id) {
+    const cat = adminCategorias.find(c => c.id === id);
+    if(!cat) return;
+    document.getElementById('cat-id').value = cat.id;
+    document.getElementById('cat-nombre').value = cat.nombre;
+    
+    document.getElementById('titulo-form-cat').innerText = "Editar Categoría";
+    document.getElementById('btn-save-cat').innerText = "💾 Actualizar Categoría";
+    document.getElementById('btn-cancel-cat').style.display = "block";
+}
+
+function resetFormCat() {
+    document.getElementById('form-categoria').reset();
+    document.getElementById('cat-id').value = "";
+    document.getElementById('titulo-form-cat').innerText = "Crear Categoría";
+    document.getElementById('btn-save-cat').innerText = "💾 Guardar Categoría";
+    document.getElementById('btn-cancel-cat').style.display = "none";
+}
+
+// --- FORMULARIOS: PRODUCTO ---
+if (document.getElementById('form-producto')) {
+    document.getElementById('form-producto').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('prod-id').value;
+        const payload = {
+            id: id ? parseInt(id) : null,
+            nombre: document.getElementById('prod-nombre').value.trim(),
+            categoria: document.getElementById('prod-categoria').value,
+            precio: parseFloat(document.getElementById('prod-precio').value),
+            descripcion: document.getElementById('prod-descripcion').value.trim(),
+            disponible: document.getElementById('prod-disponible').checked
+        };
+        try {
+            await fetch(ADMIN_URL_GUARDAR_PROD, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            resetFormProd();
+            cargarDatosAdmin();
+        } catch (error) { alert('Error al guardar el producto.'); }
+    });
+}
+
+function editarProducto(id) {
+    const p = adminProductos.find(x => x.id === id);
+    if(!p) return;
+    document.getElementById('prod-id').value = p.id;
+    document.getElementById('prod-nombre').value = p.nombre;
+    document.getElementById('prod-categoria').value = p.categoria;
+    document.getElementById('prod-precio').value = p.precio;
+    document.getElementById('prod-descripcion').value = p.descripcion;
+    document.getElementById('prod-disponible').checked = p.disponible;
+    
+    document.getElementById('titulo-form-prod').innerText = "Editar Producto";
+    document.getElementById('btn-save-prod').innerText = "💾 Actualizar Producto";
+    document.getElementById('btn-cancel-prod').style.display = "block";
+}
+
+function resetFormProd() {
+    document.getElementById('form-producto').reset();
+    document.getElementById('prod-id').value = "";
+    document.getElementById('titulo-form-prod').innerText = "Crear Producto";
+    document.getElementById('btn-save-prod').innerText = "💾 Guardar Producto";
+    document.getElementById('btn-cancel-prod').style.display = "none";
+}
+
+// --- FORMULARIOS: COMBO ---
+function agregarFilaProductoCombo(prodId = "", qty = 1) {
+    const contenedor = document.getElementById('lista-items-combo');
     const fila = document.createElement('div');
     fila.className = 'fila-item-combo'; 
     fila.style.display = 'flex';
     fila.style.gap = '10px';
     fila.style.marginBottom = '10px';
 
-    // Construimos el desplegable utilizando SOLO los productos base
-    let opcionesHTML = '<option value="">-- Selecciona un producto --</option>';
-    inventarioProductosBase.forEach(prod => {
-        opcionesHTML += `<option value="${prod.id}">${prod.nombre} ($${prod.precio})</option>`;
+    let opcionesHTML = '<option value="">-- Selecciona --</option>';
+    adminProductos.forEach(p => {
+        const selected = (p.id == prodId) ? 'selected' : '';
+        opcionesHTML += `<option value="${p.id}" ${selected}>${p.nombre} ($${p.precio})</option>`;
     });
 
     fila.innerHTML = `
         <select class="item-select" required style="flex: 2; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
             ${opcionesHTML}
         </select>
-        <input type="number" class="item-cantidad" min="1" value="1" required style="flex: 1; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Cant.">
+        <input type="number" class="item-cantidad" min="1" value="${qty}" required style="flex: 1; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Cant.">
         <button type="button" onclick="this.parentElement.remove()" style="background: #e11d48; color: white; border: none; border-radius: 4px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
     `;
     contenedor.appendChild(fila);
 }
 
-// --- ARRANQUE Y MANEJADORES DE EVENTOS ---
-window.addEventListener('DOMContentLoaded', async () => {
-    // 1. Inicialización del Dashboard Principal
-    const cal = document.getElementById('calendarioFiltro');
-    if (cal) {
-        cal.value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
-        cal.addEventListener('change', () => { 
-            document.getElementById('columnaFinalizado').innerHTML = '<p class="text-slate-400 text-center text-xs mt-4">Buscando en el historial...</p>'; 
-            cargarPedidos(); 
+if (document.getElementById('btn-add-item')) {
+    document.getElementById('btn-add-item').addEventListener('click', () => agregarFilaProductoCombo());
+}
+
+if (document.getElementById('form-combo')) {
+    document.getElementById('form-combo').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('combo-id').value;
+        
+        const itemsSeleccionados = [];
+        document.querySelectorAll('.fila-item-combo').forEach(fila => {
+            const select = fila.querySelector('.item-select');
+            const cantidad = fila.querySelector('.item-cantidad');
+            if (select.value) { 
+                itemsSeleccionados.push({ producto_id: parseInt(select.value), cantidad: parseInt(cantidad.value) });
+            }
         });
-    }
+
+        if (itemsSeleccionados.length === 0) { alert('Añade al menos 1 producto al combo.'); return; }
+
+        const payload = {
+            id: id ? parseInt(id) : null,
+            nombre: document.getElementById('combo-nombre').value.trim(),
+            precio: parseFloat(document.getElementById('combo-precio').value),
+            imagen: document.getElementById('combo-imagen').value.trim(),
+            descripcion: document.getElementById('combo-descripcion').value.trim(),
+            items: itemsSeleccionados,
+            disponible: document.getElementById('combo-disponible').checked
+        };
+        
+        try {
+            await fetch(ADMIN_URL_GUARDAR_COMBO, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            resetFormCombo();
+            cargarDatosAdmin();
+        } catch (error) { alert('Error al guardar el combo.'); }
+    });
+}
+
+function editarCombo(id) {
+    const c = adminCombos.find(x => x.id === id);
+    if(!c) return;
+    document.getElementById('combo-id').value = c.id;
+    document.getElementById('combo-nombre').value = c.nombre;
+    document.getElementById('combo-precio').value = c.precio;
+    document.getElementById('combo-imagen').value = c.imagen || '';
+    document.getElementById('combo-descripcion').value = c.descripcion || '';
+    document.getElementById('combo-disponible').checked = c.disponible;
     
-    await actualizarTasaBCV(); 
-    await cargarCatalogoDesdeDB(); 
-    await cargarUsuariosDesdeDB();
-    verificarSesion();
-
-    // 2. Inicialización del Panel de Administración (Si detecta los elementos)
-    const btnAdd = document.getElementById('btn-add-item');
-    if (btnAdd) {
-        btnAdd.addEventListener('click', agregarFilaProducto);
+    document.getElementById('lista-items-combo').innerHTML = '';
+    let parsedItems = [];
+    try { parsedItems = typeof c.items_json === 'string' ? JSON.parse(c.items_json) : c.items_json; } catch(e){}
+    
+    if (parsedItems && parsedItems.length > 0) {
+        parsedItems.forEach(item => agregarFilaProductoCombo(item.producto_id, item.cantidad));
+    } else {
+        agregarFilaProductoCombo();
     }
 
-    const formProducto = document.getElementById('form-producto');
-    if (formProducto) {
-        formProducto.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                nombre: document.getElementById('prod-nombre').value,
-                categoria: document.getElementById('prod-categoria').value,
-                precio: parseFloat(document.getElementById('prod-precio').value),
-                descripcion: document.getElementById('prod-descripcion').value,
-                disponible: true
-            };
-            try {
-                await fetch(URL_GUARDAR_PRODUCTO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                alert('🍣 ¡Producto guardado con éxito!');
-                formProducto.reset();
-                await cargarCatalogoDesdeDB(); // Recargamos para que el armador se actualice
-                document.getElementById('lista-items-combo').innerHTML = ''; 
-                agregarFilaProducto();
-            } catch (error) { alert('Error al guardar el producto.'); }
-        });
-    }
+    document.getElementById('titulo-form-combo').innerText = "Editar Combo";
+    document.getElementById('btn-save-combo').innerText = "🍱 Actualizar Combo";
+    document.getElementById('btn-cancel-combo').style.display = "block";
+}
 
-    const formCombo = document.getElementById('form-combo');
-    if (formCombo) {
-        formCombo.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const itemsSeleccionados = [];
-            
-            document.querySelectorAll('.fila-item-combo').forEach(fila => {
-                const select = fila.querySelector('.item-select');
-                const cantidad = fila.querySelector('.item-cantidad');
-                if (select.value) { 
-                    itemsSeleccionados.push({ producto_id: parseInt(select.value), cantidad: parseInt(cantidad.value) });
-                }
-            });
-
-            if (itemsSeleccionados.length === 0) { alert('Debes agregar al menos un producto al combo.'); return; }
-
-            const payload = {
-                nombre: document.getElementById('combo-nombre').value,
-                precio: parseFloat(document.getElementById('combo-precio').value),
-                imagen: document.getElementById('combo-imagen').value,
-                descripcion: document.getElementById('combo-descripcion').value,
-                items: itemsSeleccionados,
-                disponible: true
-            };
-
-            try {
-                await fetch(URL_GUARDAR_COMBO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                alert('🍱 ¡Combo creado y guardado con éxito!');
-                formCombo.reset();
-                document.getElementById('lista-items-combo').innerHTML = ''; 
-                agregarFilaProducto(); 
-            } catch (error) { alert('Error al guardar el combo.'); }
-        });
-    }
-});
+function resetFormCombo() {
+    document.getElementById('form-combo').reset();
+    document.getElementById('combo-id').value = "";
+    document.getElementById('lista-items-combo').innerHTML = '';
+    agregarFilaProductoCombo();
+    
+    document.getElementById('titulo-form-combo').innerText = "Crear Combo";
+    document.getElementById('btn-save-combo').innerText = "🍱 Guardar Combo";
+    document.getElementById('btn-cancel-combo').style.display = "none";
+}
