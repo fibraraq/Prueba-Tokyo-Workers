@@ -1041,6 +1041,26 @@ function resetFormCombo() {
 // ==========================================
 // ARRANQUE PRINCIPAL (PANTALLA DE OPERACIONES)
 // ==========================================
+function inicializarTablero() {
+    // 1. Inyectar la fecha de hoy en el calendario
+    const calendario = document.getElementById('calendarioFiltro');
+    if (calendario && !calendario.value) {
+        calendario.value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
+    }
+    
+    // 2. Cargar datos base
+    cargarUsuariosDesdeDB();
+    verificarSesion();
+    actualizarTasaBCV();
+}
+
+if (document.getElementById('vistaLogin')) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', inicializarTablero);
+    } else {
+        inicializarTablero();
+    }
+}
 if (document.getElementById('vistaLogin')) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
