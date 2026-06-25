@@ -767,17 +767,19 @@ function renderListaCategorias() {
     });
 }
 
-function renderListaProductos() {
+// Le agregamos "lista = adminProductos" para que por defecto muestre todos, 
+// pero si el buscador le manda una lista filtrada, dibuje esa.
+function renderListaProductos(lista = adminProductos) {
     const cont = document.getElementById('lista-productos-container');
     if(!cont) return;
     cont.innerHTML = '';
     
-    if (adminProductos.length === 0) {
-        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No hay productos aún.</p>';
+    if (lista.length === 0) {
+        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No se encontraron productos.</p>';
         return;
     }
 
-    adminProductos.forEach(p => {
+    lista.forEach(p => {
         const opacityClass = p.disponible ? '' : 'deshabilitado';
         cont.innerHTML += `
             <div class="list-item ${opacityClass}">
@@ -791,6 +793,19 @@ function renderListaProductos() {
                 </div>
             </div>`;
     });
+}
+
+// --- NUEVO: BUSCADOR EN TIEMPO REAL ---
+function filtrarProductosAdmin() {
+    const textoBuscado = document.getElementById('buscador-productos-admin').value.toLowerCase();
+    
+    // Filtramos la memoria viva
+    const resultados = adminProductos.filter(p => 
+        p.nombre.toLowerCase().includes(textoBuscado)
+    );
+    
+    // Mandamos a pintar solo los resultados
+    renderListaProductos(resultados);
 }
 
 function renderListaCombos() {
