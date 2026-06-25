@@ -55,6 +55,7 @@ async function cargarCatalogoDesdeDB() {
         }));
         
         console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "ítems totales listos para edición.");
+        actualizarDatalistCatalogo();
         
         // Si estamos en admin.html, actualizamos la primera fila del combo
         if (document.getElementById('lista-items-combo') && document.getElementById('lista-items-combo').innerHTML === '') {
@@ -206,20 +207,54 @@ function aplicarRestriccionesRol() {
 }
 
 // --- NUEVO PEDIDO ---
-function abrirModalNuevoPedido() { document.getElementById('modalNuevoPedido').classList.remove('hidden'); }
+function abrirModalNuevoPedido() { 
+    const contenedor = document.getElementById('contenedorArticulos');
+    
+    // Si la fila actual no tiene el buscador inteligente, la destruimos y creamos una nueva
+    if (!contenedor.innerHTML.includes('lista-catalogo')) {
+        contenedor.innerHTML = '';
+        agregarFilaArticulo();
+    }
+    
+    document.getElementById('modalNuevoPedido').classList.remove('hidden'); 
+}
 function cerrarModalNuevoPedido() { document.getElementById('modalNuevoPedido').classList.add('hidden'); }
 
 function agregarFilaArticulo() {
+    // 1. Verificamos los permisos del usuario activo
+    const puedeEditarPrecio = usuarioActivo && (usuarioActivo.rol === 'superadmin' || usuarioActivo.rol === 'admin');
+    
+    // 2. Definimos si el campo se bloquea y qué color tendrá
+    const atributoReadonly = puedeEditarPrecio ? '' : 'readonly';
+    const claseFondoPrecio = puedeEditarPrecio 
+        ? 'bg-slate-900 text-white' 
+        : 'bg-slate-800 text-emerald-400 cursor-not-allowed border-slate-600 font-bold';
+
     const div = document.createElement('div');
     div.className = "flex gap-2 articulo-fila";
     div.innerHTML = `
         <input type="number" value="1" min="1" class="w-16 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm text-center item-qty" placeholder="Cant">
-        <input type="text" class="flex-1 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-name" placeholder="Nombre del plato">
-        <input type="number" step="0.01" min="0" class="w-24 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-price" placeholder="Precio ($)">
+        
+        <input type="text" list="lista-catalogo" onchange="autoCompletarPrecio(this)" class="flex-1 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-name" placeholder="Nombre del producto o combo..." autocomplete="off">
+        
+        <input type="number" step="0.01" min="0" class="w-24 p-2 rounded-lg border border-slate-700 text-sm item-price ${claseFondoPrecio}" placeholder="Precio ($)" ${atributoReadonly}>
+        
         <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 w-8 flex items-center justify-center cursor-pointer transition">
             <i class="fa-solid fa-trash"></i>
         </button>`;
     document.getElementById('contenedorArticulos').appendChild(div);
+}
+
+// 3. La magia: Autocompletar el precio al seleccionar el producto
+function autoCompletarPrecio(inputNombre) {
+    const nombreIngresado = inputNombre.value.trim().toLowerCase();
+    const productoEncontrado = CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreIngresado);
+    
+    if (productoEncontrado) {
+        // El input de precio es el cuadro que está inmediatamente a la derecha
+        const inputPrecio = inputNombre.nextElementSibling;
+        inputPrecio.value = productoEncontrado.price;
+    }
 }
 
 async function enviarNuevoPedido() {
@@ -245,7 +280,8 @@ async function enviarNuevoPedido() {
         const res = await fetch(URL_NUEVO_PEDIDO, { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
         if(res.ok) { 
             document.getElementById('formNuevoPedido').reset();
-            document.getElementById('contenedorArticulos').innerHTML = `<div class="flex gap-2 articulo-fila"><input type="number" value="1" min="1" class="w-16 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm text-center item-qty" placeholder="Cant"><input type="text" class="flex-1 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-name" placeholder="Nombre del plato"><input type="number" step="0.01" min="0" class="w-24 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-price" placeholder="Precio ($)"><div class="w-8"></div></div>`;
+            document.getElementById('contenedorArticulos').innerHTML = '';
+            agregarFilaArticulo();
             cerrarModalNuevoPedido(); cargarPedidos(); 
         } else alert("Error al guardar el pedido en el servidor.");
     } catch(e) { alert("Error de conexión al intentar enviar el pedido."); } 
@@ -1106,3 +1142,16 @@ if (document.getElementById('vistaLogin')) {
         actualizarTasaBCV();
     }
 }
+
+// --- NUEVO: MOTOR DE SUGERENCIAS PARA PEDIDOS MANUALES ---
+function actualizarDatalistCatalogo() {
+    let datalist = document.getElementById('lista-catalogo');
+    if (!datalist) {
+        datalist = document.createElement('datalist');
+        datalist.id = 'lista-catalogo';
+        document.body.appendChild(datalist);
+    }
+    // Llenamos la lista con los nombres del catálogo
+    datalist.innerHTML = CATALOGO_PRODUCTOS.map(p => `<option value="${p.name}"></option>`).join('');
+}
+
