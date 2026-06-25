@@ -910,20 +910,19 @@ async function eliminarItem(id, tipo) {
     }
 }
 
-// --- NUEVA FUNCIÓN PARA ACTUALIZAR SELECTS DE COMBOS EN TIEMPO REAL ---
+// --- NUEVA VERSIÓN: MOTOR DE AUTOCOMPLETADO PARA COMBOS ---
 function actualizarSelectsCombos() {
-    const selects = document.querySelectorAll('.item-select');
-    selects.forEach(select => {
-        const valorSeleccionado = select.value; // Guardamos lo que el usuario ya había elegido
-        let opcionesHTML = '<option value="">-- Selecciona --</option>';
-        
-        adminProductos.forEach(p => {
-            opcionesHTML += `<option value="${p.id}">${p.nombre} ($${p.precio})</option>`;
-        });
-        
-        select.innerHTML = opcionesHTML;
-        select.value = valorSeleccionado; // Le devolvemos su selección intacta
-    });
+    let datalist = document.getElementById('lista-productos-combo');
+    if (!datalist) {
+        datalist = document.createElement('datalist');
+        datalist.id = 'lista-productos-combo';
+        document.body.appendChild(datalist);
+    }
+    
+    // Llenamos la lista invisible con el catálogo actual
+    datalist.innerHTML = adminProductos.map(p => 
+        `<option value="${p.nombre} ($${p.precio})"></option>`
+    ).join('');
 }
 
 // --- FORMULARIOS: CATEGORÍA ---
@@ -1016,16 +1015,16 @@ function agregarFilaProductoCombo(prodId = "", qty = 1) {
     fila.style.gap = '10px';
     fila.style.marginBottom = '10px';
 
-    let opcionesHTML = '<option value="">-- Selecciona --</option>';
-    adminProductos.forEach(p => {
-        const selected = (p.id == prodId) ? 'selected' : '';
-        opcionesHTML += `<option value="${p.id}" ${selected}>${p.nombre} ($${p.precio})</option>`;
-    });
+    // Si estamos editando un combo, buscamos el nombre del producto para pre-llenar la caja
+    let nombrePredefinido = "";
+    if (prodId !== "") {
+        const pEdit = adminProductos.find(p => String(p.id) === String(prodId));
+        if (pEdit) nombrePredefinido = `${pEdit.nombre} ($${pEdit.precio})`;
+    }
 
+    // Cambiamos el <select> por un <input> conectado a nuestro datalist
     fila.innerHTML = `
-        <select class="item-select" required style="flex: 2; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
-            ${opcionesHTML}
-        </select>
+        <input type="text" class="item-select" list="lista-productos-combo" value="${nombrePredefinido}" required style="flex: 2; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Escribe para buscar producto..." autocomplete="off">
         <input type="number" class="item-cantidad" min="1" value="${qty}" required style="flex: 1; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Cant.">
         <button type="button" onclick="this.parentElement.remove()" style="background: #e11d48; color: white; border: none; border-radius: 4px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
     `;
@@ -1043,14 +1042,22 @@ if (document.getElementById('form-combo')) {
         
         const itemsSeleccionados = [];
         document.querySelectorAll('.fila-item-combo').forEach(fila => {
-            const select = fila.querySelector('.item-select');
-            const cantidad = fila.querySelector('.item-cantidad');
-            if (select.value) { 
-                itemsSeleccionados.push({ producto_id: parseInt(select.value), cantidad: parseInt(cantidad.value) });
+            const textoIngresado = fila.querySelector('.item-select').value;
+            const cantidad = fila.querySelector('.item-cantidad').value;
+            
+            if (textoIngresado) { 
+                // Buscamos a qué ID le pertenece exactamente ese texto
+                const producto = adminProductos.find(p => `${p.nombre} ($${p.precio})` === textoIngresado);
+                if (producto) {
+                    itemsSeleccionados.push({ producto_id: producto.id, cantidad: parseInt(cantidad) });
+                }
             }
         });
 
-        if (itemsSeleccionados.length === 0) { alert('Añade al menos 1 producto al combo.'); return; }
+        if (itemsSeleccionados.length === 0) { 
+            alert('Añade al menos 1 producto válido de la lista al combo.'); 
+            return; 
+        }
 
         const payload = {
             id: id ? parseInt(id) : null,
