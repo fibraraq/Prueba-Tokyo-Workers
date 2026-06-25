@@ -3,9 +3,9 @@
 // ==========================================
 
 // ⚠️ RECUERDA: Si subes esto a GitHub, cambia "localhost:5678" por tu URL de loca.lt
-const URL_OBTENER_MENU = "http://localhost:5678/webhook/obtener-menu";
-const URL_VERIFICAR_CLIENTE = "http://localhost:5678/webhook/verificar-cliente";
-const URL_REGISTRAR_CLIENTE = "http://localhost:5678/webhook/registrar-cliente";
+const URL_OBTENER_MENU = "https://0afcab9272e735.lhr.life/webhook/obtener-menu";
+const URL_VERIFICAR_CLIENTE = "https://0afcab9272e735.lhr.life/webhook/verificar-cliente";
+const URL_REGISTRAR_CLIENTE = "https://0afcab9272e735.lhr.life/webhook/registrar-cliente";
 
 let menuData = { combos: [], cocina: [], sushi: [], extras: [] };
 let cart = {};
@@ -577,7 +577,7 @@ async function sendOrder(event) {
                     datosClienteLogueado.direcciones_extra = JSON.stringify(extras);
                     localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
                     
-                    fetch("http://localhost:5678/webhook/actualizar-direcciones-cliente", {
+                    fetch("https://0afcab9272e735.lhr.life/webhook/actualizar-direcciones-cliente", {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ telefono: datosClienteLogueado.telefono, direcciones_extra: datosClienteLogueado.direcciones_extra })
                     }).catch(err => console.error(err));
@@ -600,7 +600,7 @@ async function sendOrder(event) {
     };
 
     // La URL original de tu webhook de creación de pedidos
-    const n8nWebhookUrl = "http://localhost:5678/webhook/Prueba-tokyo"; 
+    const n8nWebhookUrl = "https://0afcab9272e735.lhr.life/webhook/Prueba-tokyo"; 
 
     try {
         const response = await fetch(n8nWebhookUrl, {
@@ -794,7 +794,7 @@ async function guardarEdicionDatos() {
 
     try {
         // Aprovechamos tu webhook actual para enviar ambas actualizaciones
-        await fetch("http://localhost:5678/webhook/actualizar-direcciones-cliente", {
+        await fetch("https://0afcab9272e735.lhr.life/webhook/actualizar-direcciones-cliente", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
