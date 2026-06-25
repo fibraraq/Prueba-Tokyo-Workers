@@ -729,6 +729,9 @@ async function cargarDatosAdmin() {
         renderListaCombos();
         actualizarSelectCategorias();
         
+        // ¡LA MAGIA AQUÍ! Actualizamos los selects de los combos automáticamente
+        actualizarSelectsCombos();
+        
         // Si el contenedor de items de combo está vacío, añadimos una fila por defecto
         const listaItems = document.getElementById('lista-items-combo');
         if (listaItems && listaItems.innerHTML === '') {
@@ -839,6 +842,22 @@ async function eliminarItem(id, tipo) {
     } catch(e) {
         alert('Error al intentar eliminar el elemento.');
     }
+}
+
+// --- NUEVA FUNCIÓN PARA ACTUALIZAR SELECTS DE COMBOS EN TIEMPO REAL ---
+function actualizarSelectsCombos() {
+    const selects = document.querySelectorAll('.item-select');
+    selects.forEach(select => {
+        const valorSeleccionado = select.value; // Guardamos lo que el usuario ya había elegido
+        let opcionesHTML = '<option value="">-- Selecciona --</option>';
+        
+        adminProductos.forEach(p => {
+            opcionesHTML += `<option value="${p.id}">${p.nombre} ($${p.precio})</option>`;
+        });
+        
+        select.innerHTML = opcionesHTML;
+        select.value = valorSeleccionado; // Le devolvemos su selección intacta
+    });
 }
 
 // --- FORMULARIOS: CATEGORÍA ---
@@ -1018,4 +1037,20 @@ function resetFormCombo() {
     document.getElementById('titulo-form-combo').innerText = "Crear Combo";
     document.getElementById('btn-save-combo').innerText = "🍱 Guardar Combo";
     document.getElementById('btn-cancel-combo').style.display = "none";
+}
+// ==========================================
+// ARRANQUE PRINCIPAL (PANTALLA DE OPERACIONES)
+// ==========================================
+if (document.getElementById('vistaLogin')) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarUsuariosDesdeDB();
+            verificarSesion();
+            actualizarTasaBCV();
+        });
+    } else {
+        cargarUsuariosDesdeDB();
+        verificarSesion();
+        actualizarTasaBCV();
+    }
 }
