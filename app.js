@@ -1,14 +1,14 @@
 // Tokio Sushi - Núcleo de Operaciones y Control del Sistema
 
-const API_OBTENER_PEDIDOS = "http://localhost:5678/webhook/obtener-pedidos";
-const API_ACTUALIZAR_ESTADO = "http://localhost:5678/webhook/actualizar-estado";
-const URL_NUEVO_PEDIDO = "http://localhost:5678/webhook/Prueba-tokyo";
-const URL_OBTENER_MENU = "http://localhost:5678/webhook/obtener-menu";
-const URL_OBTENER_USUARIOS = "http://localhost:5678/webhook/obtener-usuarios";
+const API_OBTENER_PEDIDOS = "https://0afcab9272e735.lhr.life/webhook/obtener-pedidos";
+const API_ACTUALIZAR_ESTADO = "https://0afcab9272e735.lhr.life/webhook/actualizar-estado";
+const URL_NUEVO_PEDIDO = "https://0afcab9272e735.lhr.life/webhook/Prueba-tokyo";
+const URL_OBTENER_MENU = "https://0afcab9272e735.lhr.life/webhook/obtener-menu";
+const URL_OBTENER_USUARIOS = "https://0afcab9272e735.lhr.life/webhook/obtener-usuarios";
 
 // NUEVAS URLs PARA EL PANEL DE ADMINISTRACIÓN
-const URL_GUARDAR_PRODUCTO = "http://localhost:5678/webhook/guardar-producto";
-const URL_GUARDAR_COMBO = "http://localhost:5678/webhook/guardar-combo";
+const URL_GUARDAR_PRODUCTO = "https://0afcab9272e735.lhr.life/webhook/guardar-producto";
+const URL_GUARDAR_COMBO = "https://0afcab9272e735.lhr.life/webhook/guardar-combo";
 
 let USUARIOS_SISTEMA = [];
 let CATALOGO_PRODUCTOS = []; // Catálogo unificado para el buscador de pedidos
@@ -691,11 +691,11 @@ function cerrarModal() { document.getElementById('modalDetalle').classList.add('
 // =====================================================================
 
 // ⚠️ RECUERDA: Cambiar "localhost:5678" por tu URL pública de loca.lt 
-const ADMIN_URL_MENU = "http://localhost:5678/webhook/obtener-menu";
-const ADMIN_URL_GUARDAR_CAT = "http://localhost:5678/webhook/guardar-categoria";
-const ADMIN_URL_GUARDAR_PROD = "http://localhost:5678/webhook/guardar-producto";
-const ADMIN_URL_GUARDAR_COMBO = "http://localhost:5678/webhook/guardar-combo";
-const ADMIN_URL_ELIMINAR = "http://localhost:5678/webhook/eliminar-item";
+const ADMIN_URL_MENU = "https://0afcab9272e735.lhr.life/webhook/obtener-menu";
+const ADMIN_URL_GUARDAR_CAT = "https://0afcab9272e735.lhr.life/webhook/guardar-categoria";
+const ADMIN_URL_GUARDAR_PROD = "https://0afcab9272e735.lhr.life/webhook/guardar-producto";
+const ADMIN_URL_GUARDAR_COMBO = "https://0afcab9272e735.lhr.life/webhook/guardar-combo";
+const ADMIN_URL_ELIMINAR = "https://0afcab9272e735.lhr.life/webhook/eliminar-item";
 
 let adminCategorias = [];
 let adminProductos = [];
