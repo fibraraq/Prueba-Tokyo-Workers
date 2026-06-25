@@ -70,7 +70,7 @@ async function procesarVerificacionTelefono(event) {
 
         if (listaClientes.length > 0) {
             datosClienteLogueado = listaClientes[0];
-            localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
+            localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado);
             document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
             await  ();
             goToStep(1);
