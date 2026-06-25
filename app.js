@@ -220,32 +220,83 @@ function abrirModalNuevoPedido() {
 }
 function cerrarModalNuevoPedido() { document.getElementById('modalNuevoPedido').classList.add('hidden'); }
 
+// 1. Dibuja la fila con un menú desplegable flotante oculto
 function agregarFilaArticulo() {
-    // 1. Verificamos los permisos del usuario activo
     const puedeEditarPrecio = usuarioActivo && (usuarioActivo.rol === 'superadmin' || usuarioActivo.rol === 'admin');
-    
-    // 2. Definimos si el campo se bloquea y qué color tendrá
     const atributoReadonly = puedeEditarPrecio ? '' : 'readonly';
     const claseFondoPrecio = puedeEditarPrecio 
         ? 'bg-slate-900 text-white' 
         : 'bg-slate-800 text-emerald-400 cursor-not-allowed border-slate-600 font-bold';
 
     const div = document.createElement('div');
-    div.className = "flex gap-2 articulo-fila";
+    div.className = "flex gap-2 articulo-fila relative"; // El relative es vital aquí
+    
+    // Generamos un ID único para la cajita de sugerencias de esta fila
+    const idSugerencia = 'sugerencias-' + Math.random().toString(36).substr(2, 9);
+
     div.innerHTML = `
         <input type="number" value="1" min="1" class="w-16 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm text-center item-qty" placeholder="Cant">
         
-        <input type="text" list="lista-catalogo" onchange="autoCompletarPrecio(this)" class="flex-1 bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-name" placeholder="Nombre del producto o combo..." autocomplete="off">
+        <div class="flex-1 relative">
+            <input type="text" oninput="mostrarSugerenciasPedido(this, '${idSugerencia}')" class="w-full bg-slate-900 p-2 rounded-lg border border-slate-700 text-white text-sm item-name" placeholder="Escribe para buscar plato o combo..." autocomplete="off">
+            <div id="${idSugerencia}" class="hidden absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-40 overflow-y-auto"></div>
+        </div>
         
-        <input type="number" step="0.01" min="0" class="w-24 p-2 rounded-lg border border-slate-700 text-sm item-price ${claseFondoPrecio}" placeholder="Precio ($)" ${atributoReadonly}>
+        <input type="number" step="0.01" min="0" class="w-24 p-2 rounded-lg border border-slate-700 text-sm text-center item-price ${claseFondoPrecio}" placeholder="Precio ($)" ${atributoReadonly}>
         
         <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300 w-8 flex items-center justify-center cursor-pointer transition">
             <i class="fa-solid fa-trash"></i>
         </button>`;
+        
     document.getElementById('contenedorArticulos').appendChild(div);
 }
 
-// 3. La magia: Autocompletar el precio al seleccionar el producto
+// 2. Filtra el catálogo en tiempo real mientras el usuario escribe
+function mostrarSugerenciasPedido(inputElement, idContenedor) {
+    const contenedor = document.getElementById(idContenedor);
+    const texto = inputElement.value.toLowerCase().trim();
+    
+    // Si borró el texto, escondemos la caja
+    if (texto.length < 1) {
+        contenedor.classList.add('hidden');
+        return;
+    }
+
+    // Buscamos coincidencias en el catálogo general
+    const resultados = CATALOGO_PRODUCTOS.filter(p => p.name.toLowerCase().includes(texto));
+
+    if (resultados.length > 0) {
+        // Dibujamos las opciones
+        contenedor.innerHTML = resultados.map(p => `
+            <div onclick="seleccionarSugerenciaPedido(this, '${p.name.replace(/'/g, "\\'")}', ${p.price})" class="p-2 border-b border-slate-700 hover:bg-slate-600 cursor-pointer text-sm text-white flex justify-between items-center transition">
+                <span class="truncate">${p.name}</span>
+                <span class="text-emerald-400 font-bold ml-2">$${p.price.toFixed(2)}</span>
+            </div>
+        `).join('');
+        contenedor.classList.remove('hidden');
+    } else {
+        // Si escribe algo que no existe
+        contenedor.innerHTML = `<div class="p-2 text-sm text-slate-400 italic">No hay coincidencias...</div>`;
+        contenedor.classList.remove('hidden');
+    }
+}
+
+// 3. Rellena los datos automáticamente al hacer clic en la sugerencia
+function seleccionarSugerenciaPedido(elementoOpcion, nombre, precio) {
+    const fila = elementoOpcion.closest('.articulo-fila');
+    
+    const inputNombre = fila.querySelector('.item-name');
+    const inputPrecio = fila.querySelector('.item-price');
+    
+    // Rellenamos nombre y precio
+    inputNombre.value = nombre;
+    inputPrecio.value = precio;
+    
+    // Escondemos la caja flotante
+    elementoOpcion.parentElement.classList.add('hidden');
+}
+
+// 4. La magia: Autocompletar el precio al seleccionar el producto
 function autoCompletarPrecio(inputNombre) {
     const nombreIngresado = inputNombre.value.trim().toLowerCase();
     const productoEncontrado = CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreIngresado);
@@ -1148,17 +1199,5 @@ if (document.getElementById('vistaLogin')) {
         verificarSesion();
         actualizarTasaBCV();
     }
-}
-
-// --- NUEVO: MOTOR DE SUGERENCIAS PARA PEDIDOS MANUALES ---
-function actualizarDatalistCatalogo() {
-    let datalist = document.getElementById('lista-catalogo');
-    if (!datalist) {
-        datalist = document.createElement('datalist');
-        datalist.id = 'lista-catalogo';
-        document.body.appendChild(datalist);
-    }
-    // Llenamos la lista con los nombres del catálogo
-    datalist.innerHTML = CATALOGO_PRODUCTOS.map(p => `<option value="${p.name}"></option>`).join('');
 }
 
