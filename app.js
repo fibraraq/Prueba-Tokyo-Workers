@@ -22,15 +22,17 @@ let carritoEdicion = [];
 let totalEdicionUSD = 0;
 let resolveTiempoEstimado = null; 
 
-// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS (VERSIÓN DESEMPAQUETADA) ---
+// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS (ANTI-CACHÉ Y DESEMPAQUETADO) ---
 async function cargarCatalogoDesdeDB() {
     try {
-        const response = await fetch(URL_OBTENER_MENU);
+        // Le agregamos un número aleatorio a la URL para que Chrome no use datos viejos
+        const urlFresca = URL_OBTENER_MENU + "?t=" + new Date().getTime();
+        const response = await fetch(urlFresca);
         if (!response.ok) throw new Error('Error al conectar con el servidor de menú');
         
         const rawData = await response.json();
         
-        // EL TRUCO: Desempaquetamos el Array si viene de n8n
+        // Desempaquetamos el Array si viene de n8n
         const data = (Array.isArray(rawData) && rawData[0].menu) ? rawData[0] : rawData;
         
         let todosLosItems = [];
@@ -47,15 +49,19 @@ async function cargarCatalogoDesdeDB() {
             inventarioProductosBase = data; 
         }
 
-        // Mapeamos los datos unificados al formato que usa tu buscador de pedidos
+        // Mapeamos los datos unificados al formato que usa el buscador
         CATALOGO_PRODUCTOS = todosLosItems.map(item => ({
             id: item.id,
             name: item.nombre,
             price: parseFloat(item.precio)
         }));
         
-        console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "ítems totales listos para edición.");
+        console.log("🔥 Catálogo listo para sugerencias:", CATALOGO_PRODUCTOS.length, "ítems cargados.");
         
+        // Si estamos en admin.html, actualizamos la primera fila del combo
+        if (document.getElementById('lista-items-combo') && document.getElementById('lista-items-combo').innerHTML === '') {
+            if (typeof agregarFilaProductoCombo === 'function') agregarFilaProductoCombo(); 
+        }
     } catch (error) {
         console.error("Error obteniendo el catálogo interno:", error);
     } 
@@ -201,12 +207,18 @@ function aplicarRestriccionesRol() {
     }
 }
 
-// --- NUEVO PEDIDO ---
-function abrirModalNuevoPedido() { 
+// --- ABRIR MODAL (VERSIÓN BLINDADA) ---
+async function abrirModalNuevoPedido() { 
     const contenedor = document.getElementById('contenedorArticulos');
     
+    // ¡EL BLINDAJE!: Si la memoria está vacía, forzamos a descargar el menú en este instante
+    if (CATALOGO_PRODUCTOS.length === 0) {
+        console.log("Memoria vacía. Descargando menú fresco para las sugerencias...");
+        await cargarCatalogoDesdeDB();
+    }
+
     // Si la fila actual no tiene el buscador inteligente, la destruimos y creamos una nueva
-    if (!contenedor.innerHTML.includes('lista-catalogo')) {
+    if (!contenedor.innerHTML.includes('sugerencias-')) {
         contenedor.innerHTML = '';
         agregarFilaArticulo();
     }
