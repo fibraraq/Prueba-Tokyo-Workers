@@ -22,7 +22,7 @@ let carritoEdicion = [];
 let totalEdicionUSD = 0;
 let resolveTiempoEstimado = null; 
 
-// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS (ACTUALIZADO PARA MODULARIDAD) ---
+// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS (VERSIÓN DESEMPAQUETADA) ---
 async function cargarCatalogoDesdeDB() {
     try {
         const response = await fetch(URL_OBTENER_MENU);
@@ -30,13 +30,13 @@ async function cargarCatalogoDesdeDB() {
         
         const rawData = await response.json();
         
-        // Desempaquetamos el Array si viene de n8n
+        // EL TRUCO: Desempaquetamos el Array si viene de n8n
         const data = (Array.isArray(rawData) && rawData[0].menu) ? rawData[0] : rawData;
         
         let todosLosItems = [];
 
         // Si viene con la nueva estructura modular de n8n
-        if (data.menu) {
+        if (data && data.menu) {
             inventarioProductosBase = data.menu.productos || [];
             if (data.menu.productos) todosLosItems = todosLosItems.concat(data.menu.productos);
             if (data.menu.combos) todosLosItems = todosLosItems.concat(data.menu.combos);
@@ -55,12 +55,7 @@ async function cargarCatalogoDesdeDB() {
         }));
         
         console.log("Catálogo interno cargado:", CATALOGO_PRODUCTOS.length, "ítems totales listos para edición.");
-        actualizarDatalistCatalogo();
         
-        // Si estamos en admin.html, actualizamos la primera fila del combo
-        if (document.getElementById('lista-items-combo') && document.getElementById('lista-items-combo').innerHTML === '') {
-            agregarFilaProductoCombo(); 
-        }
     } catch (error) {
         console.error("Error obteniendo el catálogo interno:", error);
     } 
