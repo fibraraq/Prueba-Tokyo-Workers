@@ -3,117 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Administración - Tokio Sushi</title>
+    <title>Panel de Administración Avanzado</title>
     <style>
         :root {
-            --bg-color: #0b1120;
-            --card-bg: #1e293b;
-            --primary: #e11d48;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --input-bg: #0f172a;
+            --bg-color: #0b1120; --card-bg: #1e293b; --primary: #e11d48;
+            --text-main: #f8fafc; --text-muted: #94a3b8; --input-bg: #0f172a;
         }
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            padding: 2rem;
-            margin: 0;
-        }
-        .admin-container {
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            width: 100%;
-            max-width: 600px;
-            overflow: hidden;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
-        .header {
-            background-color: var(--primary);
-            text-align: center;
-            padding: 1.5rem;
-        }
+        body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 2rem; margin: 0; }
+        .admin-container { background-color: var(--card-bg); border-radius: 12px; max-width: 1000px; margin: 0 auto; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .header { background-color: var(--primary); text-align: center; padding: 1.5rem; }
         .header h1 { margin: 0; font-size: 1.5rem; }
-        .header p { margin: 5px 0 0; font-size: 0.9rem; opacity: 0.9; }
         
-        /* Sistema de Pestañas */
-        .tabs {
-            display: flex;
-            background-color: #162032;
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 1rem;
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1rem;
-            transition: 0.3s;
-        }
-        .tab-btn.active {
-            color: var(--text-main);
-            border-bottom: 3px solid var(--primary);
-            background-color: var(--card-bg);
-        }
+        .tabs { display: flex; background-color: #162032; }
+        .tab-btn { flex: 1; padding: 1rem; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 1rem;}
+        .tab-btn.active { color: var(--text-main); border-bottom: 3px solid var(--primary); background-color: var(--card-bg); }
         
-        /* Formularios */
-        .tab-content {
-            display: none;
-            padding: 2rem;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 0.75rem;
-            background-color: var(--input-bg);
-            border: 1px solid #334155;
-            color: white;
-            border-radius: 6px;
-            box-sizing: border-box;
-        }
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-        .btn-submit {
-            width: 100%;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 1rem;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-        }
+        .tab-content { display: none; padding: 2rem; }
+        .tab-content.active { display: block; }
+        
+        /* Layout de dos columnas: Formulario a la izq, Lista a la der */
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        @media (max-width: 768px) { .grid-layout { grid-template-columns: 1fr; } }
+        
+        label { display: block; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-top: 1rem; font-weight: bold;}
+        input, select, textarea { width: 100%; padding: 0.75rem; background-color: var(--input-bg); border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; margin-top: 0.5rem;}
+        input[type="checkbox"] { width: auto; margin-right: 10px; }
+        
+        .btn-submit { background-color: var(--primary); color: white; border: none; padding: 1rem; border-radius: 6px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 1.5rem; transition: 0.2s;}
         .btn-submit:hover { background-color: #be123c; }
+        .btn-cancel { background-color: #475569; margin-top: 0.5rem; display: none; }
 
-        /* Contenedor dinámico de items para combos */
-        .combo-items-container {
-            background-color: var(--input-bg);
-            padding: 1rem;
-            border-radius: 6px;
-            border: 1px solid #334155;
-            margin-bottom: 1.5rem;
-        }
+        /* Estilos de las Listas */
+        .list-panel { background-color: var(--input-bg); border: 1px solid #334155; border-radius: 6px; padding: 1rem; max-height: 500px; overflow-y: auto; }
+        .list-panel h3 { margin-top: 0; color: var(--primary); font-size: 1.1rem; border-bottom: 1px solid #334155; padding-bottom: 10px;}
+        .list-item { display: flex; justify-content: space-between; align-items: center; background-color: var(--card-bg); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid #334155; }
+        .item-info { flex: 1; }
+        .item-title { font-weight: bold; font-size: 0.95rem; margin: 0; }
+        .item-meta { font-size: 0.75rem; color: var(--text-muted); margin: 0; margin-top: 4px; }
+        .item-actions { display: flex; gap: 5px; }
+        .action-btn { border: none; cursor: pointer; padding: 6px 10px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;}
+        .btn-edit { background-color: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+        .btn-delete { background-color: rgba(248, 113, 113, 0.1); color: #f87171; }
+        .deshabilitado { opacity: 0.5; border-left: 3px solid #64748b; }
     </style>
 </head>
 <body>
@@ -121,83 +52,112 @@
     <div class="admin-container">
         <div class="header">
             <h1>🍣 PANEL DE ADMINISTRACIÓN</h1>
-            <p>Gestión Modular de Tokio Sushi</p>
+            <p style="margin:0; font-size: 0.9rem; opacity: 0.8; margin-top: 5px;">Control Total del Menú</p>
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('productos')">📦 Productos Individuales</button>
-            <button class="tab-btn" onclick="switchTab('combos')">🍱 Armar Combos</button>
+            <button class="tab-btn active" onclick="switchTab('categorias')">🏷️ Categorías</button>
+            <button class="tab-btn" onclick="switchTab('productos')">📦 Productos</button>
+            <button class="tab-btn" onclick="switchTab('combos')">🍱 Combos</button>
         </div>
 
-        <div id="tab-productos" class="tab-content active">
-            <form id="form-producto">
-                <div class="form-group">
-                    <label>Nombre del Producto</label>
-                    <input type="text" id="prod-nombre" placeholder="Ej: Coca Cola 355ml" required>
+        <div id="tab-categorias" class="tab-content active">
+            <div class="grid-layout">
+                <div>
+                    <h2 id="titulo-form-cat">Crear Categoría</h2>
+                    <form id="form-categoria">
+                        <input type="hidden" id="cat-id">
+                        <label>Nombre de la Categoría</label>
+                        <input type="text" id="cat-nombre" placeholder="Ej: Postres" required>
+                        <button type="submit" class="btn-submit" id="btn-save-cat">💾 Guardar Categoría</button>
+                        <button type="button" class="btn-submit btn-cancel" id="btn-cancel-cat" onclick="resetFormCat()">❌ Cancelar Edición</button>
+                    </form>
                 </div>
-                <div style="display: flex; gap: 1rem;">
-                    <div class="form-group" style="flex: 1;">
+                <div class="list-panel">
+                    <h3>Categorías Existentes</h3>
+                    <div id="lista-categorias-container">Cargando...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-productos" class="tab-content">
+            <div class="grid-layout">
+                <div>
+                    <h2 id="titulo-form-prod">Crear Producto</h2>
+                    <form id="form-producto">
+                        <input type="hidden" id="prod-id">
+                        <label>Nombre del Producto</label>
+                        <input type="text" id="prod-nombre" placeholder="Ej: Coca Cola 355ml" required>
+                        
                         <label>Categoría</label>
                         <select id="prod-categoria" required>
-                            <option value="Roles">Roles</option>
-                            <option value="Bebidas">Bebidas</option>
-                            <option value="Entradas">Entradas</option>
-                            <option value="Postres">Postres</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex: 1;">
+                            </select>
+                        
                         <label>Precio ($)</label>
                         <input type="number" id="prod-precio" step="0.01" placeholder="0.00" required>
-                    </div>
+                        
+                        <label>Descripción Corta</label>
+                        <textarea id="prod-descripcion" rows="2" placeholder="Detalles del producto..."></textarea>
+                        
+                        <label style="display: flex; align-items: center; margin-top: 15px; cursor: pointer;">
+                            <input type="checkbox" id="prod-disponible" checked> Producto Disponible en Menú
+                        </label>
+
+                        <button type="submit" class="btn-submit" id="btn-save-prod">💾 Guardar Producto</button>
+                        <button type="button" class="btn-submit btn-cancel" id="btn-cancel-prod" onclick="resetFormProd()">❌ Cancelar Edición</button>
+                    </form>
                 </div>
-                <div class="form-group">
-                    <label>Descripción Corta</label>
-                    <textarea id="prod-descripcion" rows="2" placeholder="Detalles del producto..."></textarea>
+                <div class="list-panel">
+                    <h3>Productos Existentes</h3>
+                    <div id="lista-productos-container">Cargando...</div>
                 </div>
-                <button type="submit" class="btn-submit">💾 Guardar Producto</button>
-            </form>
+            </div>
         </div>
 
         <div id="tab-combos" class="tab-content">
-            <form id="form-combo">
-                <div class="form-group">
-                    <label>Nombre del Combo</label>
-                    <input type="text" id="combo-nombre" placeholder="Ej: Combo Dúo Sushi" required>
-                </div>
-                <div class="form-group">
-                    <label>Precio Especial del Combo ($)</label>
-                    <input type="number" id="combo-precio" step="0.01" placeholder="0.00" required>
-                </div>
-                <div class="form-group">
-                    <label>URL de la Imagen</label>
-                    <input type="text" id="combo-imagen" placeholder="Debe terminar en .jpg, .png o .webp">
-                </div>
-                
-                <div class="combo-items-container">
-                    <label style="color: white; margin-bottom: 10px;">🛒 Productos incluidos en este combo:</label>
-                    <div id="lista-items-combo">
+            <div class="grid-layout">
+                <div>
+                    <h2 id="titulo-form-combo">Crear Combo</h2>
+                    <form id="form-combo">
+                        <input type="hidden" id="combo-id">
+                        <label>Nombre del Combo</label>
+                        <input type="text" id="combo-nombre" placeholder="Ej: Combo Dúo Sushi" required>
+                        
+                        <label>Precio Especial ($)</label>
+                        <input type="number" id="combo-precio" step="0.01" placeholder="0.00" required>
+                        
+                        <label>URL de la Imagen</label>
+                        <input type="text" id="combo-imagen" placeholder="URL .jpg o .png">
+
+                        <div style="background: var(--input-bg); padding: 15px; border-radius: 6px; border: 1px solid #334155; margin-top: 15px;">
+                            <label style="margin-top: 0; color: white;">🛒 Productos incluidos:</label>
+                            <div id="lista-items-combo"></div>
+                            <button type="button" id="btn-add-item" style="margin-top: 10px; background: #334155; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">+ Añadir otro producto</button>
                         </div>
-                    <button type="button" id="btn-add-item" style="margin-top: 10px; background: #334155; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                        + Añadir otro producto
-                    </button>
-                </div>
 
-                <div class="form-group">
-                    <label>Descripción del Combo</label>
-                    <textarea id="combo-descripcion" rows="2" placeholder="Ej: Incluye 2 roles y 2 bebidas..."></textarea>
+                        <label>Descripción del Combo</label>
+                        <textarea id="combo-descripcion" rows="2"></textarea>
+
+                        <label style="display: flex; align-items: center; margin-top: 15px; cursor: pointer;">
+                            <input type="checkbox" id="combo-disponible" checked> Combo Disponible en Menú
+                        </label>
+
+                        <button type="submit" class="btn-submit" id="btn-save-combo">🍱 Guardar Combo</button>
+                        <button type="button" class="btn-submit btn-cancel" id="btn-cancel-combo" onclick="resetFormCombo()">❌ Cancelar Edición</button>
+                    </form>
                 </div>
-                <button type="submit" class="btn-submit">🍱 Guardar Combo</button>
-            </form>
+                <div class="list-panel">
+                    <h3>Combos Existentes</h3>
+                    <div id="lista-combos-container">Cargando...</div>
+                </div>
+            </div>
         </div>
-
     </div>
 
     <script>
-        // Lógica simple para cambiar de pestañas
         function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
             event.currentTarget.classList.add('active');
         }
