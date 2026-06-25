@@ -1196,5 +1196,3 @@ if (document.getElementById('vistaLogin')) {
         actualizarTasaBCV();
     }
 }
-
-
