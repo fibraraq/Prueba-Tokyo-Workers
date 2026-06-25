@@ -2,6 +2,7 @@
 // TOKIO SUSHI - LÓGICA DEL CLIENTE (FRONTEND)
 // ==========================================
 
+// ⚠️ RECUERDA: Si subes esto a GitHub, cambia "localhost:5678" por tu URL de loca.lt
 const URL_OBTENER_MENU = "http://localhost:5678/webhook/obtener-menu";
 const URL_VERIFICAR_CLIENTE = "http://localhost:5678/webhook/verificar-cliente";
 const URL_REGISTRAR_CLIENTE = "http://localhost:5678/webhook/registrar-cliente";
@@ -70,9 +71,12 @@ async function procesarVerificacionTelefono(event) {
 
         if (listaClientes.length > 0) {
             datosClienteLogueado = listaClientes[0];
-            localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado);
+            // SOLUCIONADO: Faltaba el paréntesis final aquí
+            localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado)); 
             document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
-            await  ();
+            
+            // SOLUCIONADO: Faltaba el nombre de la función aquí
+            await cargarMenuDesdeDB(); 
             goToStep(1);
         } else {
             document.getElementById('reg-name').value = '';
@@ -119,7 +123,8 @@ async function procesarRegistroCliente(event) {
         localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
         document.getElementById('lbl-cliente-activo').innerText = datosClienteLogueado.nombre;
         
-        await  ();
+        // SOLUCIONADO: Faltaba el nombre de la función aquí
+        await cargarMenuDesdeDB();
         goToStep(1);
     } catch(e) {
         console.error(e);
