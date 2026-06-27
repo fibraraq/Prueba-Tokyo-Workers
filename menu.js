@@ -319,6 +319,7 @@ function removeNoteFromCheckout(id) {
     }
 }
 
+// --- 1. FUNCIÓN PARA AÑADIR AL CARRITO (CON RASTREADORES) ---
 function updateQty(id, name, price, change) {
     let itemOriginal = null;
     for (let catKey in menuData) {
@@ -326,26 +327,33 @@ function updateQty(id, name, price, change) {
         if (found) { itemOriginal = found; break; }
     }
 
+    // RASTREADORES PARA LA CONSOLA (F12)
+    console.log("🔥 CLICK EN COMBO:", name);
+    console.log("📦 Datos que llegaron de la base de datos:", itemOriginal);
+
     let isComboWithItems = false;
-    let requiresChoices = false;
     try {
         if (itemOriginal && itemOriginal.opciones_combo && itemOriginal.opciones_combo !== '[]') {
             let arr = typeof itemOriginal.opciones_combo === 'string' ? JSON.parse(itemOriginal.opciones_combo) : itemOriginal.opciones_combo;
-            if (arr.length > 0) {
-                isComboWithItems = true;
-                requiresChoices = arr.some(a => a.tipo === 'categoria'); // ¿Exige elegir algo?
+            console.log("🔍 Opciones del combo desempaquetadas:", arr);
+            if (Array.isArray(arr) && arr.length > 0) {
+                isComboWithItems = true; // Si tiene ALGO adentro, marcamos que es un combo armado
             }
+        } else {
+            console.log("⚠️ Este combo está vacío por dentro (opciones_combo es null o '[]')");
         }
-    } catch(e){}
+    } catch(e) {
+        console.error("❌ Error leyendo las opciones:", e);
+    }
 
-    // Si es combo y hay que elegir -> Abrir Modal
-    if (isComboWithItems && change > 0 && requiresChoices) {
+    // Si es combo y se está sumando -> SIEMPRE Abrir Modal (sin importar si es fijo o a elegir)
+    if (isComboWithItems && change > 0) {
         abrirModalCombo(itemOriginal);
         return;
     }
 
     // Si es combo personalizado y se está restando
-    if (isComboWithItems && change < 0 && requiresChoices) {
+    if (isComboWithItems && change < 0) {
         let keys = Object.keys(cart).filter(k => k.startsWith(id + "_"));
         if (keys.length > 0) {
             let lastKey = keys[keys.length - 1];
@@ -361,7 +369,7 @@ function updateQty(id, name, price, change) {
         return;
     }
 
-    // COMPORTAMIENTO NORMAL PARA PLATOS SIMPLES O COMBOS FIJOS
+    // COMPORTAMIENTO NORMAL PARA PLATOS SIMPLES O COMBOS VACÍOS
     if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
     cart[id].qty += change;
     
