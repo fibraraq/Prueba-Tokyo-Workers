@@ -1030,6 +1030,7 @@ if (document.getElementById('form-producto')) {
             nombre: document.getElementById('prod-nombre').value.trim(),
             categoria: document.getElementById('prod-categoria').value,
             precio: parseFloat(document.getElementById('prod-precio').value),
+            imagen: document.getElementById('prod-imagen').value.trim(),
             descripcion: document.getElementById('prod-descripcion').value.trim(),
             disponible: document.getElementById('prod-disponible').checked
         };
@@ -1048,6 +1049,7 @@ function editarProducto(id) {
     document.getElementById('prod-nombre').value = p.nombre;
     document.getElementById('prod-categoria').value = p.categoria;
     document.getElementById('prod-precio').value = p.precio;
+    document.getElementById('prod-imagen').value = p.imagen || '';
     document.getElementById('prod-descripcion').value = p.descripcion;
     document.getElementById('prod-disponible').checked = p.disponible;
     
@@ -1059,6 +1061,7 @@ function editarProducto(id) {
 function resetFormProd() {
     document.getElementById('form-producto').reset();
     document.getElementById('prod-id').value = "";
+    if (document.getElementById('prod-imagen')) document.getElementById('prod-imagen').value = "";
     document.getElementById('titulo-form-prod').innerText = "Crear Producto";
     document.getElementById('btn-save-prod').innerText = "💾 Guardar Producto";
     document.getElementById('btn-cancel-prod').style.display = "none";
