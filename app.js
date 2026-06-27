@@ -1070,8 +1070,7 @@ function resetFormProd() {
     document.getElementById('btn-cancel-prod').style.display = "none";
 }
 
-// --- FORMULARIOS: COMBO ---
-function agregarFilaProductoCombo(prodId = "", qty = 1) {
+function agregarFilaProductoCombo(titulo = "", opciones = "") {
     const contenedor = document.getElementById('lista-items-combo');
     const fila = document.createElement('div');
     fila.className = 'fila-item-combo'; 
@@ -1079,12 +1078,13 @@ function agregarFilaProductoCombo(prodId = "", qty = 1) {
     fila.style.gap = '10px';
     fila.style.marginBottom = '10px';
 
-    // Si estamos editando un combo, buscamos el nombre del producto para pre-llenar la caja
-    let nombrePredefinido = "";
-    if (prodId !== "") {
-        const pEdit = adminProductos.find(p => String(p.id) === String(prodId));
-        if (pEdit) nombrePredefinido = `${pEdit.nombre} ($${pEdit.precio})`;
-    }
+    fila.innerHTML = `
+        <input type="text" class="grupo-titulo" value="${titulo}" required style="flex: 1; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Ej: Elige tu Bebida">
+        <input type="text" class="grupo-opciones" value="${opciones}" required style="flex: 2; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Ej: Coca Cola, Chinotto, Nestea">
+        <button type="button" onclick="this.parentElement.remove()" style="background: #e11d48; color: white; border: none; border-radius: 4px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
+    `;
+    contenedor.appendChild(fila);
+}
 
     // Cambiamos el <select> por un <input> conectado a nuestro datalist
     fila.innerHTML = `
@@ -1106,20 +1106,18 @@ if (document.getElementById('form-combo')) {
         
         const itemsSeleccionados = [];
         document.querySelectorAll('.fila-item-combo').forEach(fila => {
-            const textoIngresado = fila.querySelector('.item-select').value;
-            const cantidad = fila.querySelector('.item-cantidad').value;
+            const titulo = fila.querySelector('.grupo-titulo').value.trim();
+            const opcionesRaw = fila.querySelector('.grupo-opciones').value;
+            // Separamos por comas y limpiamos los espacios en blanco
+            const opciones = opcionesRaw.split(',').map(o => o.trim()).filter(o => o !== '');
             
-            if (textoIngresado) { 
-                // Buscamos a qué ID le pertenece exactamente ese texto
-                const producto = adminProductos.find(p => `${p.nombre} ($${p.precio})` === textoIngresado);
-                if (producto) {
-                    itemsSeleccionados.push({ producto_id: producto.id, cantidad: parseInt(cantidad) });
-                }
+            if (titulo && opciones.length > 0) { 
+                itemsSeleccionados.push({ titulo: titulo, opciones: opciones });
             }
         });
 
         if (itemsSeleccionados.length === 0) { 
-            alert('Añade al menos 1 producto válido de la lista al combo.'); 
+            alert('Añade al menos 1 grupo de opciones al combo.'); 
             return; 
         }
 
@@ -1155,10 +1153,11 @@ function editarCombo(id) {
     let parsedItems = [];
     try { parsedItems = typeof c.items_json === 'string' ? JSON.parse(c.items_json) : c.items_json; } catch(e){}
     
-    if (parsedItems && parsedItems.length > 0) {
-        parsedItems.forEach(item => agregarFilaProductoCombo(item.producto_id, item.cantidad));
+    // Si tiene la estructura correcta de "titulo" y "opciones", lo pinta
+    if (parsedItems && parsedItems.length > 0 && parsedItems[0].titulo) {
+        parsedItems.forEach(item => agregarFilaProductoCombo(item.titulo, item.opciones.join(', ')));
     } else {
-        agregarFilaProductoCombo();
+        agregarFilaProductoCombo(); // Fila en blanco por si viene roto
     }
 
     document.getElementById('titulo-form-combo').innerText = "Editar Combo";
