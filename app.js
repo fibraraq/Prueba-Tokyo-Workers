@@ -1123,7 +1123,7 @@ function buscarItemCombo(inputElement, idCaja) {
     // Si el usuario borra para buscar otra cosa, vaciamos el input oculto
     hiddenInput.value = "";
 
-    // Filtramos. Si no ha escrito nada, mostramos toda la lista
+    // Filtramos
     const catFiltradas = adminCategorias.filter(c => c.nombre.toLowerCase().includes(texto) || texto === '');
     const prodFiltrados = adminProductos.filter(p => p.nombre.toLowerCase().includes(texto) || texto === '');
 
@@ -1139,7 +1139,11 @@ function buscarItemCombo(inputElement, idCaja) {
     if (prodFiltrados.length > 0) {
         html += '<div style="padding: 8px 10px; font-size: 11px; color: #94a3b8; font-weight: bold; background: #0f172a; text-transform: uppercase;">👉 Incluido Fijo (Productos)</div>';
         prodFiltrados.forEach(p => {
-            html += `<div onclick="seleccionarSugerenciaCombo(this, '${idCaja}', 'PROD_${p.id}', '🍣 Producto: ${p.nombre}')" style="padding: 10px; cursor: pointer; font-size: 13px; color: white; border-bottom: 1px solid #334155; transition: background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">🍣 ${p.nombre} <span style="color:#10b981; float:right;">$${p.precio}</span></div>`;
+            // CAMBIO AQUÍ: display: flex y padding derecho de 20px para la barra de scroll
+            html += `<div onclick="seleccionarSugerenciaCombo(this, '${idCaja}', 'PROD_${p.id}', '🍣 Producto: ${p.nombre}')" style="padding: 10px 20px 10px 10px; cursor: pointer; font-size: 13px; color: white; border-bottom: 1px solid #334155; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;">🍣 ${p.nombre}</span> 
+                <span style="color:#10b981; font-weight: bold; flex-shrink: 0;">$${p.precio.toFixed(2)}</span>
+            </div>`;
         });
     }
 
@@ -1152,7 +1156,6 @@ function buscarItemCombo(inputElement, idCaja) {
     contenedor.innerHTML = html;
     contenedor.style.display = 'block';
 }
-
 // --- 3. AL HACER CLIC EN UNA SUGERENCIA ---
 function seleccionarSugerenciaCombo(elemento, idCaja, valorReal, textoLegible) {
     const contenedor = document.getElementById(idCaja);
