@@ -148,26 +148,27 @@ async function cargarMenuDesdeDB() {
         if (!response.ok) throw new Error('Error al conectar con el servidor');
         
         const rawData = await response.json();
-        
-        // EL TRUCO: Desempaquetamos el array [0] tal como hicimos en app.js
         const data = (Array.isArray(rawData) && rawData[0].menu) ? rawData[0] : rawData;
 
         menuData = {}; // Objeto limpio para empezar
 
-        // Identificamos los productos y combos desde el nuevo formato
         const productosBase = data.menu ? (data.menu.productos || []) : (Array.isArray(data) ? data : []);
         const combos = data.menu ? (data.menu.combos || []) : [];
+        const categoriasDeBaseDatos = data.menu ? (data.menu.categorias || []) : []; // <-- EXTRAEMOS CATEGORÍAS
 
         // Función auxiliar para procesar items
         const procesarItem = (prod, esCombo = false) => {
             if (prod.disponible === false) return;
-            // Si la categoría viene vacía, le asignamos 'Combos' o 'Otros'
             const categoriaRaw = String(prod.categoria || (esCombo ? 'Combos' : 'Otros')).trim();
             const categoriaKey = categoriaRaw.toLowerCase().replace(/\s+/g, '_');
 
             if (!menuData[categoriaKey]) {
+                // Buscamos si la categoría tiene una imagen asignada en la base de datos
+                const catInfoDB = categoriasDeBaseDatos.find(c => c.nombre.toLowerCase() === categoriaRaw.toLowerCase());
+                
                 menuData[categoriaKey] = {
                     titulo: categoriaRaw.charAt(0).toUpperCase() + categoriaRaw.slice(1),
+                    imagen: catInfoDB ? catInfoDB.imagen : '', // <-- GUARDAMOS SU IMAGEN
                     items: []
                 };
             }
@@ -178,17 +179,13 @@ async function cargarMenuDesdeDB() {
                 price: parseFloat(prod.precio),
                 desc: prod.descripcion || "",
                 image: prod.imagen || "",
-                // Si es combo, le pasamos los items_json, si no, lo dejamos null/undefined
                 opciones_combo: esCombo ? prod.items_json : null 
             });
         };
 
-        // Procesar Productos Individuales
         productosBase.forEach(p => procesarItem(p, false));
-        // Procesar Combos
         combos.forEach(c => procesarItem(c, true));
         
-        console.log("Menú modular cargado con éxito");
         renderizarCategorias(); 
     } catch (error) {
         console.error("Error obteniendo el menú:", error);
@@ -201,15 +198,25 @@ function renderizarCategorias() {
     if (!container) return;
     container.innerHTML = ''; 
 
-    const iconos = ['🍱', '🍙', '🍣', '🥤', '🍰', '🥟', '🍤', '🔥']; 
+    // Dejamos los emojis por si alguna categoría no tiene foto aún (como respaldo)
+    const iconosRespado = ['🍱', '🍙', '🍣', '🥤', '🍰', '🥟', '🍤', '🔥']; 
 
     Object.keys(menuData).forEach((catKey, index) => {
         const catInfo = menuData[catKey];
-        const icon = iconos[index % iconos.length];
+        
+        // Si hay URL de imagen, la pintamos. Si no, usamos el emoji de respaldo.
+        let arteVisual = '';
+        if (catInfo.imagen && catInfo.imagen.startsWith('http')) {
+            arteVisual = `<img src="${catInfo.imagen}" alt="${catInfo.titulo}" class="w-full h-full object-cover">`;
+        } else {
+            arteVisual = iconosRespado[index % iconosRespado.length];
+        }
 
         const btnHtml = `
             <button type="button" onclick="selectCategory('${catKey}')" class="w-full bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-gray-100 hover:border-red-200 transition cursor-pointer text-left">
-                <div class="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">${icon}</div>
+                <div class="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 overflow-hidden">
+                    ${arteVisual}
+                </div>
                 <div>
                     <h3 class="font-bold text-gray-800 text-lg">${catInfo.titulo}</h3>
                     <p class="text-xs text-gray-400">${catInfo.items.length} platos disponibles</p>
