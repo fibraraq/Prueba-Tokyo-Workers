@@ -254,5 +254,29 @@
             </button>
         </div>
     </div>
+    <!-- ========================================== -->
+<!-- MODAL DE COMBOS Y PERSONALIZACIÓN -->
+<!-- ========================================== -->
+<div id="modal-combo" class="fixed inset-0 bg-gray-900/80 z-50 hidden items-end sm:items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative">
+        <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <div>
+                <h3 id="modal-combo-title" class="font-black text-gray-900 text-lg leading-tight">Personaliza tu combo</h3>
+                <p class="text-xs text-gray-500 mt-1">Elige las opciones incluidas</p>
+            </div>
+            <button onclick="cerrarModalCombo()" class="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-red-100 hover:text-red-600 text-gray-600 rounded-full transition font-bold cursor-pointer">✕</button>
+        </div>
+        
+        <!-- Aquí adentro menu.js dibujará las opciones mágicamente -->
+        <div class="p-5 max-h-[60vh] overflow-y-auto" id="modal-combo-options-container">
+        </div>
+        
+        <div class="p-4 bg-white border-t border-gray-100">
+            <button id="btn-confirmar-combo" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-2xl shadow-md transition cursor-pointer text-sm">
+                Confirmar Selección
+            </button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
