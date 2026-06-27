@@ -1028,12 +1028,16 @@ if (document.getElementById('form-producto')) {
     document.getElementById('form-producto').addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('prod-id').value;
+        let imgFinalProd = document.getElementById('prod-imagen').value.trim();
+        if (imgFinalProd === '') {
+            imgFinalProd = obtenerEmojiPlato();
+        }
         const payload = {
             id: id ? parseInt(id) : null,
             nombre: document.getElementById('prod-nombre').value.trim(),
             categoria: document.getElementById('prod-categoria').value,
             precio: parseFloat(document.getElementById('prod-precio').value),
-            imagen: document.getElementById('prod-imagen').value.trim(),
+            imagen: imgFinalProd,
             descripcion: document.getElementById('prod-descripcion').value.trim(),
             disponible: document.getElementById('prod-disponible').checked
         };
@@ -1213,12 +1217,15 @@ if (document.getElementById('form-combo')) {
             alert('Añade al menos 1 elemento válido al combo.'); 
             return; 
         }
-
+        let imgFinalCombo = document.getElementById('combo-imagen').value.trim();
+        if (imgFinalCombo === '') {
+            imgFinalCombo = obtenerEmojiPlato();
+        }
         const payload = {
             id: id ? parseInt(id) : null,
             nombre: document.getElementById('combo-nombre').value.trim(),
             precio: parseFloat(document.getElementById('combo-precio').value),
-            imagen: document.getElementById('combo-imagen').value.trim(),
+            imagen: imgFinalCombo,
             descripcion: document.getElementById('combo-descripcion').value.trim(),
             items: itemsSeleccionados,
             disponible: document.getElementById('combo-disponible').checked
@@ -1310,4 +1317,10 @@ if (document.getElementById('vistaLogin')) {
         verificarSesion();
         actualizarTasaBCV();
     }
+}
+
+// --- GENERADOR DE EMOJIS ALEATORIOS PARA PLATOS ---
+function obtenerEmojiPlato() {
+    const emojis = ['🍱', '🍙', '🍣', '🥤', '🍰', '🥟', '🍤', '🔥', '🍜', '🥢'];
+    return emojis[Math.floor(Math.random() * emojis.length)];
 }
