@@ -141,10 +141,13 @@ function cerrarSesionCliente() {
     goToStep('auth');
 }
 
-// --- 1. CARGA DINÁMICA DE LA BASE DE DATOS ---
+// --- 1. CARGA DINÁMICA DE LA BASE DE DATOS (CON ROMPE-CACHÉ) ---
 async function cargarMenuDesdeDB() {
     try {
-        const response = await fetch(URL_OBTENER_MENU);
+        // EL TRUCO: Le agregamos la hora actual para que Chrome jamás use el menú viejo
+        const urlFresca = URL_OBTENER_MENU + "?t=" + new Date().getTime();
+        const response = await fetch(urlFresca);
+        
         if (!response.ok) throw new Error('Error al conectar con el servidor');
         
         const rawData = await response.json();
@@ -154,7 +157,7 @@ async function cargarMenuDesdeDB() {
 
         const productosBase = data.menu ? (data.menu.productos || []) : (Array.isArray(data) ? data : []);
         const combos = data.menu ? (data.menu.combos || []) : [];
-        const categoriasDeBaseDatos = data.menu ? (data.menu.categorias || []) : []; // <-- EXTRAEMOS CATEGORÍAS
+        const categoriasDeBaseDatos = data.menu ? (data.menu.categorias || []) : []; 
 
         // Función auxiliar para procesar items
         const procesarItem = (prod, esCombo = false) => {
@@ -163,12 +166,11 @@ async function cargarMenuDesdeDB() {
             const categoriaKey = categoriaRaw.toLowerCase().replace(/\s+/g, '_');
 
             if (!menuData[categoriaKey]) {
-                // Buscamos si la categoría tiene una imagen asignada en la base de datos
                 const catInfoDB = categoriasDeBaseDatos.find(c => c.nombre.toLowerCase() === categoriaRaw.toLowerCase());
                 
                 menuData[categoriaKey] = {
                     titulo: categoriaRaw.charAt(0).toUpperCase() + categoriaRaw.slice(1),
-                    imagen: catInfoDB ? catInfoDB.imagen : '', // <-- GUARDAMOS SU IMAGEN
+                    imagen: catInfoDB ? catInfoDB.imagen : '', 
                     items: []
                 };
             }
@@ -179,7 +181,8 @@ async function cargarMenuDesdeDB() {
                 price: parseFloat(prod.precio),
                 desc: prod.descripcion || "",
                 image: prod.imagen || "",
-                opciones_combo: esCombo ? prod.items_json : null 
+                // BLINDAJE: Buscamos items_json o items por si n8n lo envía diferente
+                opciones_combo: esCombo ? (prod.items_json || prod.items || null) : null 
             });
         };
 
