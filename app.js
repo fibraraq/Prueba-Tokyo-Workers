@@ -1284,7 +1284,7 @@ function resetFormCombo() {
 // ==========================================
 // ARRANQUE PRINCIPAL (PANTALLA DE OPERACIONES)
 // ==========================================
-function inicializarTablero() {
+async function inicializarTablero() {
     // 1. Inyectar la fecha de hoy en el calendario
     const calendario = document.getElementById('calendarioFiltro');
     if (calendario && !calendario.value) {
@@ -1292,7 +1292,8 @@ function inicializarTablero() {
     }
     
     // 2. Cargar datos base
-    cargarUsuariosDesdeDB();
+    await cargarUsuariosDesdeDB();
+    await cargarCatalogoDesdeDB(); // <-- Corregido el error de mayúsculas aquí
     verificarSesion();
     actualizarTasaBCV();
 }
@@ -1302,20 +1303,6 @@ if (document.getElementById('vistaLogin')) {
         document.addEventListener('DOMContentLoaded', inicializarTablero);
     } else {
         inicializarTablero();
-    }
-}
-if (document.getElementById('vistaLogin')) {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            cargarUsuariosDesdeDB();
-            verificarSesion();
-            actualizarTasaBCV();
-        });
-    } else {
-        cargarUsuariosDesdeDB();
-        cargarCatalogoDesdeDb();
-        verificarSesion();
-        actualizarTasaBCV();
     }
 }
 
