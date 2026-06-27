@@ -1181,30 +1181,35 @@ document.addEventListener('click', function(e) {
     }
 });
 
-if (document.getElementById('btn-add-item')) {
-    // Si ya existía el evento, lo clonamos para evitar duplicados al recargar
-    const btnViejo = document.getElementById('btn-add-item');
-    const btnNuevo = btnViejo.cloneNode(true);
-    btnViejo.parentNode.replaceChild(btnNuevo, btnViejo);
-    btnNuevo.addEventListener('click', () => agregarFilaProductoCombo());
+// --- EVENTOS DEL COMBO (CORREGIDOS Y BLINDADOS) ---
+const btnAddCombo = document.getElementById('btn-add-item');
+if (btnAddCombo) {
+    // Usamos .onclick directo para que el botón jamás pierda su función
+    btnAddCombo.onclick = function() {
+        agregarFilaProductoCombo();
+    };
 }
 
-if (document.getElementById('form-combo')) {
-    const formViejo = document.getElementById('form-combo');
-    const formNuevo = formViejo.cloneNode(true);
-    formViejo.parentNode.replaceChild(formNuevo, formViejo);
-
-    formNuevo.addEventListener('submit', async (e) => {
+const formCombo = document.getElementById('form-combo');
+if (formCombo) {
+    // Usamos .onsubmit directo en lugar de clonar el formulario (así no rompemos el botón)
+    formCombo.onsubmit = async function(e) {
         e.preventDefault();
         const id = document.getElementById('combo-id').value;
         
         const itemsSeleccionados = [];
+        let faltaHacerClic = false;
+
+        // Revisamos fila por fila
         document.querySelectorAll('.fila-item-combo').forEach(fila => {
             const ref = fila.querySelector('.item-referencia').value;
             const qty = parseInt(fila.querySelector('.item-cantidad').value);
+            const visibleText = fila.querySelector('.item-visible').value.trim();
             
-            if (ref && qty > 0) {
-                // Si eligió una categoría, guardamos el nombre. Si fue un producto, guardamos el ID.
+            // Si hay texto escrito pero la referencia está vacía, es que no seleccionó de la lista
+            if (visibleText !== "" && ref === "") {
+                faltaHacerClic = true;
+            } else if (ref && qty > 0) {
                 if (ref.startsWith('CAT_')) {
                     itemsSeleccionados.push({ tipo: 'categoria', valor: ref.replace('CAT_', ''), cantidad: qty });
                 } else if (ref.startsWith('PROD_')) {
@@ -1213,14 +1218,22 @@ if (document.getElementById('form-combo')) {
             }
         });
 
+        // NUEVA VALIDACIÓN: Te avisa si escribiste algo pero olvidaste hacer clic en la sugerencia
+        if (faltaHacerClic) {
+            alert('⚠️ Importante: Debes HACER CLIC en una de las opciones de la caja oscura flotante para seleccionarla. No basta solo con escribir el nombre.');
+            return;
+        }
+
         if (itemsSeleccionados.length === 0) { 
             alert('Añade al menos 1 elemento válido al combo.'); 
             return; 
         }
+
         let imgFinalCombo = document.getElementById('combo-imagen').value.trim();
         if (imgFinalCombo === '') {
             imgFinalCombo = obtenerEmojiPlato();
         }
+
         const payload = {
             id: id ? parseInt(id) : null,
             nombre: document.getElementById('combo-nombre').value.trim(),
@@ -1236,7 +1249,7 @@ if (document.getElementById('form-combo')) {
             resetFormCombo();
             cargarDatosAdmin();
         } catch (error) { alert('Error al guardar el combo.'); }
-    });
+    };
 }
 
 function editarCombo(id) {
