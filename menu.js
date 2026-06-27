@@ -141,10 +141,9 @@ function cerrarSesionCliente() {
     goToStep('auth');
 }
 
-// --- 1. CARGA DINÁMICA DE LA BASE DE DATOS (CON ROMPE-CACHÉ) ---
+// --- 1. CARGA DINÁMICA DE LA BASE DE DATOS (CON PREVENCIÓN DE COLISIÓN DE IDs) ---
 async function cargarMenuDesdeDB() {
     try {
-        // EL TRUCO: Le agregamos la hora actual para que Chrome jamás use el menú viejo
         const urlFresca = URL_OBTENER_MENU + "?t=" + new Date().getTime();
         const response = await fetch(urlFresca);
         
@@ -153,13 +152,12 @@ async function cargarMenuDesdeDB() {
         const rawData = await response.json();
         const data = (Array.isArray(rawData) && rawData[0].menu) ? rawData[0] : rawData;
 
-        menuData = {}; // Objeto limpio para empezar
+        menuData = {}; 
 
         const productosBase = data.menu ? (data.menu.productos || []) : (Array.isArray(data) ? data : []);
         const combos = data.menu ? (data.menu.combos || []) : [];
         const categoriasDeBaseDatos = data.menu ? (data.menu.categorias || []) : []; 
 
-        // Función auxiliar para procesar items
         const procesarItem = (prod, esCombo = false) => {
             if (prod.disponible === false) return;
             const categoriaRaw = String(prod.categoria || (esCombo ? 'Combos' : 'Otros')).trim();
@@ -167,7 +165,6 @@ async function cargarMenuDesdeDB() {
 
             if (!menuData[categoriaKey]) {
                 const catInfoDB = categoriasDeBaseDatos.find(c => c.nombre.toLowerCase() === categoriaRaw.toLowerCase());
-                
                 menuData[categoriaKey] = {
                     titulo: categoriaRaw.charAt(0).toUpperCase() + categoriaRaw.slice(1),
                     imagen: catInfoDB ? catInfoDB.imagen : '', 
@@ -175,13 +172,15 @@ async function cargarMenuDesdeDB() {
                 };
             }
 
+            // 🔥 EL BLINDAJE ANTI-COLISIONES: Le ponemos 'c_' a combos y 'p_' a productos
+            const idUnico = esCombo ? 'c_' + prod.id : 'p_' + prod.id;
+
             menuData[categoriaKey].items.push({
-                id: prod.id,
+                id: idUnico, // <-- Ahora el ID es 100% único
                 name: prod.nombre,
                 price: parseFloat(prod.precio),
                 desc: prod.descripcion || "",
                 image: prod.imagen || "",
-                // BLINDAJE: Buscamos items_json o items por si n8n lo envía diferente
                 opciones_combo: esCombo ? (prod.items_json || prod.items || null) : null 
             });
         };
