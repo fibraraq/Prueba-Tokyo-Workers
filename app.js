@@ -1070,7 +1070,7 @@ function resetFormProd() {
     document.getElementById('btn-cancel-prod').style.display = "none";
 }
 
-// --- FORMULARIOS: COMBO (VERSIÓN RELACIONAL) ---
+// --- 1. DIBUJANTE DE FILA (CON BUSCADOR INTELIGENTE) ---
 function agregarFilaProductoCombo(valorSeleccionado = "", qty = 1) {
     const contenedor = document.getElementById('lista-items-combo');
     const fila = document.createElement('div');
@@ -1079,32 +1079,100 @@ function agregarFilaProductoCombo(valorSeleccionado = "", qty = 1) {
     fila.style.gap = '10px';
     fila.style.marginBottom = '10px';
 
-    // 1. Generamos las opciones de Categorías dinámicamente
-    const opcionesCat = adminCategorias.map(c => 
-        `<option value="CAT_${c.nombre}" ${valorSeleccionado === 'CAT_'+c.nombre ? 'selected' : ''}>📁 Categoría: ${c.nombre} (El cliente elige)</option>`
-    ).join('');
+    // Pre-llenar si estamos editando un combo guardado
+    let nombreLegible = "";
+    if (valorSeleccionado.startsWith('CAT_')) {
+        nombreLegible = "📁 Categoría: " + valorSeleccionado.replace('CAT_', '');
+    } else if (valorSeleccionado.startsWith('PROD_')) {
+        const pId = parseInt(valorSeleccionado.replace('PROD_', ''));
+        const p = adminProductos.find(x => x.id === pId);
+        if (p) nombreLegible = "🍣 Producto: " + p.nombre;
+    }
 
-    // 2. Generamos las opciones de Productos dinámicamente
-    const opcionesProd = adminProductos.map(p => 
-        `<option value="PROD_${p.id}" ${valorSeleccionado === 'PROD_'+p.id ? 'selected' : ''}>🍣 Producto Fijo: ${p.nombre} ($${p.precio})</option>`
-    ).join('');
+    // ID único para la cajita flotante de esta fila específica
+    const idCaja = 'sug-combo-' + Math.random().toString(36).substr(2, 9);
 
-    // 3. Pintamos el menú desplegable agrupado
     fila.innerHTML = `
-        <select class="item-referencia" required style="flex: 2; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
-            <option value="" disabled ${!valorSeleccionado ? 'selected' : ''}>-- Selecciona qué incluir en el combo --</option>
-            <optgroup label="👉 QUE EL CLIENTE ELIJA (De una categoría)">
-                ${opcionesCat}
-            </optgroup>
-            <optgroup label="👉 INCLUIDO FIJO (Producto exacto)">
-                ${opcionesProd}
-            </optgroup>
-        </select>
+        <div style="flex: 2; position: relative;">
+            <input type="text" 
+                onfocus="buscarItemCombo(this, '${idCaja}')" 
+                oninput="buscarItemCombo(this, '${idCaja}')" 
+                value="${nombreLegible}" 
+                placeholder="🔍 Buscar categoría o producto..." 
+                autocomplete="off" 
+                class="item-visible"
+                style="width: 100%; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; outline: none;">
+            
+            <input type="hidden" class="item-referencia" value="${valorSeleccionado}">
+            
+            <div id="${idCaja}" class="caja-sugerencias hidden" style="display: none; position: absolute; z-index: 50; width: 100%; margin-top: 4px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; max-height: 250px; overflow-y: auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);"></div>
+        </div>
+
         <input type="number" class="item-cantidad" min="1" value="${qty}" required style="flex: 1; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Cant.">
         <button type="button" onclick="this.parentElement.remove()" style="background: #e11d48; color: white; border: none; border-radius: 4px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
     `;
     contenedor.appendChild(fila);
 }
+
+// --- 2. MOTOR DEL BUSCADOR FLOTANTE ---
+function buscarItemCombo(inputElement, idCaja) {
+    const contenedor = document.getElementById(idCaja);
+    const hiddenInput = inputElement.nextElementSibling;
+    const texto = inputElement.value.toLowerCase().trim();
+
+    // Si el usuario borra para buscar otra cosa, vaciamos el input oculto
+    hiddenInput.value = "";
+
+    // Filtramos. Si no ha escrito nada, mostramos toda la lista
+    const catFiltradas = adminCategorias.filter(c => c.nombre.toLowerCase().includes(texto) || texto === '');
+    const prodFiltrados = adminProductos.filter(p => p.nombre.toLowerCase().includes(texto) || texto === '');
+
+    let html = '';
+
+    if (catFiltradas.length > 0) {
+        html += '<div style="padding: 8px 10px; font-size: 11px; color: #94a3b8; font-weight: bold; background: #0f172a; text-transform: uppercase;">👉 Que el cliente elija (Categorías)</div>';
+        catFiltradas.forEach(c => {
+            html += `<div onclick="seleccionarSugerenciaCombo(this, '${idCaja}', 'CAT_${c.nombre}', '📁 Categoría: ${c.nombre}')" style="padding: 10px; cursor: pointer; font-size: 13px; color: white; border-bottom: 1px solid #334155; transition: background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">📁 ${c.nombre}</div>`;
+        });
+    }
+
+    if (prodFiltrados.length > 0) {
+        html += '<div style="padding: 8px 10px; font-size: 11px; color: #94a3b8; font-weight: bold; background: #0f172a; text-transform: uppercase;">👉 Incluido Fijo (Productos)</div>';
+        prodFiltrados.forEach(p => {
+            html += `<div onclick="seleccionarSugerenciaCombo(this, '${idCaja}', 'PROD_${p.id}', '🍣 Producto: ${p.nombre}')" style="padding: 10px; cursor: pointer; font-size: 13px; color: white; border-bottom: 1px solid #334155; transition: background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">🍣 ${p.nombre} <span style="color:#10b981; float:right;">$${p.precio}</span></div>`;
+        });
+    }
+
+    if (html === '') {
+        html = '<div style="padding: 10px; font-size: 13px; color: #94a3b8; font-style: italic;">No hay coincidencias...</div>';
+    }
+
+    // Escondemos las demás cajas que puedan estar abiertas y mostramos esta
+    document.querySelectorAll('.caja-sugerencias').forEach(caja => caja.style.display = 'none');
+    contenedor.innerHTML = html;
+    contenedor.style.display = 'block';
+}
+
+// --- 3. AL HACER CLIC EN UNA SUGERENCIA ---
+function seleccionarSugerenciaCombo(elemento, idCaja, valorReal, textoLegible) {
+    const contenedor = document.getElementById(idCaja);
+    const hiddenInput = contenedor.previousElementSibling;
+    const visibleInput = hiddenInput.previousElementSibling;
+
+    hiddenInput.value = valorReal;
+    visibleInput.value = textoLegible;
+
+    contenedor.style.display = 'none';
+}
+
+// --- 4. CERRAR LAS CAJAS AL HACER CLIC AFUERA ---
+document.addEventListener('click', function(e) {
+    if (!e.target.classList.contains('item-visible')) {
+        document.querySelectorAll('.caja-sugerencias').forEach(caja => {
+            caja.style.display = 'none';
+        });
+    }
+});
 
 if (document.getElementById('btn-add-item')) {
     // Si ya existía el evento, lo clonamos para evitar duplicados al recargar
