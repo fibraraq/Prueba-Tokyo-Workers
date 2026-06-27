@@ -990,7 +990,8 @@ if (document.getElementById('form-categoria')) {
         const id = document.getElementById('cat-id').value;
         const payload = {
             id: id ? parseInt(id) : null,
-            nombre: document.getElementById('cat-nombre').value.trim()
+            nombre: document.getElementById('cat-nombre').value.trim(),
+            imagen: document.getElementById('cat-imagen').value.trim()
         };
         try {
             await fetch(ADMIN_URL_GUARDAR_CAT, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
@@ -1005,6 +1006,7 @@ function editarCategoria(id) {
     if(!cat) return;
     document.getElementById('cat-id').value = cat.id;
     document.getElementById('cat-nombre').value = cat.nombre;
+    document.getElementById('cat-imagen').value = cat.imagen || '';
     
     document.getElementById('titulo-form-cat').innerText = "Editar Categoría";
     document.getElementById('btn-save-cat').innerText = "💾 Actualizar Categoría";
@@ -1014,6 +1016,7 @@ function editarCategoria(id) {
 function resetFormCat() {
     document.getElementById('form-categoria').reset();
     document.getElementById('cat-id').value = "";
+    if (document.getElementById('cat-imagen')) document.getElementById('cat-imagen').value = "";
     document.getElementById('titulo-form-cat').innerText = "Crear Categoría";
     document.getElementById('btn-save-cat').innerText = "💾 Guardar Categoría";
     document.getElementById('btn-cancel-cat').style.display = "none";
