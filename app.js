@@ -633,12 +633,14 @@ async function cargarPedidos() {
 
 // --- ALGORITMO RENDERIZADOR Y MAPEO DE TURNOS ---
 function renderizarTablero() {
+    const colCalculando = document.getElementById('columnaCalculandoDelivery');
     const colPagoPendiente = document.getElementById('columnaPagoPendiente');
     const colEnCocina = document.getElementById('columnaEnCocina');
     const colFinalizado = document.getElementById('columnaFinalizado');
 
     if (!colPagoPendiente || !colEnCocina || !colFinalizado) return;
-
+    
+    if (colCalculando) colCalculando.innerHTML = '';
     colPagoPendiente.innerHTML = ''; colEnCocina.innerHTML = ''; colFinalizado.innerHTML = '';
 
     let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
@@ -690,7 +692,27 @@ function renderizarTablero() {
             const urlWA = esMovil ? `https://wa.me/${telWA}` : `https://web.whatsapp.com/send?phone=${telWA}`;
             btnWhatsApp = `<a href="${urlWA}" target="_blank" onclick="event.stopPropagation()" class="text-slate-400 hover:text-emerald-400 transition cursor-pointer ml-1" title="Abrir chat en WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
         }
-
+        
+        if (estadoLimpio === 'calculandodelivery') {
+            conteoCalculando++;
+            colCalculando.innerHTML += `
+                <div class="bg-slate-700/40 p-4 rounded-lg border border-purple-500/10 hover:border-purple-500/30 transition duration-150 space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded border border-purple-400/20">#${idVisual}</span>
+                            <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
+                            ${btnWhatsApp}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
+                    </div>
+                    <div><h4 class="font-bold text-white text-sm truncate">${cliente}</h4><p class="text-xs text-slate-400 mt-1 line-clamp-2">${art}</p></div>
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-600/50">
+                        ${htmlMonto}
+                        <button onclick="procesarPrecioDelivery('${idReal}')" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Poner precio delivery <i class="fa-solid fa-motorcycle"></i></button>
+                    </div>
+                </div>`;
+        } else if (estadoLimpio === 'pagopendiente') { // ...aquí sigue tu código normal
+            
         if (estadoLimpio === 'pagopendiente') {
             conteoPago++;
             colPagoPendiente.innerHTML += `
@@ -741,7 +763,12 @@ function renderizarTablero() {
         }
     });
 
-    document.getElementById('cantPagoPendiente').innerText = conteoPago; document.getElementById('cantEnCocina').innerText = conteoCocina; document.getElementById('cantFinalizado').innerText = conteoFinalizado;
+    if (document.getElementById('cantCalculandoDelivery')) {
+        document.getElementById('cantCalculandoDelivery').innerText = conteoCalculando;
+    }
+    document.getElementById('cantPagoPendiente').innerText = conteoPago; 
+    document.getElementById('cantEnCocina').innerText = conteoCocina; 
+    document.getElementById('cantFinalizado').innerText = conteoFinalizado;
     if (document.getElementById('totalDiaBottom')) document.getElementById('totalDiaBottom').innerHTML = `<div class="flex flex-col text-right leading-tight"><span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(totalVentasDia * tasaActual).toFixed(2)}</span></div>`;
 }
 
@@ -1323,4 +1350,52 @@ if (document.getElementById('vistaLogin')) {
 function obtenerEmojiPlato() {
     const emojis = ['🍱', '🍙', '🍣', '🥤', '🍰', '🥟', '🍤', '🔥', '🍜', '🥢'];
     return emojis[Math.floor(Math.random() * emojis.length)];
+}
+
+// --- NUEVO: AÑADIR COSTO DE DELIVERY ---
+function procesarPrecioDelivery(idPedido) {
+    const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
+    if (!pedido) return;
+
+    const precioDel = prompt(`Ingresa el costo del delivery para el cliente ${pedido.cliente}:\n(Ejemplo: 1.5)`);
+    if (precioDel === null || precioDel.trim() === '') return; // Canceló
+    
+    // Cambiamos comas por puntos por si el cajero se equivoca
+    const costoDelivery = parseFloat(precioDel.replace(',', '.'));
+    if (isNaN(costoDelivery)) {
+        alert("Por favor ingresa un número válido para el delivery.");
+        return;
+    }
+
+    const nuevoTotal = parseFloat(pedido.total_orden) + costoDelivery;
+    const nuevoDetalle = pedido.pedido_detallado + `\n1x Servicio de Delivery ($${costoDelivery})`;
+    const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
+
+    // 1. Actualizamos la memoria visual al instante
+    const index = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(idPedido));
+    pedidosEnMemoria[index].estado = 'Pago Pendiente';
+    pedidosEnMemoria[index].total_orden = nuevoTotal;
+    pedidosEnMemoria[index].pedido_detallado = nuevoDetalle;
+    renderizarTablero();
+
+    // 2. Enviamos la orden de actualización a n8n
+    const payload = {
+        id: idPedido, 
+        estado: 'Pago Pendiente', 
+        cliente: pedido.cliente, 
+        pedido_detallado: nuevoDetalle, 
+        total_orden: nuevoTotal,   
+        telefono: pedido.telefono || '', 
+        tipo_entrega: pedido.tipo_entrega || '', 
+        procesado_por: operadorFirma,
+        referencia_pago: pedido.referencia_pago || "", 
+        imagen_pago: pedido.imagen_pago || "",
+        es_cotizacion_delivery: true // ¡ESTA ES LA LLAVE PARA N8N!
+    };
+    
+    fetch(API_ACTUALIZAR_ESTADO, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(payload) 
+    }).catch(e => console.error("Error BD:", e));
 }
