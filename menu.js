@@ -246,11 +246,17 @@ function selectCategory(categoryKey) {
 
         const isComboCustom = item.opciones_combo !== undefined && item.opciones_combo !== null && item.opciones_combo !== '' && item.opciones_combo !== '[]';
         
+        // MAGIA VISUAL: ¿Es un enlace HTTP o es un Emoji?
+        const esEnlace = item.image && item.image.startsWith('http');
+        const vistaImagen = esEnlace 
+            ? `<img src="${item.image}" alt="${item.name}" class="w-20 h-20 object-cover rounded-xl flex-shrink-0 bg-gray-100 border border-gray-100 shadow-sm">`
+            : `<div class="w-20 h-20 rounded-xl flex-shrink-0 bg-red-50 text-red-500 border border-red-100 flex items-center justify-center text-4xl shadow-sm">${item.image || '🍣'}</div>`;
+
         const itemHtml = `
             <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-2">
                 <div class="flex items-center justify-between gap-3">
-                    <img src="${item.image}" alt="${item.name}" class="w-20 h-20 object-cover rounded-xl flex-shrink-0 bg-gray-100 border border-gray-100">
-                    <div class="flex-grow min-w-0 pr-1">
+                    
+                    ${vistaImagen} <div class="flex-grow min-w-0 pr-1">
                         <h4 class="text-sm font-bold text-gray-800 leading-snug">${item.name}</h4>
                         <p class="text-xs text-gray-400 my-0.5 line-clamp-2">${item.desc}</p>
                         <span class="text-red-600 font-bold text-sm block mt-0.5">$${item.price.toFixed(2)}</span>
@@ -271,7 +277,7 @@ function selectCategory(categoryKey) {
         `;
         container.insertAdjacentHTML('beforeend', itemHtml);
     });
-
+    
     goToStep(2);
 }
 
