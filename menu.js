@@ -639,7 +639,10 @@ async function sendOrder(event) {
         direccion: direccionFinal,
         metodo_pago: document.getElementById('payment-method').value,
         articulos: itemsInCart,
-        metadata_titular: datosClienteLogueado ? `Pedido por: ${datosClienteLogueado.nombre} (CI: ${datosClienteLogueado.cedula})` : "No registrado"
+        metadata_titular: datosClienteLogueado ? `Pedido por: ${datosClienteLogueado.nombre} (CI: ${datosClienteLogueado.cedula})` : "No registrado",
+        
+        // NUEVA LÍNEA: Inteligencia para el tablero
+        estado_inicial: tipoEntrega === 'Delivery' ? 'Calculando Delivery' : 'Pago Pendiente'
     };
 
     // La URL original de tu webhook de creación de pedidos
