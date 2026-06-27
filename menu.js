@@ -318,32 +318,47 @@ function removeNoteFromCheckout(id) {
 
 function updateQty(id, name, price, change) {
     let itemOriginal = null;
-    // Ahora buscamos dentro de la llave .items
     for (let catKey in menuData) {
         let found = menuData[catKey].items.find(p => String(p.id) === String(id));
         if (found) { itemOriginal = found; break; }
     }
 
-    if (itemOriginal && itemOriginal.opciones_combo && itemOriginal.opciones_combo !== '[]') {
-        if (change > 0) {
-            abrirModalCombo(itemOriginal);
-        } else {
-            let keys = Object.keys(cart).filter(k => k.startsWith(id + "_"));
-            if (keys.length > 0) {
-                let lastKey = keys[keys.length - 1];
-                cart[lastKey].qty += change;
-                if (cart[lastKey].qty <= 0) delete cart[lastKey];
+    let isComboWithItems = false;
+    let requiresChoices = false;
+    try {
+        if (itemOriginal && itemOriginal.opciones_combo && itemOriginal.opciones_combo !== '[]') {
+            let arr = typeof itemOriginal.opciones_combo === 'string' ? JSON.parse(itemOriginal.opciones_combo) : itemOriginal.opciones_combo;
+            if (arr.length > 0) {
+                isComboWithItems = true;
+                requiresChoices = arr.some(a => a.tipo === 'categoria'); // ¿Exige elegir algo?
             }
-            let totalQty = 0;
-            Object.keys(cart).forEach(k => { if (k.startsWith(id + "_")) totalQty += cart[k].qty; });
-            const element = document.getElementById(`qty-${id}`); if (element) element.value = totalQty;
-            calculateTotals();
-            if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
         }
+    } catch(e){}
+
+    // Si es combo y hay que elegir -> Abrir Modal
+    if (isComboWithItems && change > 0 && requiresChoices) {
+        abrirModalCombo(itemOriginal);
         return;
     }
 
-    // COMPORTAMIENTO NORMAL PARA PLATOS SIMPLES
+    // Si es combo personalizado y se está restando
+    if (isComboWithItems && change < 0 && requiresChoices) {
+        let keys = Object.keys(cart).filter(k => k.startsWith(id + "_"));
+        if (keys.length > 0) {
+            let lastKey = keys[keys.length - 1];
+            cart[lastKey].qty += change;
+            if (cart[lastKey].qty <= 0) delete cart[lastKey];
+        } 
+        
+        let totalQty = 0;
+        Object.keys(cart).forEach(k => { if (k === String(id) || k.startsWith(id + "_")) totalQty += cart[k].qty; });
+        const element = document.getElementById(`qty-${id}`); if (element) element.value = totalQty;
+        calculateTotals();
+        if (document.getElementById('step-3').classList.contains('active')) prepareCheckout();
+        return;
+    }
+
+    // COMPORTAMIENTO NORMAL PARA PLATOS SIMPLES O COMBOS FIJOS
     if (!cart[id]) cart[id] = { name: name, price: price, qty: 0, note: "" };
     cart[id].qty += change;
     
@@ -649,23 +664,62 @@ function abrirModalCombo(item) {
 
     const container = document.getElementById('modal-combo-options-container');
     container.innerHTML = '';
+    let selectIndex = 0;
 
-    gruposOpciones.forEach((grupo, idx) => {
-        let optionsHtml = grupo.opciones.map(opt => `<option value="${opt}">${opt}</option>`).join('');
-        let grupoHtml = `
-            <div class="space-y-1">
-                <label class="block text-gray-500 font-bold text-[10px] uppercase tracking-wider">${grupo.titulo}</label>
-                <select id="select-combo-grupo-${idx}" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-gray-50 focus:outline-none focus:border-red-500 font-medium text-gray-800">
-                    ${optionsHtml}
-                </select>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', grupoHtml);
+    gruposOpciones.forEach((grupo) => {
+        if (grupo.tipo === 'categoria') {
+            // Buscamos todos los platos de esa categoría en tiempo real
+            let opcionesCat = [];
+            for(let key in menuData) {
+                if(menuData[key].titulo.toLowerCase() === grupo.valor.toLowerCase()) {
+                    opcionesCat = menuData[key].items;
+                    break;
+                }
+            }
+
+            if(opcionesCat.length === 0) {
+                container.insertAdjacentHTML('beforeend', `<p class="text-xs text-red-500 mb-2 font-bold">⚠️ Categoría "${grupo.valor}" vacía o inactiva.</p>`);
+                return;
+            }
+
+            let optionsHtml = opcionesCat.map(opt => `<option value="${opt.name}">${opt.name}</option>`).join('');
+            
+            // Creamos un menú por cada cantidad que hayas exigido (Ej: 2 roles = 2 menús)
+            for(let i=0; i < grupo.cantidad; i++) {
+                let tituloVisual = grupo.cantidad > 1 ? `Elige tu ${grupo.valor} (${i+1} de ${grupo.cantidad})` : `Elige tu ${grupo.valor}`;
+                let grupoHtml = `
+                    <div class="space-y-1 mb-3">
+                        <label class="block text-gray-500 font-bold text-[10px] uppercase tracking-wider">${tituloVisual}</label>
+                        <select id="select-combo-grupo-${selectIndex}" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-gray-50 focus:outline-none focus:border-red-500 font-medium text-gray-800 shadow-sm cursor-pointer">
+                            ${optionsHtml}
+                        </select>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', grupoHtml);
+                selectIndex++;
+            }
+        } else if (grupo.tipo === 'producto') {
+            // Si es un producto fijo, solo se lo mostramos para que lo sepa
+            let prodName = "Producto Fijo";
+            for(let key in menuData) {
+                let p = menuData[key].items.find(x => String(x.id) === String(grupo.valor));
+                if(p) { prodName = p.name; break; }
+            }
+            
+            let fijoHtml = `
+                <div class="space-y-1 mb-3">
+                    <label class="block text-gray-500 font-bold text-[10px] uppercase tracking-wider">Incluido Fijo</label>
+                    <div class="w-full p-2.5 border border-gray-200 rounded-xl text-xs bg-emerald-50 text-emerald-700 font-medium flex items-center justify-between shadow-sm">
+                        <span class="truncate pr-2">✔️ ${prodName}</span>
+                        <span class="font-black flex-shrink-0 bg-emerald-200 px-2 py-0.5 rounded">x${grupo.cantidad}</span>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', fijoHtml);
+        }
     });
 
-    // Inyectamos el evento de guardado en el botón
     document.getElementById('btn-confirmar-combo').onclick = guardarSeleccionCombo;
-
     document.getElementById('modal-combo').classList.remove('hidden');
     document.getElementById('modal-combo').classList.add('flex');
 }
@@ -679,39 +733,33 @@ function cerrarModalCombo() {
 function guardarSeleccionCombo() {
     if (!comboEnPersonalizacion) return;
 
-    let gruposOpciones = [];
-    try {
-        gruposOpciones = typeof comboEnPersonalizacion.opciones_combo === 'string' 
-            ? JSON.parse(comboEnPersonalizacion.opciones_combo || '[]') 
-            : (comboEnPersonalizacion.opciones_combo || []);
-    } catch(e) { gruposOpciones = []; }
-
     let elecciones = [];
-    gruposOpciones.forEach((grupo, idx) => {
-        let selectVal = document.getElementById(`select-combo-grupo-${idx}`).value;
-        elecciones.push(selectVal);
+    let selects = document.querySelectorAll('[id^="select-combo-grupo-"]');
+    
+    selects.forEach(select => {
+        elecciones.push(select.value);
     });
 
-    // Creamos la especificación automatizada del combo
-    let descripcionVariante = elecciones.join(', ');
-    
-    // Generamos un identificador único en base a lo que el cliente eligió
-    let stringClave = elecciones.join('_').replace(/[^a-zA-Z0-9]/g, '');
+    // Anexamos lo que eligió al nombre del combo
+    let descripcionVariante = elecciones.length > 0 ? elecciones.join(', ') : '';
+    let stringClave = elecciones.length > 0 ? elecciones.join('_').replace(/[^a-zA-Z0-9]/g, '') : 'fijo';
     let variantKey = comboEnPersonalizacion.id + "_" + stringClave;
+
+    let cartName = elecciones.length > 0 ? `${comboEnPersonalizacion.name} (${descripcionVariante})` : comboEnPersonalizacion.name;
 
     if (!cart[variantKey]) {
         cart[variantKey] = {
             id: comboEnPersonalizacion.id,
-            name: `${comboEnPersonalizacion.name} (${descripcionVariante})`,
+            name: cartName,
             price: comboEnPersonalizacion.price,
             qty: 1,
-            note: "" // Queda libre para especificaciones extra del cliente
+            note: "" 
         };
     } else {
         cart[variantKey].qty += 1;
     }
 
-    // Buscamos la cantidad total agrupada para actualizar el contador de la tarjeta del menú
+    // Actualizamos el número del contador general
     let totalQty = 0;
     Object.keys(cart).forEach(k => {
         if (k === String(comboEnPersonalizacion.id) || k.startsWith(comboEnPersonalizacion.id + "_")) {
