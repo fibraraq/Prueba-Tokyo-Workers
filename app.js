@@ -1070,7 +1070,8 @@ function resetFormProd() {
     document.getElementById('btn-cancel-prod').style.display = "none";
 }
 
-function agregarFilaProductoCombo(titulo = "", opciones = "") {
+// --- FORMULARIOS: COMBO (VERSIÓN RELACIONAL) ---
+function agregarFilaProductoCombo(valorSeleccionado = "", qty = 1) {
     const contenedor = document.getElementById('lista-items-combo');
     const fila = document.createElement('div');
     fila.className = 'fila-item-combo'; 
@@ -1078,17 +1079,27 @@ function agregarFilaProductoCombo(titulo = "", opciones = "") {
     fila.style.gap = '10px';
     fila.style.marginBottom = '10px';
 
-    fila.innerHTML = `
-        <input type="text" class="grupo-titulo" value="${titulo}" required style="flex: 1; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Ej: Elige tu Bebida">
-        <input type="text" class="grupo-opciones" value="${opciones}" required style="flex: 2; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Ej: Coca Cola, Chinotto, Nestea">
-        <button type="button" onclick="this.parentElement.remove()" style="background: #e11d48; color: white; border: none; border-radius: 4px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
-    `;
-    contenedor.appendChild(fila);
-}
+    // 1. Generamos las opciones de Categorías dinámicamente
+    const opcionesCat = adminCategorias.map(c => 
+        `<option value="CAT_${c.nombre}" ${valorSeleccionado === 'CAT_'+c.nombre ? 'selected' : ''}>📁 Categoría: ${c.nombre} (El cliente elige)</option>`
+    ).join('');
 
-    // Cambiamos el <select> por un <input> conectado a nuestro datalist
+    // 2. Generamos las opciones de Productos dinámicamente
+    const opcionesProd = adminProductos.map(p => 
+        `<option value="PROD_${p.id}" ${valorSeleccionado === 'PROD_'+p.id ? 'selected' : ''}>🍣 Producto Fijo: ${p.nombre} ($${p.precio})</option>`
+    ).join('');
+
+    // 3. Pintamos el menú desplegable agrupado
     fila.innerHTML = `
-        <input type="text" class="item-select" list="lista-productos-combo" value="${nombrePredefinido}" required style="flex: 2; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Escribe para buscar producto..." autocomplete="off">
+        <select class="item-referencia" required style="flex: 2; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
+            <option value="" disabled ${!valorSeleccionado ? 'selected' : ''}>-- Selecciona qué incluir en el combo --</option>
+            <optgroup label="👉 QUE EL CLIENTE ELIJA (De una categoría)">
+                ${opcionesCat}
+            </optgroup>
+            <optgroup label="👉 INCLUIDO FIJO (Producto exacto)">
+                ${opcionesProd}
+            </optgroup>
+        </select>
         <input type="number" class="item-cantidad" min="1" value="${qty}" required style="flex: 1; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Cant.">
         <button type="button" onclick="this.parentElement.remove()" style="background: #e11d48; color: white; border: none; border-radius: 4px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
     `;
@@ -1096,28 +1107,39 @@ function agregarFilaProductoCombo(titulo = "", opciones = "") {
 }
 
 if (document.getElementById('btn-add-item')) {
-    document.getElementById('btn-add-item').addEventListener('click', () => agregarFilaProductoCombo());
+    // Si ya existía el evento, lo clonamos para evitar duplicados al recargar
+    const btnViejo = document.getElementById('btn-add-item');
+    const btnNuevo = btnViejo.cloneNode(true);
+    btnViejo.parentNode.replaceChild(btnNuevo, btnViejo);
+    btnNuevo.addEventListener('click', () => agregarFilaProductoCombo());
 }
 
 if (document.getElementById('form-combo')) {
-    document.getElementById('form-combo').addEventListener('submit', async (e) => {
+    const formViejo = document.getElementById('form-combo');
+    const formNuevo = formViejo.cloneNode(true);
+    formViejo.parentNode.replaceChild(formNuevo, formViejo);
+
+    formNuevo.addEventListener('submit', async (e) => {
         e.preventDefault();
         const id = document.getElementById('combo-id').value;
         
         const itemsSeleccionados = [];
         document.querySelectorAll('.fila-item-combo').forEach(fila => {
-            const titulo = fila.querySelector('.grupo-titulo').value.trim();
-            const opcionesRaw = fila.querySelector('.grupo-opciones').value;
-            // Separamos por comas y limpiamos los espacios en blanco
-            const opciones = opcionesRaw.split(',').map(o => o.trim()).filter(o => o !== '');
+            const ref = fila.querySelector('.item-referencia').value;
+            const qty = parseInt(fila.querySelector('.item-cantidad').value);
             
-            if (titulo && opciones.length > 0) { 
-                itemsSeleccionados.push({ titulo: titulo, opciones: opciones });
+            if (ref && qty > 0) {
+                // Si eligió una categoría, guardamos el nombre. Si fue un producto, guardamos el ID.
+                if (ref.startsWith('CAT_')) {
+                    itemsSeleccionados.push({ tipo: 'categoria', valor: ref.replace('CAT_', ''), cantidad: qty });
+                } else if (ref.startsWith('PROD_')) {
+                    itemsSeleccionados.push({ tipo: 'producto', valor: parseInt(ref.replace('PROD_', '')), cantidad: qty });
+                }
             }
         });
 
         if (itemsSeleccionados.length === 0) { 
-            alert('Añade al menos 1 grupo de opciones al combo.'); 
+            alert('Añade al menos 1 elemento válido al combo.'); 
             return; 
         }
 
@@ -1153,11 +1175,16 @@ function editarCombo(id) {
     let parsedItems = [];
     try { parsedItems = typeof c.items_json === 'string' ? JSON.parse(c.items_json) : c.items_json; } catch(e){}
     
-    // Si tiene la estructura correcta de "titulo" y "opciones", lo pinta
-    if (parsedItems && parsedItems.length > 0 && parsedItems[0].titulo) {
-        parsedItems.forEach(item => agregarFilaProductoCombo(item.titulo, item.opciones.join(', ')));
+    // Traducimos el JSON a las cajas desplegables
+    if (parsedItems && parsedItems.length > 0) {
+        parsedItems.forEach(item => {
+            if (item.tipo) {
+                const valorSelect = item.tipo === 'categoria' ? 'CAT_' + item.valor : 'PROD_' + item.valor;
+                agregarFilaProductoCombo(valorSelect, item.cantidad);
+            }
+        });
     } else {
-        agregarFilaProductoCombo(); // Fila en blanco por si viene roto
+        agregarFilaProductoCombo(); 
     }
 
     document.getElementById('titulo-form-combo').innerText = "Editar Combo";
