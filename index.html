@@ -315,6 +315,31 @@
         </div>
     </div>
 
+    <!-- MODAL: ASIGNAR REPARTIDOR Y MARCAR PAGO -->
+    <div id="modalAsignarRepartidor" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-opacity">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+            <div class="p-5 border-b border-slate-700/50">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-motorcycle text-emerald-400"></i> Pagar a Repartidor
+                </h3>
+                <p id="txtPedidoRepartidor" class="text-xs text-slate-400 mt-1">Pedido: ...</p>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Selecciona el repartidor</label>
+                    <select id="selectRepartidor" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white text-sm focus:border-emerald-500 focus:outline-none transition">
+                        <option value="">-- Seleccionar --</option>
+                        <!-- Las opciones se llenan por JS -->
+                    </select>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-800/50 flex justify-end gap-3 border-t border-slate-700/50">
+                <button onclick="cerrarModalRepartidor()" class="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white transition cursor-pointer">Cancelar</button>
+                <button onclick="guardarRepartidor()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg shadow-md transition cursor-pointer">Marcar como Pagado</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalDetalle" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl relative">
             <div class="flex justify-between items-start border-b border-slate-700 pb-3 mb-4">
