@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración Avanzado</title>
+    <!-- Agregado FontAwesome para los íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --bg-color: #0b1120; --card-bg: #1e293b; --primary: #e11d48;
@@ -11,9 +13,40 @@
         }
         body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 2rem; margin: 0; }
         .admin-container { background-color: var(--card-bg); border-radius: 12px; max-width: 1000px; margin: 0 auto; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        .header { background-color: var(--primary); text-align: center; padding: 1.5rem; }
-        .header h1 { margin: 0; font-size: 1.5rem; }
         
+        /* Modificaciones en la cabecera para el botón de Estadísticas */
+        .header { 
+            background-color: var(--primary); 
+            padding: 1.5rem; 
+            position: relative; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 80px; 
+        }
+        .header-content { text-align: center; }
+        .header-content h1 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 8px;}
+        .header-content p { margin: 0; font-size: 0.9rem; opacity: 0.8; margin-top: 5px; }
+        
+        /* Estilos del nuevo botón */
+        .btn-estadisticas {
+            position: absolute;
+            left: 1.5rem;
+            background-color: rgba(0, 0, 0, 0.2);
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: background-color 0.3s;
+        }
+        .btn-estadisticas:hover { background-color: rgba(0, 0, 0, 0.4); }
+
         .tabs { display: flex; background-color: #162032; }
         .tab-btn { flex: 1; padding: 1rem; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 1rem;}
         .tab-btn.active { color: var(--text-main); border-bottom: 3px solid var(--primary); background-color: var(--card-bg); }
@@ -50,9 +83,16 @@
 <body>
 
     <div class="admin-container">
+        
+        <!-- CABECERA MODIFICADA CON EL BOTÓN -->
         <div class="header">
-            <h1>🍣 PANEL DE ADMINISTRACIÓN</h1>
-            <p style="margin:0; font-size: 0.9rem; opacity: 0.8; margin-top: 5px;">Control Total del Menú</p>
+            <a href="estadisticas.html" target="_blank" class="btn-estadisticas">
+                <i class="fa-solid fa-chart-pie"></i> Estadísticas
+            </a>
+            <div class="header-content">
+                <h1>🍣 PANEL DE ADMINISTRACIÓN</h1>
+                <p>Control Total del Menú</p>
+            </div>
         </div>
 
         <div class="tabs">
