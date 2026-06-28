@@ -1505,7 +1505,8 @@ function guardarRepartidor() {
     // 2. Enviamos la actualización a la base de datos (n8n)
     const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
     const payload = {
-        id: idPedidoRepartidorActual,
+        id_pedido: idPedidoRepartidorActual, // <--- ESTA ES LA LÍNEA MÁGICA
+        id: idPedidoRepartidorActual,        // (Dejamos esta también por si otro nodo la necesita)
         estado: pedido.estado, 
         cliente: pedido.cliente,
         pedido_detallado: pedido.pedido_detallado,
@@ -1516,7 +1517,7 @@ function guardarRepartidor() {
         procesado_por: operadorFirma,
         referencia_pago: pedido.referencia_pago || "",
         imagen_pago: pedido.imagen_pago || "",
-        repartidor: nombreRepartidor // Enviamos este nuevo dato
+        repartidor: nombreRepartidor
     };
 
     fetch(API_ACTUALIZAR_ESTADO, {
