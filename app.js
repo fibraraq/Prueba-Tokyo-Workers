@@ -1519,7 +1519,8 @@ function guardarRepartidor() {
         procesado_por: operadorFirma,
         referencia_pago: pedido.referencia_pago || "",
         imagen_pago: pedido.imagen_pago || "",
-        repartidor: nombreRepartidor
+        repartidor: nombreRepartidor,
+        actualizacion_silenciosa: true // <--- SEÑAL SECRETA AGREGADA
     };
 
     fetch(API_ACTUALIZAR_ESTADO, {
