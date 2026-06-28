@@ -751,11 +751,31 @@ function renderizarTablero() {
                 </div>`;
         } else if (estadoLimpio === 'finalizado') {
             conteoFinalizado++; totalVentasDia += monto; 
+            
+            // --- NUEVA LÓGICA DE LA MOTO ---
+            const esDelivery = String(pedido.tipo_entrega || '').toLowerCase().includes('delivery');
+            const repartidorAsignado = pedido.repartidor || pedido.Repartidor || '';
+            let btnMoto = '';
+            
+            if (esDelivery) {
+                const colorMoto = repartidorAsignado !== '' ? 'text-emerald-400' : 'text-slate-400 hover:text-emerald-400';
+                const tituloMoto = repartidorAsignado !== '' ? `Pagado a: ${repartidorAsignado}` : 'Marcar pago de delivery';
+                // Usamos event.stopPropagation() para que al darle a la moto no se abra el recibo del pedido
+                btnMoto = `<button onclick="abrirModalRepartidor('${idReal}', event)" class="${colorMoto} transition cursor-pointer ml-2" title="${tituloMoto}"><i class="fa-solid fa-motorcycle"></i></button>`;
+            }
+            // -------------------------------
+
             let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span>`;
             if (esPagoMovil) htmlMontoFinalizado = `<div class="flex flex-col text-right"><span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
+            
             colFinalizado.innerHTML += `
-                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition flex justify-between items-center cursor-pointer">
-                    <div class="flex items-center gap-2"><span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span><span class="text-xs text-slate-400">Ver Recibo</span>${btnWhatsApp}</div>
+                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition flex justify-between items-center cursor-pointer mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span>
+                        <span class="text-xs text-slate-400">Ver Recibo</span>
+                        ${btnWhatsApp}
+                        ${btnMoto}
+                    </div>
                     ${htmlMontoFinalizado}
                 </div>`;
         }
@@ -1423,5 +1443,85 @@ async function procesarPrecioDelivery(idPedido) {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify(payload) 
+    }).catch(e => console.error("Error BD:", e));
+}
+
+// --- FUNCIONES DEL REPARTIDOR ---
+let idPedidoRepartidorActual = null;
+
+function abrirModalRepartidor(idReal, evento) {
+    evento.stopPropagation(); 
+    idPedidoRepartidorActual = idReal;
+    
+    const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
+    if (!pedido) return;
+
+    document.getElementById('txtPedidoRepartidor').innerText = `Pedido para: ${pedido.cliente}`;
+    const select = document.getElementById('selectRepartidor');
+    select.innerHTML = '<option value="">-- Seleccionar --</option>';
+    
+    // Filtramos los usuarios que vienen de n8n buscando a los repartidores
+    // Si aún no has asignado el rol "repartidor" a nadie, mostrará a todos por defecto
+    let listaRepartidores = USUARIOS_SISTEMA.filter(u => String(u.rol).toLowerCase() === 'repartidor');
+    if (listaRepartidores.length === 0) listaRepartidores = USUARIOS_SISTEMA; 
+
+    listaRepartidores.forEach(r => {
+        select.innerHTML += `<option value="${r.nombre}">${r.nombre}</option>`;
+    });
+    
+    // Si ya tenía alguien asignado, lo dejamos seleccionado
+    if (pedido.repartidor) select.value = pedido.repartidor;
+
+    const modal = document.getElementById('modalAsignarRepartidor');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function cerrarModalRepartidor() {
+    const modal = document.getElementById('modalAsignarRepartidor');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    idPedidoRepartidorActual = null;
+}
+
+function guardarRepartidor() {
+    const select = document.getElementById('selectRepartidor');
+    const nombreRepartidor = select.value;
+    
+    if (nombreRepartidor === "") {
+        alert("Por favor selecciona un repartidor válido de la lista.");
+        return;
+    }
+
+    const index = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(idPedidoRepartidorActual));
+    if (index === -1) return;
+    const pedido = pedidosEnMemoria[index];
+    
+    // 1. Cambiamos la moto a verde visualmente
+    pedidosEnMemoria[index].repartidor = nombreRepartidor;
+    renderizarTablero();
+    cerrarModalRepartidor();
+
+    // 2. Enviamos la actualización a la base de datos (n8n)
+    const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
+    const payload = {
+        id: idPedidoRepartidorActual,
+        estado: pedido.estado, 
+        cliente: pedido.cliente,
+        pedido_detallado: pedido.pedido_detallado,
+        total_orden: pedido.total_orden,
+        telefono: pedido.telefono || '',
+        tipo_entrega: pedido.tipo_entrega || '',
+        metodo_pago: pedido.metodo_pago || '',
+        procesado_por: operadorFirma,
+        referencia_pago: pedido.referencia_pago || "",
+        imagen_pago: pedido.imagen_pago || "",
+        repartidor: nombreRepartidor // Enviamos este nuevo dato
+    };
+
+    fetch(API_ACTUALIZAR_ESTADO, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
     }).catch(e => console.error("Error BD:", e));
 }
