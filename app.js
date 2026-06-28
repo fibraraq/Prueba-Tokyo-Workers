@@ -1350,18 +1350,47 @@ function obtenerEmojiPlato() {
     return emojis[Math.floor(Math.random() * emojis.length)];
 }
 
-// --- NUEVO: AÑADIR COSTO DE DELIVERY ---
-function procesarPrecioDelivery(idPedido) {
+// --- NUEVO: MODAL ESTÉTICO DE DELIVERY ---
+function pedirPrecioDelivery(cliente) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modalPrecioDelivery');
+        const inputPrecio = document.getElementById('inputPrecioDelivery');
+        const txtCliente = document.getElementById('txtClienteDelivery');
+        
+        txtCliente.innerText = `Cliente: ${cliente}`;
+        inputPrecio.value = '';
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex'); 
+        inputPrecio.focus();
+        
+        document.getElementById('btnAceptarDelivery').onclick = () => {
+            const valor = inputPrecio.value.trim();
+            if (valor === '') { alert("Por favor ingresa un monto."); return; }
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            resolve(valor);
+        };
+        
+        document.getElementById('btnCancelarDelivery').onclick = () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            resolve(null);
+        };
+    });
+}
+
+async function procesarPrecioDelivery(idPedido) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
 
-    const precioDel = prompt(`Ingresa el costo del delivery para el cliente ${pedido.cliente}:\n(Ejemplo: 1.5)`);
-    if (precioDel === null || precioDel.trim() === '') return; // Canceló
+    // Lanzamos el nuevo modal hermoso
+    const precioDel = await pedirPrecioDelivery(pedido.cliente);
+    if (precioDel === null) return; 
     
-    // Cambiamos comas por puntos por si el cajero se equivoca
     const costoDelivery = parseFloat(precioDel.replace(',', '.'));
     if (isNaN(costoDelivery)) {
-        alert("Por favor ingresa un número válido para el delivery.");
+        alert("Monto inválido.");
         return;
     }
 
@@ -1369,14 +1398,12 @@ function procesarPrecioDelivery(idPedido) {
     const nuevoDetalle = pedido.pedido_detallado + `\n1x Servicio de Delivery ($${costoDelivery})`;
     const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
 
-    // 1. Actualizamos la memoria visual al instante
     const index = pedidosEnMemoria.findIndex(p => String(p.id_pedido || p['ID_Pedido'] || p.ID) === String(idPedido));
     pedidosEnMemoria[index].estado = 'Pago Pendiente';
     pedidosEnMemoria[index].total_orden = nuevoTotal;
     pedidosEnMemoria[index].pedido_detallado = nuevoDetalle;
     renderizarTablero();
 
-    // 2. Enviamos la orden de actualización a n8n
     const payload = {
         id: idPedido, 
         estado: 'Pago Pendiente', 
@@ -1385,10 +1412,11 @@ function procesarPrecioDelivery(idPedido) {
         total_orden: nuevoTotal,   
         telefono: pedido.telefono || '', 
         tipo_entrega: pedido.tipo_entrega || '', 
+        metodo_pago: pedido.metodo_pago || pedido['Método de pago'] || pedido.Metodo_pago || '',
         procesado_por: operadorFirma,
         referencia_pago: pedido.referencia_pago || "", 
-        imagen_pago: pedido.imagen_pago || "",
-        es_cotizacion_delivery: true // ¡ESTA ES LA LLAVE PARA N8N!
+        imagen_pago: "Sin comprobante",
+        es_cotizacion_delivery: true
     };
     
     fetch(API_ACTUALIZAR_ESTADO, { 
