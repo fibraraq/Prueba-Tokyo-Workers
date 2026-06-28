@@ -95,13 +95,23 @@
                 btn.classList.remove('bg-indigo-600', 'text-white');
                 btn.classList.add('bg-slate-800', 'text-slate-300');
             });
+            
             if (tipo !== 'custom') {
-                event.target.classList.remove('bg-slate-800', 'text-slate-300');
-                event.target.classList.add('bg-indigo-600', 'text-white');
                 document.getElementById('fechaCustom').value = '';
+                // Solución al clic fantasma: Verificamos si hubo un clic real o si es carga automática
+                try {
+                    if (window.event && window.event.target && window.event.target.classList.contains('filtro-btn')) {
+                        window.event.target.classList.remove('bg-slate-800', 'text-slate-300');
+                        window.event.target.classList.add('bg-indigo-600', 'text-white');
+                    } else if (tipo === 'hoy') {
+                        // Carga automática al entrar: Pintamos el primer botón ("Hoy") a la fuerza
+                        document.querySelectorAll('.filtro-btn')[0].classList.remove('bg-slate-800', 'text-slate-300');
+                        document.querySelectorAll('.filtro-btn')[0].classList.add('bg-indigo-600', 'text-white');
+                    }
+                } catch(e) {}
             }
 
-            // 2. Lógica de fechas
+            // 2. Lógica de fechas (de aquí hacia abajo todo queda exactamente igual...)
             const hoy = new Date();
             hoy.setHours(0,0,0,0);
             
