@@ -643,7 +643,7 @@ function renderizarTablero() {
     if (colCalculando) colCalculando.innerHTML = '';
     colPagoPendiente.innerHTML = ''; colEnCocina.innerHTML = ''; colFinalizado.innerHTML = '';
 
-    let conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
+    let conteoCalculando = 0, conteoPago = 0, conteoCocina = 0, conteoFinalizado = 0;
     let totalVentasDia = 0; 
     const inputTasa = document.getElementById('tasaBCV');
     const tasaActual = inputTasa ? (parseFloat(inputTasa.value) || 1) : 1;
@@ -711,9 +711,7 @@ function renderizarTablero() {
                         <button onclick="procesarPrecioDelivery('${idReal}')" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1.5 rounded-md transition flex items-center gap-1 cursor-pointer">Poner precio delivery <i class="fa-solid fa-motorcycle"></i></button>
                     </div>
                 </div>`;
-        } else if (estadoLimpio === 'pagopendiente') { // ...aquí sigue tu código normal
-            
-        if (estadoLimpio === 'pagopendiente') {
+        } else if (estadoLimpio === 'pagopendiente') {
             conteoPago++;
             colPagoPendiente.innerHTML += `
                 <div class="bg-slate-700/40 p-4 rounded-lg border border-yellow-500/10 hover:border-yellow-500/30 transition duration-150 space-y-3">
