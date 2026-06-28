@@ -1497,16 +1497,18 @@ function guardarRepartidor() {
     if (index === -1) return;
     const pedido = pedidosEnMemoria[index];
     
+    // ¡LA CLAVE! Rescatamos el ID antes de que el modal lo borre
+    const idSeguro = idPedidoRepartidorActual;
+    
     // 1. Cambiamos la moto a verde visualmente
     pedidosEnMemoria[index].repartidor = nombreRepartidor;
     renderizarTablero();
-    cerrarModalRepartidor();
 
     // 2. Enviamos la actualización a la base de datos (n8n)
     const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
     const payload = {
-        id_pedido: idPedidoRepartidorActual, // <--- ESTA ES LA LÍNEA MÁGICA
-        id: idPedidoRepartidorActual,        // (Dejamos esta también por si otro nodo la necesita)
+        id_pedido: idSeguro,
+        id: idSeguro,
         estado: pedido.estado, 
         cliente: pedido.cliente,
         pedido_detallado: pedido.pedido_detallado,
@@ -1525,4 +1527,7 @@ function guardarRepartidor() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     }).catch(e => console.error("Error BD:", e));
+    
+    // 3. AHORA SÍ, cerramos el modal al final de todo el proceso
+    cerrarModalRepartidor();
 }
