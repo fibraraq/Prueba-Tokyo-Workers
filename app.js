@@ -82,28 +82,45 @@ async function cargarUsuariosDesdeDB() {
     }
 }
 
-// --- CONTROL DE TASA ---
+// --- CONTROL DE TASA (VERSIÓN INTELIGENTE CON CANDADO) ---
 async function actualizarTasaBCV() {
     const inputTasa = document.getElementById('tasaBCV');
     if (!inputTasa) return;
+
+    const hoy = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
+    const tasaGuardada = localStorage.getItem('tasaBCV');
+    const fechaTasa = localStorage.getItem('fechaTasa');
+
+    // 1. El Candado: Si el usuario ya fijó una tasa manualmente hoy, bloqueamos la API
+    if (fechaTasa === hoy && tasaGuardada) {
+        inputTasa.value = tasaGuardada;
+        return; // Detiene la función aquí mismo
+    }
+
+    // 2. Si no hay candado hoy, consultamos la API
     try {
         const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
         if (!response.ok) throw new Error('Error API BCV');
         const data = await response.json();
         if (data.promedio) {
             inputTasa.value = parseFloat(data.promedio).toFixed(2);
+            // Guardamos la tasa automática y le ponemos la fecha de hoy
             localStorage.setItem('tasaBCV', inputTasa.value);
+            localStorage.setItem('fechaTasa', hoy);
+            
             inputTasa.classList.add('text-emerald-400');
             setTimeout(() => inputTasa.classList.remove('text-emerald-400'), 2000);
         }
     } catch (error) {
-        if (localStorage.getItem('tasaBCV')) inputTasa.value = localStorage.getItem('tasaBCV');
+        if (tasaGuardada) inputTasa.value = tasaGuardada;
     }
 }
 
 if (document.getElementById('tasaBCV')) {
     document.getElementById('tasaBCV').addEventListener('input', (e) => {
+        const hoy = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
         localStorage.setItem('tasaBCV', e.target.value);
+        localStorage.setItem('fechaTasa', hoy); // Activa el candado manual para el día de hoy
         renderizarTablero(); 
     });
 }
