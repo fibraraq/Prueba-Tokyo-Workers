@@ -82,7 +82,7 @@ async function cargarUsuariosDesdeDB() {
     }
 }
 
-// --- CONTROL DE TASA (VERSIÓN INTELIGENTE CON CANDADO) ---
+// --- CONTROL DE TASA (CON PYDOLARVENEZUELA + CANDADO MANUAL) ---
 async function actualizarTasaBCV() {
     const inputTasa = document.getElementById('tasaBCV');
     if (!inputTasa) return;
@@ -91,20 +91,24 @@ async function actualizarTasaBCV() {
     const tasaGuardada = localStorage.getItem('tasaBCV');
     const fechaTasa = localStorage.getItem('fechaTasa');
 
-    // 1. El Candado: Si el usuario ya fijó una tasa manualmente hoy, bloqueamos la API
+    // 1. El Candado: Si pusiste la tasa a mano hoy, no dejamos que la API la aplaste
     if (fechaTasa === hoy && tasaGuardada) {
         inputTasa.value = tasaGuardada;
-        return; // Detiene la función aquí mismo
+        return; 
     }
 
-    // 2. Si no hay candado hoy, consultamos la API
+    // 2. Consulta a la API de PyDolarVenezuela
     try {
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-        if (!response.ok) throw new Error('Error API BCV');
+        const response = await fetch('https://pydolarvenezuela.vercel.app/api/v1/dollar?page=bcv');
+        if (!response.ok) throw new Error('Error API PyDolarVenezuela');
+        
         const data = await response.json();
-        if (data.promedio) {
-            inputTasa.value = parseFloat(data.promedio).toFixed(2);
-            // Guardamos la tasa automática y le ponemos la fecha de hoy
+        
+        // PyDolarVenezuela guarda el precio en otra ruta dentro del JSON
+        if (data && data.monitors && data.monitors.usd) {
+            inputTasa.value = parseFloat(data.monitors.usd.price).toFixed(2);
+            
+            // Guardamos la tasa y aseguramos la fecha de hoy
             localStorage.setItem('tasaBCV', inputTasa.value);
             localStorage.setItem('fechaTasa', hoy);
             
@@ -112,6 +116,8 @@ async function actualizarTasaBCV() {
             setTimeout(() => inputTasa.classList.remove('text-emerald-400'), 2000);
         }
     } catch (error) {
+        console.error("Fallo la conexión con PyDolarVenezuela:", error);
+        // Si la API falla, recurrimos al respaldo
         if (tasaGuardada) inputTasa.value = tasaGuardada;
     }
 }
