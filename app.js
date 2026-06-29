@@ -83,7 +83,7 @@ async function cargarUsuariosDesdeDB() {
 }
 
 // --- CONTROL DE TASA ---
-async function actualizar() {
+async function actualizarTasaBCV() {
     const inputTasa = document.getElementById('tasaBCV');
     if (!inputTasa) return;
     try {
