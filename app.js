@@ -858,12 +858,8 @@ function renderizarTablero() {
             if (esDelivery) {
                 const colorMoto = repartidorAsignado !== '' ? 'text-emerald-400' : 'text-slate-400 hover:text-emerald-400';
                 const tituloMoto = repartidorAsignado !== '' ? `Pagado a: ${repartidorAsignado}` : 'Marcar pago de delivery';
-                // Usamos event.stopPropagation() para que al darle a la moto no se abra el recibo del pedido
                 btnMoto = `<button onclick="abrirModalRepartidor('${idReal}', event)" class="${colorMoto} transition cursor-pointer ml-2" title="${tituloMoto}"><i class="fa-solid fa-motorcycle"></i></button>`;
             }
-            // -------------------------------
-
-            // ... (Lógica de la moto que ya tienes) ...
 
             let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span>`;
             if (esPagoMovil) htmlMontoFinalizado = `<div class="flex flex-col text-right"><span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
@@ -896,6 +892,8 @@ function renderizarTablero() {
                     </div>
                     ${htmlReferencia}
                 </div>`;
+        }
+    });
 
     if (document.getElementById('cantCalculandoDelivery')) {
         document.getElementById('cantCalculandoDelivery').innerText = conteoCalculando;
@@ -905,7 +903,6 @@ function renderizarTablero() {
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
     if (document.getElementById('totalDiaBottom')) document.getElementById('totalDiaBottom').innerHTML = `<div class="flex flex-col text-right leading-tight"><span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(totalVentasDia * tasaActual).toFixed(2)}</span></div>`;
 }
-
 // --- VER RECIBOS ---
 function verComprobanteDeMemoria(idReal) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal)); if (!pedido) return;
