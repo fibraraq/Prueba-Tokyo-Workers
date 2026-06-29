@@ -1,14 +1,14 @@
 // Tokio Sushi - Núcleo de Operaciones y Control del Sistema
 
-const API_OBTENER_PEDIDOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-pedidos";
-const API_ACTUALIZAR_ESTADO = "https://n8n-production-633e.up.railway.app/webhook/actualizar-estado";
-const URL_NUEVO_PEDIDO = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo";
-const URL_OBTENER_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
-const URL_OBTENER_USUARIOS = "https://n8n-production-633e.up.railway.app/webhook/obtener-usuarios";
+const API_OBTENER_PEDIDOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-pedidos";
+const API_ACTUALIZAR_ESTADO = "https://n8n-production-0c91c.up.railway.app/webhook/actualizar-estado";
+const URL_NUEVO_PEDIDO = "https://n8n-production-0c91c.up.railway.app/webhook/Prueba-tokyo";
+const URL_OBTENER_MENU = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-menu";
+const URL_OBTENER_USUARIOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-usuarios";
 
 // NUEVAS URLs PARA EL PANEL DE ADMINISTRACIÓN
-const URL_GUARDAR_PRODUCTO = "https://n8n-production-633e.up.railway.app/webhook/guardar-producto";
-const URL_GUARDAR_COMBO = "https://n8n-production-633e.up.railway.app/webhook/guardar-combo";
+const URL_GUARDAR_PRODUCTO = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-producto";
+const URL_GUARDAR_COMBO = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-combo";
 
 let USUARIOS_SISTEMA = [];
 let CATALOGO_PRODUCTOS = []; // Catálogo unificado para el buscador de pedidos
@@ -479,7 +479,7 @@ function guardarEdicionPedido() {
     };
     
     // Aquí puedes cambiar a tu nueva URL local si lo deseas
-    fetch("https://n8n-production-633e.up.railway.app/webhook/notificar-edicion", { 
+    fetch("https://n8n-production-0c91c.up.railway.app/webhook/notificar-edicion", { 
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadNotificacion) 
     }).catch(e => console.error("Error enviando WhatsApp:", e));
 }
@@ -832,11 +832,11 @@ function cerrarModal() { document.getElementById('modalDetalle').classList.add('
 // --- LÓGICA EXCLUSIVA DEL PANEL DE ADMINISTRACIÓN (admin.html) ---
 // =====================================================================
 
-const ADMIN_URL_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
-const ADMIN_URL_GUARDAR_CAT = "https://n8n-production-633e.up.railway.app/webhook/guardar-categoria";
-const ADMIN_URL_GUARDAR_PROD = "https://n8n-production-633e.up.railway.app/webhook/guardar-producto";
-const ADMIN_URL_GUARDAR_COMBO = "https://n8n-production-633e.up.railway.app/webhook/guardar-combo";
-const ADMIN_URL_ELIMINAR = "https://n8n-production-633e.up.railway.app/webhook/eliminar-item";
+const ADMIN_URL_MENU = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-menu";
+const ADMIN_URL_GUARDAR_CAT = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-categoria";
+const ADMIN_URL_GUARDAR_PROD = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-producto";
+const ADMIN_URL_GUARDAR_COMBO = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-combo";
+const ADMIN_URL_ELIMINAR = "https://n8n-production-0c91c.up.railway.app/webhook/eliminar-item";
 
 let adminCategorias = [];
 let adminProductos = [];
