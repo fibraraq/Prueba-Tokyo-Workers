@@ -82,7 +82,7 @@ async function cargarUsuariosDesdeDB() {
     }
 }
 
-// --- CONTROL DE TASA (API ESTABLE + CANDADO MANUAL) ---
+// --- CONTROL DE TASA (PRUEBA DE NUEVA API + CANDADO) ---
 async function actualizarTasaBCV() {
     const inputTasa = document.getElementById('tasaBCV');
     if (!inputTasa) return;
@@ -91,32 +91,24 @@ async function actualizarTasaBCV() {
     const tasaGuardada = localStorage.getItem('tasaBCV');
     const fechaTasa = localStorage.getItem('fechaTasa');
 
-    // 1. EL CANDADO: Si ya fijaste la tasa a mano hoy, la API se bloquea y respeta tu número
+    // 1. El Candado manual
     if (fechaTasa === hoy && tasaGuardada) {
         inputTasa.value = tasaGuardada;
-        return; // Detiene la función aquí mismo
+        return; 
     }
 
-    // 2. Consulta a la API estable (DolarApi)
     try {
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-        if (!response.ok) throw new Error('Error API BCV');
+        // 2. Llamamos a la nueva API
+        const response = await fetch('https://bcv-api.rafnixg.dev/rates/');
+        if (!response.ok) throw new Error('Error en la nueva API');
         
         const data = await response.json();
         
-        if (data && data.promedio) {
-            inputTasa.value = parseFloat(data.promedio).toFixed(2);
-            
-            // Guardamos la tasa automática y le ponemos la fecha de hoy
-            localStorage.setItem('tasaBCV', inputTasa.value);
-            localStorage.setItem('fechaTasa', hoy);
-            
-            inputTasa.classList.add('text-emerald-400');
-            setTimeout(() => inputTasa.classList.remove('text-emerald-400'), 2000);
-        }
+        // 3. IMPRIMIMOS EL PAQUETE EN LA CONSOLA PARA VER SU ESTRUCTURA
+        console.log("🔍 DATOS PUROS DE LA NUEVA API:", data);
+        
     } catch (error) {
-        console.error("Falló la conexión con DolarApi:", error);
-        // Si no hay internet o la API falla, carga la última guardada
+        console.error("Falló la conexión con la nueva API:", error);
         if (tasaGuardada) inputTasa.value = tasaGuardada;
     }
 }
