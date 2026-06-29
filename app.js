@@ -340,7 +340,7 @@ async function enviarNuevoPedido() {
         cliente: cliente, telefono: document.getElementById('inputTelefono').value.trim() || 'No registrado',
         tipo_entrega: document.getElementById('inputEntrega').value, metodo_pago: document.getElementById('inputPago').value,
         direccion: document.getElementById('inputDireccion').value.trim() || 'En el local', articulos: articulos,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(), tasa_bcv: parseFloat(document.getElementById('tasaBCV').value) || 1
     };
 
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
@@ -635,10 +635,40 @@ async function cargarPedidos() {
         const fechaCalendario = document.getElementById('calendarioFiltro') ? document.getElementById('calendarioFiltro').value : '';
         let urlFetch = API_OBTENER_PEDIDOS + '?_t=' + new Date().getTime();
         if (fechaCalendario) urlFetch += '&fecha=' + fechaCalendario;
-        const response = await fetch(urlFetch); if (!response.ok) throw new Error('Error API');
-        const datos = await response.json(); pedidosEnMemoria = Array.isArray(datos) ? datos : [];
-        renderizarTablero(); resetearYArrancarPolling();
-    } catch (error) { console.error(error); }
+        
+        const response = await fetch(urlFetch); 
+        if (!response.ok) throw new Error('Error API');
+        
+        const datos = await response.json(); 
+        pedidosEnMemoria = Array.isArray(datos) ? datos : [];
+        
+        // --- NUEVA LÓGICA DE TASA HISTÓRICA ---
+        const inputTasa = document.getElementById('tasaBCV');
+        const hoy = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
+
+        if (fechaCalendario && fechaCalendario !== hoy) {
+            // Buscamos si algún pedido de esa fecha tiene la tasa guardada
+            const pedidoConTasa = pedidosEnMemoria.find(p => p.tasa_bcv && parseFloat(p.tasa_bcv) > 0);
+            if (pedidoConTasa) {
+                inputTasa.value = parseFloat(pedidoConTasa.tasa_bcv).toFixed(2);
+                inputTasa.classList.add('text-amber-400'); // La pintamos de amarillo
+            } else {
+                // Para los pedidos viejos de ayer o antes que no tenían esta función
+                inputTasa.value = "N/A";
+                inputTasa.classList.add('text-amber-400');
+            }
+        } else {
+            // Si es la fecha de hoy, volvemos a la normalidad y buscamos la actual
+            actualizarTasaBCV();
+            inputTasa.classList.remove('text-amber-400');
+        }
+        // ----------------------------------------
+
+        renderizarTablero(); 
+        resetearYArrancarPolling();
+    } catch (error) { 
+        console.error(error); 
+    }
 }
 
 // --- ALGORITMO RENDERIZADOR Y MAPEO DE TURNOS ---
