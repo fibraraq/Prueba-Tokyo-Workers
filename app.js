@@ -654,7 +654,7 @@ async function cargarPedidos() {
                 inputTasa.classList.add('text-amber-400'); // La pintamos de amarillo
             } else {
                 // Para los pedidos viejos de ayer o antes que no tenían esta función
-                inputTasa.value = "N/A";
+                inputTasa.value = "";
                 inputTasa.classList.add('text-amber-400');
             }
         } else {
