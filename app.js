@@ -487,10 +487,20 @@ function buscarProducto(texto) {
 }
 
 function agregarAlCarritoEdicion(idProducto) {
-    const producto = CATALOGO_PRODUCTOS.find(p => p.id === idProducto); if (!producto) return;
+    // Usamos String() para evitar que choque un número con un texto
+    const producto = CATALOGO_PRODUCTOS.find(p => String(p.id) === String(idProducto)); 
+    if (!producto) return;
+    
     const existeIndex = carritoEdicion.findIndex(item => item.name === producto.name);
-    if (existeIndex >= 0) carritoEdicion[existeIndex].qty += 1; else carritoEdicion.push({ id: producto.id, name: producto.name, price: producto.price, qty: 1 });
-    document.getElementById('buscadorMenu').value = ''; document.getElementById('listaSugerencias').classList.add('hidden'); renderizarCarritoEdicion();
+    if (existeIndex >= 0) {
+        carritoEdicion[existeIndex].qty += 1; 
+    } else {
+        carritoEdicion.push({ id: producto.id, name: producto.name, price: producto.price, qty: 1 });
+    }
+    
+    document.getElementById('buscadorMenu').value = ''; 
+    document.getElementById('listaSugerencias').classList.add('hidden'); 
+    renderizarCarritoEdicion();
 }
 
 function cerrarModalEditar() { document.getElementById('modalEditarPedido').classList.add('hidden'); }
