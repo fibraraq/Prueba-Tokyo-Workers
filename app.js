@@ -83,7 +83,7 @@ async function cargarUsuariosDesdeDB() {
 }
 
 // --- CONTROL DE TASA ---
-async function actualizarTasaBCV() {
+async function actualizar() {
     const inputTasa = document.getElementById('tasaBCV');
     if (!inputTasa) return;
     try {
@@ -105,6 +105,16 @@ if (document.getElementById('tasaBCV')) {
     document.getElementById('tasaBCV').addEventListener('input', (e) => {
         localStorage.setItem('tasaBCV', e.target.value);
         renderizarTablero(); 
+    });
+}
+
+// --- ESCUCHADOR DEL CALENDARIO ---
+if (document.getElementById('calendarioFiltro')) {
+    document.getElementById('calendarioFiltro').addEventListener('change', () => {
+        // Al cambiar de día, limpiamos la pantalla, ponemos a cargar y pedimos los datos nuevos
+        console.log("Cambiando fecha a:", document.getElementById('calendarioFiltro').value);
+        pedidosEnMemoria = [];
+        cargarPedidos();
     });
 }
 
