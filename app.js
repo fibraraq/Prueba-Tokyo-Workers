@@ -729,6 +729,12 @@ async function cargarPedidos() {
     }
 }
 
+// --- HELPER PARA FORMATO DE MONEDA (PUNTOS Y COMAS) ---
+function formatearMoneda(valor) {
+    // Formato 'es-VE' (Venezuela): usa . para miles y , para decimales
+    return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valor);
+}
+
 // --- ALGORITMO RENDERIZADOR Y MAPEO DE TURNOS ---
 function renderizarTablero() {
     const colCalculando = document.getElementById('columnaCalculandoDelivery');
@@ -766,8 +772,12 @@ function renderizarTablero() {
         const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil');
         const monto = parseFloat(String(pedido.total_orden || pedido.monto || 0).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
         
-        let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${monto.toFixed(2)}</span>`;
-        if (esPagoMovil) htmlMonto = `<div class="flex flex-col"><span class="text-xs font-bold text-slate-300">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
+        // APLICAMOS EL FORMATO AQUÍ
+        const montoFormateado = formatearMoneda(monto);
+        const montoBsFormateado = formatearMoneda(monto * tasaActual);
+
+        let htmlMonto = `<span class="text-xs font-bold text-slate-300">$${montoFormateado}</span>`;
+        if (esPagoMovil) htmlMonto = `<div class="flex flex-col"><span class="text-xs font-bold text-slate-300">$${montoFormateado}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${montoBsFormateado}</span></div>`;
         
         let hora = '--:--';
         if (pedido.timestamp) {
@@ -850,7 +860,6 @@ function renderizarTablero() {
         } else if (estadoLimpio === 'finalizado') {
             conteoFinalizado++; totalVentasDia += monto; 
             
-            // --- NUEVA LÓGICA DE LA MOTO ---
             const esDelivery = String(pedido.tipo_entrega || '').toLowerCase().includes('delivery');
             const repartidorAsignado = pedido.repartidor || pedido.Repartidor || '';
             let btnMoto = '';
@@ -861,10 +870,9 @@ function renderizarTablero() {
                 btnMoto = `<button onclick="abrirModalRepartidor('${idReal}', event)" class="${colorMoto} transition cursor-pointer ml-2" title="${tituloMoto}"><i class="fa-solid fa-motorcycle"></i></button>`;
             }
 
-            let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span>`;
-            if (esPagoMovil) htmlMontoFinalizado = `<div class="flex flex-col text-right"><span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
+            let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${montoFormateado}</span>`;
+            if (esPagoMovil) htmlMontoFinalizado = `<div class="flex flex-col text-right"><span class="text-sm font-bold text-emerald-400">$${montoFormateado}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${montoBsFormateado}</span></div>`;
             
-            // --- NUEVA LÓGICA DE REFERENCIA ---
             let htmlReferencia = '';
             if (esPagoMovil) {
                 const ref = pedido.referencia_pago || pedido.Referencia_pago || pedido['Referencia_pago'] || '';
@@ -875,7 +883,6 @@ function renderizarTablero() {
                 }
             }
 
-            // --- NUEVA ESTRUCTURA DE LA TARJETA ---
             colFinalizado.innerHTML += `
                 <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition cursor-pointer mb-2 flex flex-col">
                     <div class="flex justify-between items-start w-full">
@@ -901,8 +908,13 @@ function renderizarTablero() {
     document.getElementById('cantPagoPendiente').innerText = conteoPago; 
     document.getElementById('cantEnCocina').innerText = conteoCocina; 
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
-    if (document.getElementById('totalDiaBottom')) document.getElementById('totalDiaBottom').innerHTML = `<div class="flex flex-col text-right leading-tight"><span class="text-lg font-bold text-emerald-400">$${totalVentasDia.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(totalVentasDia * tasaActual).toFixed(2)}</span></div>`;
+
+    // APLICAMOS EL FORMATO A LOS TOTALES DEL FONDO TAMBIÉN
+    const totalVentasFormateado = formatearMoneda(totalVentasDia);
+    const totalVentasBsFormateado = formatearMoneda(totalVentasDia * tasaActual);
+    if (document.getElementById('totalDiaBottom')) document.getElementById('totalDiaBottom').innerHTML = `<div class="flex flex-col text-right leading-tight"><span class="text-lg font-bold text-emerald-400">$${totalVentasFormateado}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${totalVentasBsFormateado}</span></div>`;
 }
+
 // --- VER RECIBOS ---
 function verComprobanteDeMemoria(idReal) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal)); if (!pedido) return;
