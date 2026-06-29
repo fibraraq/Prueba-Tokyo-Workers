@@ -3,9 +3,9 @@
 // ==========================================
 
 // ⚠️ RECUERDA: Si subes esto a GitHub, cambia "localhost:5678" por tu URL de loca.lt
-const URL_OBTENER_MENU = "https://n8n-production-633e.up.railway.app/webhook/obtener-menu";
-const URL_VERIFICAR_CLIENTE = "https://n8n-production-633e.up.railway.app/webhook/verificar-cliente";
-const URL_REGISTRAR_CLIENTE = "https://n8n-production-633e.up.railway.app/webhook/registrar-cliente";
+const URL_OBTENER_MENU = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-menu";
+const URL_VERIFICAR_CLIENTE = "https://n8n-production-0c91c.up.railway.app/webhook/verificar-cliente";
+const URL_REGISTRAR_CLIENTE = "https://n8n-production-0c91c.up.railway.app/webhook/registrar-cliente";
 
 let menuData = { combos: [], cocina: [], sushi: [], extras: [] };
 let cart = {};
@@ -620,7 +620,7 @@ async function sendOrder(event) {
                     datosClienteLogueado.direcciones_extra = JSON.stringify(extras);
                     localStorage.setItem('sesionCliente', JSON.stringify(datosClienteLogueado));
                     
-                    fetch("https://n8n-production-633e.up.railway.app/webhook/actualizar-direcciones-cliente", {
+                    fetch("https://n8n-production-0c91c.up.railway.app/webhook/actualizar-direcciones-cliente", {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ telefono: datosClienteLogueado.telefono, direcciones_extra: datosClienteLogueado.direcciones_extra })
                     }).catch(err => console.error(err));
@@ -646,7 +646,7 @@ async function sendOrder(event) {
     };
 
     // La URL original de tu webhook de creación de pedidos
-    const n8nWebhookUrl = "https://n8n-production-633e.up.railway.app/webhook/Prueba-tokyo"; 
+    const n8nWebhookUrl = "https://n8n-production-0c91c.up.railway.app/webhook/Prueba-tokyo"; 
 
     try {
         const response = await fetch(n8nWebhookUrl, {
@@ -873,7 +873,7 @@ async function guardarEdicionDatos() {
 
     try {
         // Aprovechamos tu webhook actual para enviar ambas actualizaciones
-        await fetch("https://n8n-production-633e.up.railway.app/webhook/actualizar-direcciones-cliente", {
+        await fetch("https://n8n-production-0c91c.up.railway.app/webhook/actualizar-direcciones-cliente", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
