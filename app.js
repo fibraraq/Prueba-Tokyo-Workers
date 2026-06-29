@@ -352,21 +352,28 @@ async function enviarNuevoPedido() {
     const cliente = document.getElementById('inputCliente').value.trim();
     if(!cliente) { alert("Por favor ingresa el nombre del cliente."); return; }
 
-    const articulos = Array.from(document.querySelectorAll('.articulo-fila')).map(f => ({
-        qty: parseInt(f.querySelector('.item-qty').value) || 1,
-        name: f.querySelector('.item-name').value.trim() || 'Artículo sin nombre',
-        price: parseFloat(f.querySelector('.item-price').value) || 0
-    }));
+    // AQUÍ ESTÁ EL TRUCO: Le pegamos el precio directamente al nombre
+    const articulos = Array.from(document.querySelectorAll('.articulo-fila')).map(f => {
+        const cant = parseInt(f.querySelector('.item-qty').value) || 1;
+        const nombreBase = f.querySelector('.item-name').value.trim() || 'Artículo sin nombre';
+        const precioUni = parseFloat(f.querySelector('.item-price').value) || 0;
+        
+        return {
+            qty: cant,
+            name: `${nombreBase} ($${(precioUni * cant).toFixed(2)})`, // El nombre ahora viaja con el precio blindado
+            price: precioUni
+        };
+    });
     
-    // Generamos el texto detallado con el precio calculado para enviarlo listo a n8n
-    const textoDetalladoConPrecios = articulos.map(item => `${item.qty}x ${item.name} ($${(item.price * item.qty).toFixed(2)})`).join('\n');
+    // (Opcional) Si tu n8n lee la variable pedido_detallado, se la enviamos también por si acaso
+    const textoDetalladoConPrecios = articulos.map(item => `${item.qty}x ${item.name}`).join('\n');
 
     const payload = {
         cliente: cliente, telefono: document.getElementById('inputTelefono').value.trim() || 'No registrado',
         tipo_entrega: document.getElementById('inputEntrega').value, metodo_pago: document.getElementById('inputPago').value,
         direccion: document.getElementById('inputDireccion').value.trim() || 'En el local', 
         articulos: articulos,
-        pedido_detallado: textoDetalladoConPrecios, // Enviamos el texto listo con precios
+        pedido_detallado: textoDetalladoConPrecios, 
         timestamp: new Date().toISOString(), tasa_bcv: parseFloat(document.getElementById('tasaBCV').value) || 1
     };
 
