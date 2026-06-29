@@ -406,10 +406,24 @@ function abrirModalEditarPedido(idReal, idVisual) {
     lineas.forEach(linea => {
         const match = linea.trim().match(/^(\d+)[xX]\s+(.+)$/);
         if (match) {
-            const cant = parseInt(match[1]); const nombreStr = match[2].trim();
-            const itemCat = typeof CATALOGO_PRODUCTOS !== 'undefined' ? CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreStr.toLowerCase()) : null;
-            const precio = itemCat ? itemCat.price : 0; 
-            carritoEdicion.push({ id: itemCat ? itemCat.id : 'custom', name: nombreStr, price: precio, qty: cant });
+            const cant = parseInt(match[1]); 
+            let nombreLimpio = match[2].trim();
+            let precioExtraido = 0;
+
+            // 1. Extraemos el precio del texto si existe ej: "Alaska Roll ($4.00)" o "Delivery ($3)"
+            const matchPrecio = nombreLimpio.match(/\(\$(\d+(?:\.\d+)?)\)$/);
+            if (matchPrecio) {
+                precioExtraido = parseFloat(matchPrecio[1]) / cant; // Calculamos el precio unitario
+                nombreLimpio = nombreLimpio.replace(/\s*\(\$[\d.]+\)$/, '').trim(); // Le quitamos el precio al nombre
+            }
+
+            // 2. Buscamos en el catálogo con el nombre limpio
+            const itemCat = typeof CATALOGO_PRODUCTOS !== 'undefined' ? CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreLimpio.toLowerCase()) : null;
+            
+            // 3. Si está en el catálogo usamos su precio. Si no, usamos el que extrajimos.
+            const precioFinal = itemCat ? itemCat.price : (precioExtraido || 0);
+
+            carritoEdicion.push({ id: itemCat ? itemCat.id : 'custom', name: nombreLimpio, price: precioFinal, qty: cant });
         }
     });
     if (carritoEdicion.length === 0 && textoDetallado !== '') carritoEdicion.push({ id: 'custom', name: textoDetallado, price: parseFloat(pedido.total_orden) || 0, qty: 1 });
