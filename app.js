@@ -358,10 +358,15 @@ async function enviarNuevoPedido() {
         price: parseFloat(f.querySelector('.item-price').value) || 0
     }));
     
+    // Generamos el texto detallado con el precio calculado para enviarlo listo a n8n
+    const textoDetalladoConPrecios = articulos.map(item => `${item.qty}x ${item.name} ($${(item.price * item.qty).toFixed(2)})`).join('\n');
+
     const payload = {
         cliente: cliente, telefono: document.getElementById('inputTelefono').value.trim() || 'No registrado',
         tipo_entrega: document.getElementById('inputEntrega').value, metodo_pago: document.getElementById('inputPago').value,
-        direccion: document.getElementById('inputDireccion').value.trim() || 'En el local', articulos: articulos,
+        direccion: document.getElementById('inputDireccion').value.trim() || 'En el local', 
+        articulos: articulos,
+        pedido_detallado: textoDetalladoConPrecios, // Enviamos el texto listo con precios
         timestamp: new Date().toISOString(), tasa_bcv: parseFloat(document.getElementById('tasaBCV').value) || 1
     };
 
@@ -477,7 +482,7 @@ function guardarEdicionPedido() {
     if(pedidoIndex === -1) return;
     
     const pedidoAnterior = pedidosEnMemoria[pedidoIndex]; 
-    const nuevoDetalle = carritoEdicion.map(item => `${item.qty}x ${item.name}`).join('\n');
+    const nuevoDetalle = carritoEdicion.map(item => `${item.qty}x ${item.name} ($${(item.price * item.qty).toFixed(2)})`).join('\n');
 
     pedidosEnMemoria[pedidoIndex].cliente = nuevoCliente; 
     pedidosEnMemoria[pedidoIndex].pedido_detallado = nuevoDetalle; 
@@ -884,7 +889,7 @@ function abrirModalDetalle(idPedido) {
     let refHtml = ref ? `<p class="text-xs text-amber-400 mt-1 font-mono bg-slate-900 border border-slate-700 px-2 py-1 rounded inline-block">Ref: ${ref}</p>` : '';
     let btnImg = (img && img !== 'Sin comprobante' && (img.startsWith('http') || img.length > 50)) ? `<div class="border-t border-slate-700/50 pt-3 flex justify-center"><button onclick="verComprobanteDeMemoria('${idReal}')" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-xs px-4 py-2 rounded-lg transition flex items-center gap-2 cursor-pointer w-full justify-center"><i class="fa-solid fa-image"></i> Ver Comprobante</button></div>` : '';
 
-    document.getElementById('modalCuerpo').innerHTML = `<div class="space-y-3.5"><div class="flex justify-between"><div><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Cliente</span><p class="font-bold text-white text-base">${cliente}</p><p class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-phone"></i> ${tel}</p></div><div class="text-right"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Despachado por</span><p class="text-xs text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded mt-1 font-semibold">${operador}</p></div></div><div class="border-t border-slate-700/50 pt-2.5"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Método de Distribución</span><p class="text-white text-xs mt-0.5 font-medium">${entrega}</p><p class="text-xs text-slate-400 mt-1 bg-slate-900/40 p-2 rounded border border-slate-700/30 italic">${dir}</p></div><div class="border-t border-slate-700/50 pt-2.5"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Productos</span><div class="text-xs bg-slate-900/40 p-2.5 rounded border border-slate-700/30 whitespace-pre-line max-h-32 overflow-y-auto text-slate-300 font-mono">${arts}</div></div><div class="border-t border-slate-700/50 pt-2.5 flex justify-between items-center"><div><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Forma de Pago</span><p class="text-white text-xs font-semibold">${pago}</p>${refHtml}</div><div class="text-right"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Total</span><p class="text-emerald-400 font-bold text-lg">$${monto.toFixed(2)}</p></div></div>${seccionVES}${btnImg}</div>`;
+    document.getElementById('modalCuerpo').innerHTML = `<div class="space-y-3.5"><div class="flex justify-between"><div><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Cliente</span><p class="font-bold text-white text-base">${cliente}</p><p class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-phone"></i> ${tel}</p></div><div class="text-right"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider block">Comandado por</span><p class="text-xs text-white bg-slate-900 border border-slate-700 px-2 py-1 rounded mt-1 font-semibold">${operador}</p></div></div><div class="border-t border-slate-700/50 pt-2.5"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Método de Distribución</span><p class="text-white text-xs mt-0.5 font-medium">${entrega}</p><p class="text-xs text-slate-400 mt-1 bg-slate-900/40 p-2 rounded border border-slate-700/30 italic">${dir}</p></div><div class="border-t border-slate-700/50 pt-2.5"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Productos</span><div class="text-xs bg-slate-900/40 p-2.5 rounded border border-slate-700/30 whitespace-pre-line max-h-32 overflow-y-auto text-slate-300 font-mono">${arts}</div></div><div class="border-t border-slate-700/50 pt-2.5 flex justify-between items-center"><div><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Forma de Pago</span><p class="text-white text-xs font-semibold">${pago}</p>${refHtml}</div><div class="text-right"><span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Total</span><p class="text-emerald-400 font-bold text-lg">$${monto.toFixed(2)}</p></div></div>${seccionVES}${btnImg}</div>`;
     document.getElementById('modalDetalle').classList.remove('hidden');
 }
 function cerrarModal() { document.getElementById('modalDetalle').classList.add('hidden'); }
