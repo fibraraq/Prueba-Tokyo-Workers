@@ -863,21 +863,39 @@ function renderizarTablero() {
             }
             // -------------------------------
 
+            // ... (Lógica de la moto que ya tienes) ...
+
             let htmlMontoFinalizado = `<span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span>`;
             if (esPagoMovil) htmlMontoFinalizado = `<div class="flex flex-col text-right"><span class="text-sm font-bold text-emerald-400">$${monto.toFixed(2)}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${(monto * tasaActual).toFixed(2)}</span></div>`;
             
+            // --- NUEVA LÓGICA DE REFERENCIA ---
+            let htmlReferencia = '';
+            if (esPagoMovil) {
+                const ref = pedido.referencia_pago || pedido.Referencia_pago || pedido['Referencia_pago'] || '';
+                if (ref && ref !== 'Sin comprobante') {
+                    htmlReferencia = `<div class="mt-2 pt-2 border-t border-slate-700/50 text-[10px] text-slate-400 flex items-center justify-between"><span class="font-semibold text-amber-400">Ref: ${ref}</span><span class="text-emerald-400/70"><i class="fa-solid fa-check-double"></i></span></div>`;
+                } else {
+                    htmlReferencia = `<div class="mt-2 pt-2 border-t border-slate-700/50 text-[10px] text-slate-500 italic flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> Sin referencia</div>`;
+                }
+            }
+
+            // --- NUEVA ESTRUCTURA DE LA TARJETA ---
             colFinalizado.innerHTML += `
-                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition flex justify-between items-center cursor-pointer mb-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span>
-                        <span class="text-xs text-slate-400">Ver Recibo</span>
-                        ${btnWhatsApp}
-                        ${btnMoto}
+                <div onclick="abrirModalDetalle('${idReal}')" class="bg-slate-700/20 hover:bg-slate-700/50 p-3 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition cursor-pointer mb-2 flex flex-col">
+                    <div class="flex justify-between items-start w-full">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded border border-emerald-400/20">#${idVisual}</span>
+                            ${btnWhatsApp}
+                            ${btnMoto}
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-medium whitespace-nowrap"><i class="fa-regular fa-clock"></i> ${hora}</span>
                     </div>
-                    ${htmlMontoFinalizado}
+                    <div class="flex justify-between items-end mt-2 w-full">
+                        <span class="text-[11px] text-slate-400 underline decoration-slate-600 underline-offset-2 hover:text-white transition">Ver Recibo</span>
+                        ${htmlMontoFinalizado}
+                    </div>
+                    ${htmlReferencia}
                 </div>`;
-        }
-    });
 
     if (document.getElementById('cantCalculandoDelivery')) {
         document.getElementById('cantCalculandoDelivery').innerText = conteoCalculando;
