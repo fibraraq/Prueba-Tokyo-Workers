@@ -94,6 +94,39 @@
             <button class="tab-btn" onclick="switchTab('productos')">📦 Productos</button>
             <button class="tab-btn" onclick="switchTab('combos')">🍱 Combos</button>
             <button class="tab-btn" onclick="switchTab('motorizados')">🛵 Motorizados</button>
+            <button class="tab-btn" onclick="switchTab('usuarios')">👥 Usuarios</button>
+        </div>
+
+        <div id="tab-usuarios" class="tab-content">
+            <div class="grid-layout">
+                <div>
+                    <h2 id="titulo-form-usr">Crear Usuario</h2>
+                    <form id="form-usuario">
+                        <input type="hidden" id="usr-id">
+                        
+                        <label>Nombre del Empleado</label>
+                        <input type="text" id="usr-nombre" placeholder="Ej: Ana Pérez" required>
+                        
+                        <label>Usuario de Acceso (Login)</label>
+                        <input type="text" id="usr-username" placeholder="Ej: ana123" required>
+                        
+                        <label>PIN o Contraseña</label>
+                        <input type="password" id="usr-pin" placeholder="Ej: 1234" required>
+                        
+                        <label>Rol en el sistema</label>
+                        <select id="usr-rol" required>
+                            <option value="cajero">Cajero / Operador</option>
+                        </select>
+
+                        <button type="submit" class="btn-submit" id="btn-save-usr">💾 Guardar Usuario</button>
+                        <button type="button" class="btn-submit btn-cancel" id="btn-cancel-usr" onclick="resetFormUsr()">❌ Cancelar Edición</button>
+                    </form>
+                </div>
+                <div class="list-panel">
+                    <h3>Plantilla de Usuarios</h3>
+                    <div id="lista-usuarios-container">Cargando...</div>
+                </div>
+            </div>
         </div>
 
         <div id="tab-categorias" class="tab-content active">
