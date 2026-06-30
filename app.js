@@ -1,5 +1,11 @@
 // Tokio Sushi - Núcleo de Operaciones y Control del Sistema
 
+const URL_OBTENER_MOTORIZADOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-motorizados";
+const ADMIN_URL_GUARDAR_MOT = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-motorizado";
+const ADMIN_URL_ELIMINAR_MOT = "https://n8n-production-0c91c.up.railway.app/webhook/eliminar-motorizado";
+
+let MOTORIZADOS_SISTEMA = []; // Memoria para los choferes
+
 const API_OBTENER_PEDIDOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-pedidos";
 const API_ACTUALIZAR_ESTADO = "https://n8n-production-0c91c.up.railway.app/webhook/actualizar-estado";
 const URL_NUEVO_PEDIDO = "https://n8n-production-0c91c.up.railway.app/webhook/Prueba-tokyo";
@@ -80,6 +86,20 @@ async function cargarUsuariosDesdeDB() {
     } catch (error) {
         console.error("Error obteniendo los usuarios:", error);
     }
+}
+
+async function cargarMotorizadosDesdeDB() {
+    try {
+        const response = await fetch(URL_OBTENER_MOTORIZADOS + "?t=" + new Date().getTime());
+        if (!response.ok) throw new Error('Error al conectar con servidor de motorizados');
+        const data = await response.json();
+        MOTORIZADOS_SISTEMA = Array.isArray(data) ? data : (data.data || []);
+        
+        // Si estamos en el admin, dibujamos la lista
+        if (document.getElementById('lista-motorizados-container')) {
+            renderListaMotorizados();
+        }
+    } catch (error) { console.error("Error obteniendo motorizados:", error); }
 }
 
 // --- CONTROL DE TASA (VERSIÓN DEFINITIVA Y BLINDADA) ---
@@ -1475,9 +1495,11 @@ async function inicializarTablero() {
     }
     
     // 2. Cargar datos base
+    await cargarMotorizadosDesdeDB();
     await cargarUsuariosDesdeDB();
     await cargarCatalogoDesdeDB(); // <-- Corregido el error de mayúsculas aquí
     verificarSesion();
+    cargarDatosAdmin();
     actualizarTasaBCV();
 }
 
@@ -1585,16 +1607,11 @@ function abrirModalRepartidor(idReal, evento) {
     const select = document.getElementById('selectRepartidor');
     select.innerHTML = '<option value="">-- Seleccionar --</option>';
     
-    // Filtramos los usuarios que vienen de n8n buscando a los repartidores
-    // Si aún no has asignado el rol "repartidor" a nadie, mostrará a todos por defecto
-    let listaRepartidores = USUARIOS_SISTEMA.filter(u => String(u.rol).toLowerCase() === 'repartidor');
-    if (listaRepartidores.length === 0) listaRepartidores = USUARIOS_SISTEMA; 
-
-    listaRepartidores.forEach(r => {
-        select.innerHTML += `<option value="${r.nombre}">${r.nombre}</option>`;
+    // AQUÍ ESTÁ EL CAMBIO: Ahora inyectamos la lista de MOTORIZADOS puros
+    MOTORIZADOS_SISTEMA.forEach(m => {
+        select.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
     });
     
-    // Si ya tenía alguien asignado, lo dejamos seleccionado
     if (pedido.repartidor) select.value = pedido.repartidor;
 
     const modal = document.getElementById('modalAsignarRepartidor');
@@ -1656,4 +1673,58 @@ function guardarRepartidor() {
     
     // 3. AHORA SÍ, cerramos el modal al final de todo el proceso
     cerrarModalRepartidor();
+}
+// --- FUNCIONES ADMIN PARA MOTORIZADOS ---
+function renderListaMotorizados() {
+    const cont = document.getElementById('lista-motorizados-container');
+    if(!cont) return;
+    cont.innerHTML = '';
+    if (MOTORIZADOS_SISTEMA.length === 0) {
+        cont.innerHTML = '<p class="text-sm text-slate-500 italic">No hay motorizados registrados.</p>'; return;
+    }
+    MOTORIZADOS_SISTEMA.forEach(m => {
+        cont.innerHTML += `
+            <div class="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <div class="text-white font-semibold text-sm">🏍️ ${m.nombre}</div>
+                <div class="flex gap-2">
+                    <button class="text-amber-400 hover:text-amber-300 px-2" onclick="editarMotorizado(${m.id})" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                    <button class="text-red-500 hover:text-red-400 px-2" onclick="eliminarMotorizado(${m.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>`;
+    });
+}
+
+if (document.getElementById('form-motorizado')) {
+    document.getElementById('form-motorizado').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('mot-id').value;
+        const payload = { id: id ? parseInt(id) : null, nombre: document.getElementById('mot-nombre').value.trim() };
+        try {
+            await fetch(ADMIN_URL_GUARDAR_MOT, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            resetFormMot(); await cargarMotorizadosDesdeDB();
+        } catch (error) { alert('Error al guardar.'); }
+    });
+}
+
+function editarMotorizado(id) {
+    const m = MOTORIZADOS_SISTEMA.find(x => x.id === id); if(!m) return;
+    document.getElementById('mot-id').value = m.id; document.getElementById('mot-nombre').value = m.nombre;
+    document.getElementById('titulo-form-mot').innerText = "Editar Motorizado";
+    document.getElementById('btn-save-mot').innerText = "💾 Actualizar";
+    document.getElementById('btn-cancel-mot').classList.remove('hidden');
+}
+
+function resetFormMot() {
+    document.getElementById('form-motorizado').reset(); document.getElementById('mot-id').value = "";
+    document.getElementById('titulo-form-mot').innerText = "Registrar Motorizado";
+    document.getElementById('btn-save-mot').innerText = "💾 Guardar Chofer";
+    document.getElementById('btn-cancel-mot').classList.add('hidden');
+}
+
+async function eliminarMotorizado(id) {
+    if (!confirm(`¿Seguro que deseas eliminar este motorizado?`)) return;
+    try {
+        await fetch(ADMIN_URL_ELIMINAR_MOT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+        await cargarMotorizadosDesdeDB();
+    } catch(e) { alert('Error al eliminar.'); }
 }
