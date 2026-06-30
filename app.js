@@ -1845,6 +1845,7 @@ const API_ESTADISTICAS_PEDIDOS = "https://n8n-production-0c91c.up.railway.app/we
 let datosEstadisticas = [];
 let tasaEstadisticas = 1;
 let graficoTorta = null;
+let pedidosFiltradosActuales = [];
 
 async function iniciarPantallaEstadisticas() {
     // Escudo: Si no existe el canvas del gráfico, significa que no estamos en estadisticas.html
@@ -1914,6 +1915,7 @@ function aplicarFiltroEstadisticas(tipo) {
     });
 
     const finalizados = pedidosFiltrados.filter(p => (p.estado || '').toLowerCase() === 'finalizado');
+    pedidosFiltradosActuales = finalizados;
     procesarCalculosEstadisticos(finalizados);
     renderHistorialFinalizadosEnStats(pedidosFiltrados);
 }
@@ -2011,7 +2013,7 @@ function dibujarWidgetsEstadisticas(cantPedidos, totalUSD, pagos, clientes, prod
     const arrayRep = Object.keys(repartidores).map(k => ({ nombre: k, ...repartidores[k] })).sort((a, b) => b.viajes - a.viajes);
     document.getElementById('listaRepartidores').innerHTML = arrayRep.length > 0
         ? arrayRep.map(r => `
-            <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+            <div onclick="abrirModalRepartidor('${r.nombre}', ${r.dineroAdeudado})" class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700 cursor-pointer hover:border-sky-500 hover:bg-slate-800 transition">
                 <div>
                     <p class="text-sm text-white font-bold">${r.nombre}</p>
                     <p class="text-[10px] text-slate-400 mt-0.5"><i class="fa-solid fa-route"></i> ${r.viajes} entregas realizadas</p>
@@ -2022,7 +2024,6 @@ function dibujarWidgetsEstadisticas(cantPedidos, totalUSD, pagos, clientes, prod
                 </div>
             </div>`).join('')
         : '<p class="text-xs text-slate-500 italic">Nadie ha realizado entregas en este rango</p>';
-}
 
 function renderHistorialFinalizadosEnStats(pedidosList) {
     const contenedor = document.getElementById('historial-finalizados-container');
@@ -2143,4 +2144,70 @@ if(document.getElementById('form-mensajes')) {
             alert("¡Mensajes actualizados con éxito!");
         } catch (error) { alert("Error al guardar en la base de datos."); }
     });
+}
+
+function abrirModalRepartidor(nombre, deudaTotal) {
+    // Llenar datos básicos
+    document.getElementById('modal-nombre-repartidor').innerText = nombre;
+    document.getElementById('modal-total-repartidor').innerText = `$${deudaTotal.toFixed(2)}`;
+    
+    const listaContenedor = document.getElementById('modal-lista-pedidos');
+    listaContenedor.innerHTML = '';
+
+    // Filtrar la lista actual de pedidos finalizados buscando los de este chofer
+    const pedidosChofer = pedidosFiltradosActuales.filter(p => p.repartidor === nombre || p.Repartidor === nombre);
+
+    if (pedidosChofer.length === 0) {
+        listaContenedor.innerHTML = '<p class="text-center text-slate-500 my-8 italic">No se encontraron detalles de pedidos para este rango de fecha.</p>';
+    } else {
+        // Dibujar cada pedido
+        pedidosChofer.forEach(p => {
+            const idVisual = p.id_pedido || p.ID || 'S/ID';
+            const cliente = p.cliente || 'Desconocido';
+            const detalleRaw = p.pedido_detallado || 'Sin detalles';
+            
+            // Reemplazar saltos de línea para que se vean bien en HTML y colorear el delivery
+            const detalleHTML = detalleRaw
+                .replace(/\n/g, '<br>')
+                .replace(/Servicio de Delivery/g, '<span class="text-sky-400 font-bold">Servicio de Delivery</span>');
+
+            let hora = '--:--';
+            if (p.timestamp && p.timestamp.includes('T')) {
+                hora = new Date(p.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            listaContenedor.innerHTML += `
+                <div class="mb-3 bg-slate-950 p-4 rounded-lg border border-slate-700">
+                    <div class="flex justify-between items-center mb-3 border-b border-slate-800 pb-2">
+                        <span class="text-xs font-bold bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">Orden #${idVisual}</span>
+                        <span class="text-xs text-slate-400"><i class="fa-regular fa-clock"></i> ${hora}</span>
+                    </div>
+                    <p class="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-user text-slate-500"></i> ${cliente}
+                    </p>
+                    <div class="text-xs text-slate-300 font-mono bg-slate-900 p-2 rounded">
+                        ${detalleHTML}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // Animación de entrada
+    const modal = document.getElementById('modal-repartidor');
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        document.getElementById('modal-repartidor-content').classList.remove('scale-95');
+    }, 10);
+}
+
+function cerrarModalRepartidor() {
+    // Animación de salida
+    const modal = document.getElementById('modal-repartidor');
+    modal.classList.add('opacity-0');
+    document.getElementById('modal-repartidor-content').classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300); // 300ms es el tiempo que dura la animación en Tailwind (duration-300)
 }
