@@ -19,12 +19,12 @@
         </div>
         
         <div class="flex flex-wrap items-center gap-2 bg-slate-900 p-2 rounded-lg border border-slate-700">
-            <button onclick="aplicarFiltro('hoy')" class="filtro-btn bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold transition">Hoy</button>
-            <button onclick="aplicarFiltro('ayer')" class="filtro-btn bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-xs font-bold transition">Ayer</button>
-            <button onclick="aplicarFiltro('semana')" class="filtro-btn bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-xs font-bold transition">Esta Semana</button>
-            <button onclick="aplicarFiltro('mes')" class="filtro-btn bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-xs font-bold transition">Este Mes</button>
+            <button onclick="aplicarFiltroEstadisticas('hoy')" class="filtro-btn bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold transition">Hoy</button>
+            <button onclick="aplicarFiltroEstadisticas('ayer')" class="filtro-btn bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-xs font-bold transition">Ayer</button>
+            <button onclick="aplicarFiltroEstadisticas('semana')" class="filtro-btn bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-xs font-bold transition">Esta Semana</button>
+            <button onclick="aplicarFiltroEstadisticas('mes')" class="filtro-btn bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-xs font-bold transition">Este Mes</button>
             <div class="h-6 w-px bg-slate-700 mx-1"></div>
-            <input type="date" id="fechaCustom" onchange="aplicarFiltro('custom')" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white outline-none focus:border-indigo-500">
+            <input type="date" id="fechaCustom" onchange="aplicarFiltroEstadisticas('custom')" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white outline-none focus:border-indigo-500">
         </div>
     </div>
 
@@ -46,230 +46,28 @@
 
         <div class="bg-slate-900/50 border border-slate-800 p-5 rounded-xl col-span-1 lg:col-span-2">
             <span class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-3 block"><i class="fa-solid fa-crown text-amber-400"></i> Mejores Clientes</span>
-            <div id="listaClientes" class="space-y-2 max-h-40 overflow-y-auto pr-2">
-                </div>
+            <div id="listaClientes" class="space-y-2 max-h-40 overflow-y-auto pr-2"></div>
         </div>
 
         <div class="bg-slate-900/50 border border-slate-800 p-5 rounded-xl col-span-1 md:col-span-2">
             <span class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-3 block"><i class="fa-solid fa-fire text-orange-500"></i> Productos Más Vendidos</span>
-            <div id="listaProductos" class="space-y-2 max-h-48 overflow-y-auto pr-2">
-                </div>
+            <div id="listaProductos" class="space-y-2 max-h-48 overflow-y-auto pr-2"></div>
         </div>
 
         <div class="bg-slate-900/50 border border-slate-800 p-5 rounded-xl col-span-1 md:col-span-2">
             <span class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-3 block"><i class="fa-solid fa-motorcycle text-sky-400"></i> Nómina de Repartidores</span>
-            <div id="listaRepartidores" class="space-y-3 max-h-48 overflow-y-auto pr-2">
-                </div>
+            <div id="listaRepartidores" class="space-y-3 max-h-48 overflow-y-auto pr-2"></div>
         </div>
-
+        
+        <div class="col-span-full bg-slate-900/80 border border-slate-800 rounded-xl p-6 mt-2 shadow-lg">
+            <h3 class="text-emerald-400 text-sm font-bold mb-4 flex items-center gap-2 border-b border-slate-700/50 pb-3 uppercase tracking-wider">
+                <i class="fa-solid fa-check-double"></i> Historial de Pedidos Finalizados
+            </h3>
+            <div id="historial-finalizados-container" class="max-h-[400px] overflow-y-auto flex flex-col gap-3 pr-2">
+            </div>
+        </div>
     </div>
 
-    <script>
-        // --- CONFIGURACIÓN BASE ---
-        const API_OBTENER_TODOS_PEDIDOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-pedidos"; // Tu webhook actual
-        let todosLosPedidos = [];
-        let tasaActual = 1;
-        let graficoTorta = null;
-
-        // --- INICIALIZACIÓN ---
-        async function iniciar() {
-            // Obtenemos la tasa BCV guardada de la otra pantalla
-            tasaActual = parseFloat(localStorage.getItem('tasaBCV')) || 1;
-            
-            // Descargar historial (Le pasamos un param para que n8n sepa que queremos TODOS o los recientes)
-            try {
-                const res = await fetch(API_OBTENER_TODOS_PEDIDOS + "?historico=true");
-                const data = await res.json();
-                todosLosPedidos = Array.isArray(data) ? data : [];
-                aplicarFiltro('hoy'); // Arrancamos mostrando lo de hoy
-            } catch(e) {
-                console.error("Error descargando pedidos:", e);
-                alert("Error de conexión con la base de datos de estadísticas.");
-            }
-        }
-
-        // --- MOTOR DE FILTRADO DE FECHAS ---
-        function aplicarFiltro(tipo) {
-            // 1. Estilos de los botones
-            document.querySelectorAll('.filtro-btn').forEach(btn => {
-                btn.classList.remove('bg-indigo-600', 'text-white');
-                btn.classList.add('bg-slate-800', 'text-slate-300');
-            });
-            
-            if (tipo !== 'custom') {
-                document.getElementById('fechaCustom').value = '';
-                // Solución al clic fantasma: Verificamos si hubo un clic real o si es carga automática
-                try {
-                    if (window.event && window.event.target && window.event.target.classList.contains('filtro-btn')) {
-                        window.event.target.classList.remove('bg-slate-800', 'text-slate-300');
-                        window.event.target.classList.add('bg-indigo-600', 'text-white');
-                    } else if (tipo === 'hoy') {
-                        // Carga automática al entrar: Pintamos el primer botón ("Hoy") a la fuerza
-                        document.querySelectorAll('.filtro-btn')[0].classList.remove('bg-slate-800', 'text-slate-300');
-                        document.querySelectorAll('.filtro-btn')[0].classList.add('bg-indigo-600', 'text-white');
-                    }
-                } catch(e) {}
-            }
-
-            // 2. Lógica de fechas (de aquí hacia abajo todo queda exactamente igual...)
-            const hoy = new Date();
-            hoy.setHours(0,0,0,0);
-            
-            const pedidosFiltrados = todosLosPedidos.filter(p => {
-                if (!p.timestamp) return false;
-                const fechaPedido = new Date(p.timestamp);
-                fechaPedido.setHours(0,0,0,0);
-
-                if (tipo === 'hoy') return fechaPedido.getTime() === hoy.getTime();
-                if (tipo === 'ayer') {
-                    const ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1);
-                    return fechaPedido.getTime() === ayer.getTime();
-                }
-                if (tipo === 'semana') {
-                    const inicioSemana = new Date(hoy);
-                    inicioSemana.setDate(hoy.getDate() - hoy.getDay() + 1); // Lunes
-                    return fechaPedido >= inicioSemana;
-                }
-                if (tipo === 'mes') {
-                    return fechaPedido.getMonth() === hoy.getMonth() && fechaPedido.getFullYear() === hoy.getFullYear();
-                }
-                if (tipo === 'custom') {
-                    const fechaSeleccionada = document.getElementById('fechaCustom').value;
-                    if (!fechaSeleccionada) return true;
-                    // Ajuste de zona horaria básico
-                    const fCustom = new Date(fechaSeleccionada + 'T00:00:00');
-                    return fechaPedido.getTime() === fCustom.getTime();
-                }
-                return true;
-            });
-
-            // 3. Solo contamos los "Finalizados" para ingresos
-            const finalizados = pedidosFiltrados.filter(p => (p.estado || '').toLowerCase() === 'finalizado');
-            calcularEstadisticas(finalizados);
-        }
-
-        // --- MOTOR DE CÁLCULO ESTADÍSTICO ---
-        function calcularEstadisticas(pedidos) {
-            let totalUSD = 0;
-            const conteoClientes = {};
-            const conteoProductos = {};
-            const pagos = { 'Zelle': 0, 'Pago Movil': 0, 'Efectivo': 0 };
-            const nominaRepartidores = {};
-
-            pedidos.forEach(p => {
-                // 1. Sumar totales y agrupar por método de pago
-                const monto = parseFloat(p.total_orden || 0);
-                totalUSD += monto;
-                
-                let metodo = (p.metodo_pago || 'Efectivo').toLowerCase();
-                if (metodo.includes('zelle')) pagos['Zelle']++;
-                else if (metodo.includes('pago') || metodo.includes('movil')) pagos['Pago Movil']++;
-                else pagos['Efectivo']++;
-
-                // 2. Top Clientes (Gasto y cantidad de pedidos)
-                const cliente = p.cliente || 'Desconocido';
-                if (!conteoClientes[cliente]) conteoClientes[cliente] = { gastado: 0, pedidos: 0 };
-                conteoClientes[cliente].gastado += monto;
-                conteoClientes[cliente].pedidos++;
-
-                // 3. Procesar Productos (Usando Regex para separar cantidades y nombres del texto)
-                const detalle = p.pedido_detallado || '';
-                const lineas = detalle.split('\n');
-                lineas.forEach(linea => {
-                    // Busca patrones como "2x Sushi Roll"
-                    const match = linea.trim().match(/^(\d+)[xX]\s+(.+?)(?:\s+\(\$.+\))?$/);
-                    if (match) {
-                        const cant = parseInt(match[1]);
-                        let nombreProd = match[2].trim();
-                        
-                        // Ignoramos la línea del delivery para la estadística de comida
-                        if (!nombreProd.toLowerCase().includes('servicio de delivery')) {
-                            if (!conteoProductos[nombreProd]) conteoProductos[nombreProd] = 0;
-                            conteoProductos[nombreProd] += cant;
-                        } else {
-                            // 4. Calcular deuda del repartidor extrayendo el precio "( $1.50 )"
-                            const repartidor = p.repartidor || p.Repartidor;
-                            if (repartidor) {
-                                if (!nominaRepartidores[repartidor]) nominaRepartidores[repartidor] = { viajes: 0, dineroAdeudado: 0 };
-                                nominaRepartidores[repartidor].viajes++;
-                                
-                                // Extraer el número de "Servicio de Delivery ($1.5)"
-                                const matchPrecio = linea.match(/\(\$([\d.]+)\)/);
-                                if (matchPrecio && matchPrecio[1]) {
-                                    nominaRepartidores[repartidor].dineroAdeudado += parseFloat(matchPrecio[1]);
-                                }
-                            }
-                        }
-                    }
-                });
-            });
-
-            renderizarPantalla(pedidos.length, totalUSD, pagos, conteoClientes, conteoProductos, nominaRepartidores);
-        }
-
-        // --- RENDERIZADO VISUAL ---
-        function renderizarPantalla(cantPedidos, totalUSD, pagos, clientes, productos, repartidores) {
-            // Widgets Base
-            document.getElementById('widgetTotalUSD').innerText = `$${totalUSD.toFixed(2)}`;
-            document.getElementById('widgetTotalBS').innerText = `Bs. ${(totalUSD * tasaActual).toFixed(2)}`;
-            document.getElementById('widgetCantPedidos').innerHTML = `<i class="fa-solid fa-receipt"></i> ${cantPedidos} pedidos finalizados`;
-
-            // Gráfico
-            if (graficoTorta) graficoTorta.destroy();
-            const ctx = document.getElementById('graficoPagos').getContext('2d');
-            graficoTorta = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Zelle', 'Pago Móvil', 'Efectivo'],
-                    datasets: [{
-                        data: [pagos['Zelle'], pagos['Pago Movil'], pagos['Efectivo']],
-                        backgroundColor: ['#6366f1', '#f59e0b', '#10b981'],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: { plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 10 } } } }, maintainAspectRatio: false }
-            });
-
-            // Top Clientes
-            const arrayClientes = Object.keys(clientes).map(k => ({ nombre: k, ...clientes[k] })).sort((a, b) => b.gastado - a.gastado).slice(0, 5);
-            document.getElementById('listaClientes').innerHTML = arrayClientes.length > 0 
-                ? arrayClientes.map(c => `
-                    <div class="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
-                        <span class="text-sm text-white font-medium">${c.nombre} <span class="text-[10px] text-slate-500 ml-1">(${c.pedidos} pedidos)</span></span>
-                        <span class="text-sm font-bold text-emerald-400">$${c.gastado.toFixed(2)}</span>
-                    </div>`).join('') 
-                : '<p class="text-xs text-slate-500 italic">No hay datos en este rango</p>';
-
-            // Top Productos
-            const arrayProd = Object.keys(productos).map(k => ({ nombre: k, cant: productos[k] })).sort((a, b) => b.cant - a.cant).slice(0, 5);
-            document.getElementById('listaProductos').innerHTML = arrayProd.length > 0 
-                ? arrayProd.map(p => `
-                    <div class="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
-                        <span class="text-sm text-white font-medium truncate pr-2">${p.nombre}</span>
-                        <span class="text-xs font-bold bg-slate-700 px-2 py-1 rounded text-orange-400">${p.cant} unid.</span>
-                    </div>`).join('')
-                : '<p class="text-xs text-slate-500 italic">No hay datos en este rango</p>';
-
-            // Repartidores
-            const arrayRep = Object.keys(repartidores).map(k => ({ nombre: k, ...repartidores[k] })).sort((a, b) => b.viajes - a.viajes);
-            document.getElementById('listaRepartidores').innerHTML = arrayRep.length > 0
-                ? arrayRep.map(r => `
-                    <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                        <div>
-                            <p class="text-sm text-white font-bold">${r.nombre}</p>
-                            <p class="text-[10px] text-slate-400 mt-0.5"><i class="fa-solid fa-route"></i> ${r.viajes} entregas realizadas</p>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-[10px] uppercase text-slate-500 font-bold block leading-none mb-1">Deuda a pagar</span>
-                            <span class="text-lg font-bold text-sky-400 leading-none">$${r.dineroAdeudado.toFixed(2)}</span>
-                        </div>
-                    </div>`).join('')
-                : '<p class="text-xs text-slate-500 italic">Nadie ha realizado entregas en este rango</p>';
-        }
-
-        // Arrancar
-        document.addEventListener('DOMContentLoaded', iniciar);
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
