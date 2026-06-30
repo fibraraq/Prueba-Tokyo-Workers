@@ -1015,7 +1015,8 @@ async function cargarDatosAdmin() {
         
         // ¡LA MAGIA AQUÍ! Actualizamos los selects de los combos automáticamente
         actualizarSelectsCombos();
-        
+
+        await cargarMotorizadosDesdeDB();
         // Si el contenedor de items de combo está vacío, añadimos una fila por defecto
         const listaItems = document.getElementById('lista-items-combo');
         if (listaItems && listaItems.innerHTML === '') {
