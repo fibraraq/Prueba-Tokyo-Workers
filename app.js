@@ -2080,15 +2080,24 @@ function renderHistorialFinalizadosEnStats(pedidosList) {
 // Disparador de seguridad:
 document.addEventListener('DOMContentLoaded', iniciarPantallaEstadisticas);
 
-// --- LÓGICA PARA MENSAJES DE WHATSAPP ---
+// =================================================================
+// --- LÓGICA PARA PLANTILLAS DE WHATSAPP (PANEL ADMIN) ---
+// =================================================================
 const URL_OBTENER_MSJ = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-mensajes";
 const URL_GUARDAR_MSJ = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-mensajes";
 
 async function cargarMensajesWP() {
+    // Si no existe este cuadro, significa que no estamos en admin.html, así que no hacemos nada
     if(!document.getElementById('msg-recepcion')) return;
+
     try {
+        // Feedback visual mientras carga
+        document.getElementById('msg-recepcion').value = "Cargando plantillas desde la base de datos...";
+
         const res = await fetch(URL_OBTENER_MSJ);
         const data = await res.json();
+        
+        // Adaptación por si n8n devuelve un array directo o un objeto con "data"
         const mensajes = Array.isArray(data) ? data : (data.data || []);
         
         mensajes.forEach(m => {
@@ -2101,9 +2110,21 @@ async function cargarMensajesWP() {
             if(m.id === 'final_pickup') document.getElementById('msg-final-pickup').value = m.texto;
             if(m.id === 'modificado') document.getElementById('msg-modificado').value = m.texto;
         });
-    } catch (e) { console.error("Error cargando mensajes:", e); }
+    } catch (e) { 
+        console.error("Error cargando mensajes:", e); 
+        document.getElementById('msg-recepcion').value = "Error de conexión. Verifica que el webhook 'obtener-mensajes' en n8n esté activo.";
+    }
 }
 
+// -----------------------------------------------------------------
+// EVENTO CLAVE: DISPARAR LA CARGA AL ABRIR LA PÁGINA
+// -----------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+    cargarMensajesWP();
+});
+// -----------------------------------------------------------------
+
+// Lógica para guardar (se mantiene igual)
 if(document.getElementById('form-mensajes')) {
     document.getElementById('form-mensajes').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -2120,6 +2141,6 @@ if(document.getElementById('form-mensajes')) {
         try {
             await fetch(URL_GUARDAR_MSJ, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
             alert("¡Mensajes actualizados con éxito!");
-        } catch (error) { alert("Error al guardar."); }
+        } catch (error) { alert("Error al guardar en la base de datos."); }
     });
 }
