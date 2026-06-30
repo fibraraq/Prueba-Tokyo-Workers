@@ -1845,10 +1845,10 @@ const API_ESTADISTICAS_PEDIDOS = "https://n8n-production-0c91c.up.railway.app/we
 let datosEstadisticas = [];
 let tasaEstadisticas = 1;
 let graficoTorta = null;
-let pedidosFiltradosActuales = [];
+let pedidosFiltradosActuales = []; // Variable para el historial del modal
 
 async function iniciarPantallaEstadisticas() {
-    // Escudo: Si no existe el canvas del gráfico, significa que no estamos en estadisticas.html
+    // Escudo de seguridad para que solo corra en estadisticas.html
     if (!document.getElementById('graficoPagos')) return;
 
     tasaEstadisticas = parseFloat(localStorage.getItem('tasaBCV')) || 1;
@@ -1915,7 +1915,8 @@ function aplicarFiltroEstadisticas(tipo) {
     });
 
     const finalizados = pedidosFiltrados.filter(p => (p.estado || '').toLowerCase() === 'finalizado');
-    pedidosFiltradosActuales = finalizados;
+    pedidosFiltradosActuales = finalizados; // Guardamos para el modal de motorizados
+    
     procesarCalculosEstadisticos(finalizados);
     renderHistorialFinalizadosEnStats(pedidosFiltrados);
 }
@@ -2024,6 +2025,7 @@ function dibujarWidgetsEstadisticas(cantPedidos, totalUSD, pagos, clientes, prod
                 </div>
             </div>`).join('')
         : '<p class="text-xs text-slate-500 italic">Nadie ha realizado entregas en este rango</p>';
+}
 
 function renderHistorialFinalizadosEnStats(pedidosList) {
     const contenedor = document.getElementById('historial-finalizados-container');
@@ -2078,95 +2080,23 @@ function renderHistorialFinalizadosEnStats(pedidosList) {
     });
 }
 
-// Disparador de seguridad:
-document.addEventListener('DOMContentLoaded', iniciarPantallaEstadisticas);
-
-// =================================================================
-// --- LÓGICA PARA PLANTILLAS DE WHATSAPP (PANEL ADMIN) ---
-// =================================================================
-const URL_OBTENER_MSJ = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-mensajes";
-const URL_GUARDAR_MSJ = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-mensajes";
-
-async function cargarMensajesWP() {
-    // Si no existe este cuadro, significa que no estamos en admin.html, así que no hacemos nada
-    if(!document.getElementById('msg-recepcion')) return;
-
-    try {
-        // Feedback visual mientras carga
-        document.getElementById('msg-recepcion').value = "Cargando plantillas desde la base de datos...";
-
-        const res = await fetch(URL_OBTENER_MSJ);
-        const data = await res.json();
-        
-        // Adaptación por si n8n devuelve un array directo o un objeto con "data"
-        const mensajes = Array.isArray(data) ? data : (data.data || []);
-        
-        mensajes.forEach(m => {
-            if(m.id === 'recepcion') document.getElementById('msg-recepcion').value = m.texto;
-            if(m.id === 'cobro_pago_movil') document.getElementById('msg-cobro-pago-movil').value = m.texto;
-            if(m.id === 'cobro_zelle') document.getElementById('msg-cobro-zelle').value = m.texto;
-            if(m.id === 'cobro_efectivo') document.getElementById('msg-cobro-efectivo').value = m.texto;
-            if(m.id === 'aprobado') document.getElementById('msg-aprobado').value = m.texto;
-            if(m.id === 'final_delivery') document.getElementById('msg-final-delivery').value = m.texto;
-            if(m.id === 'final_pickup') document.getElementById('msg-final-pickup').value = m.texto;
-            if(m.id === 'modificado') document.getElementById('msg-modificado').value = m.texto;
-        });
-    } catch (e) { 
-        console.error("Error cargando mensajes:", e); 
-        document.getElementById('msg-recepcion').value = "Error de conexión. Verifica que el webhook 'obtener-mensajes' en n8n esté activo.";
-    }
-}
-
-// -----------------------------------------------------------------
-// EVENTO CLAVE: DISPARAR LA CARGA AL ABRIR LA PÁGINA
-// -----------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
-    cargarMensajesWP();
-});
-// -----------------------------------------------------------------
-
-// Lógica para guardar (se mantiene igual)
-if(document.getElementById('form-mensajes')) {
-    document.getElementById('form-mensajes').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const payload = {
-            recepcion: document.getElementById('msg-recepcion').value,
-            cobro_pago_movil: document.getElementById('msg-cobro-pago-movil').value,
-            cobro_zelle: document.getElementById('msg-cobro-zelle').value,
-            cobro_efectivo: document.getElementById('msg-cobro-efectivo').value,
-            aprobado: document.getElementById('msg-aprobado').value,
-            final_delivery: document.getElementById('msg-final-delivery').value,
-            final_pickup: document.getElementById('msg-final-pickup').value,
-            modificado: document.getElementById('msg-modificado').value
-        };
-        try {
-            await fetch(URL_GUARDAR_MSJ, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            alert("¡Mensajes actualizados con éxito!");
-        } catch (error) { alert("Error al guardar en la base de datos."); }
-    });
-}
-
 function abrirModalRepartidor(nombre, deudaTotal) {
-    // Llenar datos básicos
     document.getElementById('modal-nombre-repartidor').innerText = nombre;
     document.getElementById('modal-total-repartidor').innerText = `$${deudaTotal.toFixed(2)}`;
     
     const listaContenedor = document.getElementById('modal-lista-pedidos');
     listaContenedor.innerHTML = '';
 
-    // Filtrar la lista actual de pedidos finalizados buscando los de este chofer
     const pedidosChofer = pedidosFiltradosActuales.filter(p => p.repartidor === nombre || p.Repartidor === nombre);
 
     if (pedidosChofer.length === 0) {
         listaContenedor.innerHTML = '<p class="text-center text-slate-500 my-8 italic">No se encontraron detalles de pedidos para este rango de fecha.</p>';
     } else {
-        // Dibujar cada pedido
         pedidosChofer.forEach(p => {
             const idVisual = p.id_pedido || p.ID || 'S/ID';
             const cliente = p.cliente || 'Desconocido';
             const detalleRaw = p.pedido_detallado || 'Sin detalles';
             
-            // Reemplazar saltos de línea para que se vean bien en HTML y colorear el delivery
             const detalleHTML = detalleRaw
                 .replace(/\n/g, '<br>')
                 .replace(/Servicio de Delivery/g, '<span class="text-sky-400 font-bold">Servicio de Delivery</span>');
@@ -2193,7 +2123,6 @@ function abrirModalRepartidor(nombre, deudaTotal) {
         });
     }
 
-    // Animación de entrada
     const modal = document.getElementById('modal-repartidor');
     modal.classList.remove('hidden');
     setTimeout(() => {
@@ -2203,11 +2132,23 @@ function abrirModalRepartidor(nombre, deudaTotal) {
 }
 
 function cerrarModalRepartidor() {
-    // Animación de salida
     const modal = document.getElementById('modal-repartidor');
     modal.classList.add('opacity-0');
     document.getElementById('modal-repartidor-content').classList.add('scale-95');
     setTimeout(() => {
         modal.classList.add('hidden');
-    }, 300); // 300ms es el tiempo que dura la animación en Tailwind (duration-300)
+    }, 300);
 }
+
+// -----------------------------------------------------------------
+// EVENTOS AL CARGAR LA PÁGINA (Asegúrate de que quede así al final de tu archivo)
+// -----------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+    iniciarPantallaEstadisticas();
+    
+    // Si la función cargarMensajesWP existe (porque copiaste lo del panel Admin), la llamamos. 
+    // Si no, no pasa nada.
+    if (typeof cargarMensajesWP === 'function') {
+        cargarMensajesWP();
+    }
+});
