@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración Avanzado</title>
-    <!-- Agregado FontAwesome para los íconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -14,7 +13,6 @@
         body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 2rem; margin: 0; }
         .admin-container { background-color: var(--card-bg); border-radius: 12px; max-width: 1000px; margin: 0 auto; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         
-        /* Modificaciones en la cabecera para el botón de Estadísticas */
         .header { 
             background-color: var(--primary); 
             padding: 1.5rem; 
@@ -28,7 +26,6 @@
         .header-content h1 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 8px;}
         .header-content p { margin: 0; font-size: 0.9rem; opacity: 0.8; margin-top: 5px; }
         
-        /* Estilos del nuevo botón */
         .btn-estadisticas {
             position: absolute;
             left: 1.5rem;
@@ -54,7 +51,6 @@
         .tab-content { display: none; padding: 2rem; }
         .tab-content.active { display: block; }
         
-        /* Layout de dos columnas: Formulario a la izq, Lista a la der */
         .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
         @media (max-width: 768px) { .grid-layout { grid-template-columns: 1fr; } }
         
@@ -66,7 +62,6 @@
         .btn-submit:hover { background-color: #be123c; }
         .btn-cancel { background-color: #475569; margin-top: 0.5rem; display: none; }
 
-        /* Estilos de las Listas */
         .list-panel { background-color: var(--input-bg); border: 1px solid #334155; border-radius: 6px; padding: 1rem; max-height: 500px; overflow-y: auto; }
         .list-panel h3 { margin-top: 0; color: var(--primary); font-size: 1.1rem; border-bottom: 1px solid #334155; padding-bottom: 10px;}
         .list-item { display: flex; justify-content: space-between; align-items: center; background-color: var(--card-bg); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid #334155; }
@@ -84,7 +79,6 @@
 
     <div class="admin-container">
         
-        <!-- CABECERA MODIFICADA CON EL BOTÓN -->
         <div class="header">
             <a href="estadisticas.html" target="_blank" class="btn-estadisticas">
                 <i class="fa-solid fa-chart-pie"></i> Estadísticas
@@ -99,6 +93,7 @@
             <button class="tab-btn active" onclick="switchTab('categorias')">🏷️ Categorías</button>
             <button class="tab-btn" onclick="switchTab('productos')">📦 Productos</button>
             <button class="tab-btn" onclick="switchTab('combos')">🍱 Combos</button>
+            <button class="tab-btn" onclick="switchTab('motorizados')">🛵 Motorizados</button>
         </div>
 
         <div id="tab-categorias" class="tab-content active">
@@ -200,6 +195,26 @@
                 </div>
             </div>
         </div>
+
+        <div id="tab-motorizados" class="tab-content">
+            <div class="grid-layout">
+                <div>
+                    <h2 id="titulo-form-mot">Registrar Motorizado</h2>
+                    <form id="form-motorizado">
+                        <input type="hidden" id="mot-id">
+                        <label>Nombre del Chofer</label>
+                        <input type="text" id="mot-nombre" placeholder="Ej: Pedro Pérez" required>
+                        <button type="submit" class="btn-submit" id="btn-save-mot">💾 Guardar Chofer</button>
+                        <button type="button" class="btn-submit btn-cancel" id="btn-cancel-mot" onclick="resetFormMot()">❌ Cancelar Edición</button>
+                    </form>
+                </div>
+                <div class="list-panel">
+                    <h3>Plantilla de Motorizados</h3>
+                    <div id="lista-motorizados-container">Cargando...</div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
