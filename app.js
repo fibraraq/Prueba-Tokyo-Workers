@@ -1,4 +1,6 @@
 // Tokio Sushi - Núcleo de Operaciones y Control del Sistema
+const ADMIN_URL_GUARDAR_USUARIO = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-usuario";
+const ADMIN_URL_ELIMINAR_USUARIO = "https://n8n-production-0c91c.up.railway.app/webhook/eliminar-usuario";
 
 const URL_OBTENER_MOTORIZADOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-motorizados";
 const ADMIN_URL_GUARDAR_MOT = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-motorizado";
@@ -1017,6 +1019,11 @@ async function cargarDatosAdmin() {
         actualizarSelectsCombos();
 
         await cargarMotorizadosDesdeDB();
+        await cargarUsuariosDesdeDB();
+        if (document.getElementById('lista-usuarios-container')) {
+            renderListaUsuarios();
+        }
+        
         // Si el contenedor de items de combo está vacío, añadimos una fila por defecto
         const listaItems = document.getElementById('lista-items-combo');
         if (listaItems && listaItems.innerHTML === '') {
@@ -1727,5 +1734,92 @@ async function eliminarMotorizado(id) {
     try {
         await fetch(ADMIN_URL_ELIMINAR_MOT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
         await cargarMotorizadosDesdeDB();
+    } catch(e) { alert('Error al eliminar.'); }
+}
+
+// --- FUNCIONES ADMIN PARA USUARIOS DE SISTEMA ---
+function renderListaUsuarios() {
+    const cont = document.getElementById('lista-usuarios-container');
+    if(!cont) return;
+    cont.innerHTML = '';
+    
+    if (!USUARIOS_SISTEMA || USUARIOS_SISTEMA.length === 0) {
+        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No hay usuarios registrados.</p>'; return;
+    }
+    
+    USUARIOS_SISTEMA.forEach(u => {
+        // EL ESCUDO: Si es admin o superadmin, bloqueamos los botones
+        const esAdmin = (String(u.rol).toLowerCase() === 'admin' || String(u.rol).toLowerCase() === 'superadmin');
+        
+        let botones = '';
+        if (esAdmin) {
+            botones = `<span style="font-size: 10px; background: rgba(239,68,68,0.2); color: #f87171; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(239,68,68,0.3); text-transform: uppercase; font-weight: bold;">Protegido 🛡️</span>`;
+        } else {
+            botones = `
+                <button type="button" class="action-btn btn-edit" onclick="editarUsuario(${u.id})" title="Editar">✏️</button>
+                <button type="button" class="action-btn btn-delete" onclick="eliminarUsuario(${u.id})" title="Eliminar">🗑️</button>
+            `;
+        }
+
+        cont.innerHTML += `
+            <div class="list-item">
+                <div class="item-info">
+                    <p class="item-title">👤 ${u.nombre}</p>
+                    <p class="item-meta">User: <span style="color:#38bdf8; font-weight:bold;">${u.username}</span> | Rol: ${u.rol} | Clave: ${esAdmin ? '••••' : u.pin}</p>
+                </div>
+                <div class="item-actions">
+                    ${botones}
+                </div>
+            </div>`;
+    });
+}
+
+if (document.getElementById('form-usuario')) {
+    document.getElementById('form-usuario').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('usr-id').value;
+        const payload = { 
+            id: id ? parseInt(id) : null, 
+            nombre: document.getElementById('usr-nombre').value.trim(),
+            username: document.getElementById('usr-username').value.trim(),
+            pin: document.getElementById('usr-pin').value.trim(),
+            rol: document.getElementById('usr-rol').value
+        };
+        try {
+            await fetch(ADMIN_URL_GUARDAR_USUARIO, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            resetFormUsr(); 
+            await cargarUsuariosDesdeDB();
+            renderListaUsuarios();
+        } catch (error) { alert('Error al guardar el usuario.'); }
+    });
+}
+
+function editarUsuario(id) {
+    const u = USUARIOS_SISTEMA.find(x => x.id === id); if(!u) return;
+    document.getElementById('usr-id').value = u.id; 
+    document.getElementById('usr-nombre').value = u.nombre;
+    document.getElementById('usr-username').value = u.username;
+    document.getElementById('usr-pin').value = u.pin;
+    document.getElementById('usr-rol').value = u.rol;
+    
+    document.getElementById('titulo-form-usr').innerText = "Editar Usuario";
+    document.getElementById('btn-save-usr').innerText = "💾 Actualizar Usuario";
+    document.getElementById('btn-cancel-usr').style.display = "block";
+}
+
+function resetFormUsr() {
+    document.getElementById('form-usuario').reset(); 
+    document.getElementById('usr-id').value = "";
+    document.getElementById('titulo-form-usr').innerText = "Crear Usuario";
+    document.getElementById('btn-save-usr').innerText = "💾 Guardar Usuario";
+    document.getElementById('btn-cancel-usr').style.display = "none";
+}
+
+async function eliminarUsuario(id) {
+    if (!confirm(`¿Seguro que deseas ELIMINAR este usuario del sistema?`)) return;
+    try {
+        await fetch(ADMIN_URL_ELIMINAR_USUARIO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+        await cargarUsuariosDesdeDB();
+        renderListaUsuarios();
     } catch(e) { alert('Error al eliminar.'); }
 }
