@@ -1835,3 +1835,246 @@ async function eliminarUsuario(id) {
         renderListaUsuarios();
     } catch(e) { alert('Error al eliminar.'); }
 }
+
+// =================================================================
+// --- LÓGICA EXCLUSIVA DEL PANEL DE ESTADÍSTICAS ---
+// =================================================================
+
+const API_ESTADISTICAS_PEDIDOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-pedidos";
+let datosEstadisticas = [];
+let tasaEstadisticas = 1;
+let graficoTorta = null;
+
+async function iniciarPantallaEstadisticas() {
+    // Escudo: Si no existe el canvas del gráfico, significa que no estamos en estadisticas.html
+    if (!document.getElementById('graficoPagos')) return;
+
+    tasaEstadisticas = parseFloat(localStorage.getItem('tasaBCV')) || 1;
+    
+    try {
+        const res = await fetch(API_ESTADISTICAS_PEDIDOS + "?historico=true");
+        const data = await res.json();
+        datosEstadisticas = Array.isArray(data) ? data : [];
+        aplicarFiltroEstadisticas('hoy');
+    } catch(e) {
+        console.error("Error descargando pedidos para estadísticas:", e);
+    }
+}
+
+function aplicarFiltroEstadisticas(tipo) {
+    if (!document.getElementById('graficoPagos')) return;
+
+    document.querySelectorAll('.filtro-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-300');
+    });
+    
+    if (tipo !== 'custom') {
+        document.getElementById('fechaCustom').value = '';
+        try {
+            if (window.event && window.event.target && window.event.target.classList.contains('filtro-btn')) {
+                window.event.target.classList.remove('bg-slate-800', 'text-slate-300');
+                window.event.target.classList.add('bg-indigo-600', 'text-white');
+            } else if (tipo === 'hoy') {
+                document.querySelectorAll('.filtro-btn')[0].classList.remove('bg-slate-800', 'text-slate-300');
+                document.querySelectorAll('.filtro-btn')[0].classList.add('bg-indigo-600', 'text-white');
+            }
+        } catch(e) {}
+    }
+
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+    
+    const pedidosFiltrados = datosEstadisticas.filter(p => {
+        if (!p.timestamp) return false;
+        const fechaPedido = new Date(p.timestamp);
+        fechaPedido.setHours(0,0,0,0);
+
+        if (tipo === 'hoy') return fechaPedido.getTime() === hoy.getTime();
+        if (tipo === 'ayer') {
+            const ayer = new Date(hoy); ayer.setDate(ayer.getDate() - 1);
+            return fechaPedido.getTime() === ayer.getTime();
+        }
+        if (tipo === 'semana') {
+            const inicioSemana = new Date(hoy);
+            inicioSemana.setDate(hoy.getDate() - hoy.getDay() + 1);
+            return fechaPedido >= inicioSemana;
+        }
+        if (tipo === 'mes') {
+            return fechaPedido.getMonth() === hoy.getMonth() && fechaPedido.getFullYear() === hoy.getFullYear();
+        }
+        if (tipo === 'custom') {
+            const fechaSeleccionada = document.getElementById('fechaCustom').value;
+            if (!fechaSeleccionada) return true;
+            const fCustom = new Date(fechaSeleccionada + 'T00:00:00');
+            return fechaPedido.getTime() === fCustom.getTime();
+        }
+        return true;
+    });
+
+    const finalizados = pedidosFiltrados.filter(p => (p.estado || '').toLowerCase() === 'finalizado');
+    procesarCalculosEstadisticos(finalizados);
+    renderHistorialFinalizadosEnStats(pedidosFiltrados);
+}
+
+function procesarCalculosEstadisticos(pedidos) {
+    let totalUSD = 0;
+    const conteoClientes = {};
+    const conteoProductos = {};
+    const pagos = { 'Zelle': 0, 'Pago Movil': 0, 'Efectivo': 0 };
+    const nominaRepartidores = {};
+
+    pedidos.forEach(p => {
+        const monto = parseFloat(p.total_orden || 0);
+        totalUSD += monto;
+        
+        let metodo = (p.metodo_pago || 'Efectivo').toLowerCase();
+        if (metodo.includes('zelle')) pagos['Zelle']++;
+        else if (metodo.includes('pago') || metodo.includes('movil')) pagos['Pago Movil']++;
+        else pagos['Efectivo']++;
+
+        const cliente = p.cliente || 'Desconocido';
+        if (!conteoClientes[cliente]) conteoClientes[cliente] = { gastado: 0, pedidos: 0 };
+        conteoClientes[cliente].gastado += monto;
+        conteoClientes[cliente].pedidos++;
+
+        const detalle = p.pedido_detallado || '';
+        const lineas = detalle.split('\n');
+        lineas.forEach(linea => {
+            const match = linea.trim().match(/^(\d+)[xX]\s+(.+?)(?:\s+\(\$.+\))?$/);
+            if (match) {
+                const cant = parseInt(match[1]);
+                let nombreProd = match[2].trim();
+                
+                if (!nombreProd.toLowerCase().includes('servicio de delivery')) {
+                    if (!conteoProductos[nombreProd]) conteoProductos[nombreProd] = 0;
+                    conteoProductos[nombreProd] += cant;
+                } else {
+                    const repartidor = p.repartidor || p.Repartidor;
+                    if (repartidor) {
+                        if (!nominaRepartidores[repartidor]) nominaRepartidores[repartidor] = { viajes: 0, dineroAdeudado: 0 };
+                        nominaRepartidores[repartidor].viajes++;
+                        
+                        const matchPrecio = linea.match(/\(\$([\d.]+)\)/);
+                        if (matchPrecio && matchPrecio[1]) {
+                            nominaRepartidores[repartidor].dineroAdeudado += parseFloat(matchPrecio[1]);
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+    dibujarWidgetsEstadisticas(pedidos.length, totalUSD, pagos, conteoClientes, conteoProductos, nominaRepartidores);
+}
+
+function dibujarWidgetsEstadisticas(cantPedidos, totalUSD, pagos, clientes, productos, repartidores) {
+    document.getElementById('widgetTotalUSD').innerText = `$${totalUSD.toFixed(2)}`;
+    document.getElementById('widgetTotalBS').innerText = `Bs. ${(totalUSD * tasaEstadisticas).toFixed(2)}`;
+    document.getElementById('widgetCantPedidos').innerHTML = `<i class="fa-solid fa-receipt"></i> ${cantPedidos} pedidos finalizados`;
+
+    if (graficoTorta) graficoTorta.destroy();
+    const ctx = document.getElementById('graficoPagos').getContext('2d');
+    graficoTorta = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Zelle', 'Pago Móvil', 'Efectivo'],
+            datasets: [{
+                data: [pagos['Zelle'], pagos['Pago Movil'], pagos['Efectivo']],
+                backgroundColor: ['#6366f1', '#f59e0b', '#10b981'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: { plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 10 } } } }, maintainAspectRatio: false }
+    });
+
+    const arrayClientes = Object.keys(clientes).map(k => ({ nombre: k, ...clientes[k] })).sort((a, b) => b.gastado - a.gastado).slice(0, 5);
+    document.getElementById('listaClientes').innerHTML = arrayClientes.length > 0 
+        ? arrayClientes.map(c => `
+            <div class="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
+                <span class="text-sm text-white font-medium">${c.nombre} <span class="text-[10px] text-slate-500 ml-1">(${c.pedidos} pedidos)</span></span>
+                <span class="text-sm font-bold text-emerald-400">$${c.gastado.toFixed(2)}</span>
+            </div>`).join('') 
+        : '<p class="text-xs text-slate-500 italic">No hay datos en este rango</p>';
+
+    const arrayProd = Object.keys(productos).map(k => ({ nombre: k, cant: productos[k] })).sort((a, b) => b.cant - a.cant).slice(0, 5);
+    document.getElementById('listaProductos').innerHTML = arrayProd.length > 0 
+        ? arrayProd.map(p => `
+            <div class="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
+                <span class="text-sm text-white font-medium truncate pr-2">${p.nombre}</span>
+                <span class="text-xs font-bold bg-slate-700 px-2 py-1 rounded text-orange-400">${p.cant} unid.</span>
+            </div>`).join('')
+        : '<p class="text-xs text-slate-500 italic">No hay datos en este rango</p>';
+
+    const arrayRep = Object.keys(repartidores).map(k => ({ nombre: k, ...repartidores[k] })).sort((a, b) => b.viajes - a.viajes);
+    document.getElementById('listaRepartidores').innerHTML = arrayRep.length > 0
+        ? arrayRep.map(r => `
+            <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                <div>
+                    <p class="text-sm text-white font-bold">${r.nombre}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5"><i class="fa-solid fa-route"></i> ${r.viajes} entregas realizadas</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-[10px] uppercase text-slate-500 font-bold block leading-none mb-1">Deuda a pagar</span>
+                    <span class="text-lg font-bold text-sky-400 leading-none">$${r.dineroAdeudado.toFixed(2)}</span>
+                </div>
+            </div>`).join('')
+        : '<p class="text-xs text-slate-500 italic">Nadie ha realizado entregas en este rango</p>';
+}
+
+function renderHistorialFinalizadosEnStats(pedidosList) {
+    const contenedor = document.getElementById('historial-finalizados-container');
+    if (!contenedor) return;
+
+    const finalizados = pedidosList.filter(p => String(p.estado || '').toLowerCase().replace(/\s+/g, '') === 'finalizado');
+
+    if (finalizados.length === 0) {
+        contenedor.innerHTML = '<p class="text-slate-400 text-sm italic">No hay pedidos finalizados en el periodo seleccionado.</p>';
+        return;
+    }
+
+    finalizados.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+    contenedor.innerHTML = '';
+    
+    finalizados.forEach(pedido => {
+        const idVisual = pedido.id_pedido || pedido.ID || 'S/ID';
+        const cliente = pedido.cliente || 'Desconocido';
+        const monto = parseFloat(String(pedido.total_orden || pedido.monto || 0).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+        const metodo = pedido.metodo_pago || 'N/A';
+        
+        let hora = '--:--';
+        if (pedido.timestamp) {
+            try {
+                if (pedido.timestamp.includes('T')) hora = new Date(pedido.timestamp).toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
+            } catch(e){}
+        }
+
+        let linkRecibo = '';
+        if (pedido.imagen_pago && String(pedido.imagen_pago).trim() !== '' && String(pedido.imagen_pago) !== 'undefined') {
+            linkRecibo = `<a href="${pedido.imagen_pago}" target="_blank" class="text-[11px] text-sky-400 font-semibold underline decoration-sky-600/50 underline-offset-2 hover:text-sky-300 transition mt-1 block"><i class="fa-regular fa-image"></i> Ver Recibo</a>`;
+        }
+
+        const esDelivery = String(pedido.tipo_entrega || '').toLowerCase().includes('delivery');
+        const iconoMoto = esDelivery ? `<i class="fa-solid fa-motorcycle text-emerald-400 text-xs ml-2" title="Delivery"></i>` : '';
+
+        contenedor.innerHTML += `
+            <div class="bg-slate-900 border border-slate-700 rounded-lg p-3 flex justify-between items-center transition hover:border-emerald-400">
+                <div class="flex items-center gap-3">
+                    <span class="bg-emerald-400/10 text-emerald-400 px-2 py-1 rounded text-xs font-bold border border-emerald-400/20">#${idVisual}</span>
+                    <div>
+                        <p class="text-slate-100 m-0 text-sm font-bold">${cliente} ${iconoMoto}</p>
+                        <p class="text-slate-400 m-0 text-[11px] mt-0.5"><i class="fa-regular fa-clock"></i> ${hora} • Pago: ${metodo}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-emerald-400 m-0 text-base font-bold">$${monto.toFixed(2)}</p>
+                    ${linkRecibo}
+                </div>
+            </div>
+        `;
+    });
+}
+
+// Disparador de seguridad:
+document.addEventListener('DOMContentLoaded', iniciarPantallaEstadisticas);
