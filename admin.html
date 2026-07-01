@@ -76,6 +76,25 @@
     </style>
 </head>
 <body>
+    <!-- ========================================== -->
+    <!-- PANTALLA DE BLOQUEO DEL ADMINISTRADOR -->
+    <!-- ========================================== -->
+    <div id="pantalla-bloqueo-admin" class="fixed inset-0 bg-slate-950 z-[9999] flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-700 p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
+            <div class="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-500/20">
+                <i class="fa-solid fa-lock text-2xl text-rose-500"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">Acceso Restringido</h2>
+            <p class="text-sm text-slate-400 mb-6">Área exclusiva de administración. Ingresa tu PIN.</p>
+            
+            <input type="password" id="input-pin-admin" placeholder="••••" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-center text-white text-2xl tracking-[0.5em] mb-4 outline-none focus:border-rose-500 transition" onkeypress="if(event.key === 'Enter') desbloquearAdmin()">
+            
+            <button id="btn-desbloquear-admin" onclick="desbloquearAdmin()" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2">
+                Desbloquear <i class="fa-solid fa-arrow-right"></i>
+            </button>
+            <p id="error-pin-admin" class="text-rose-400 text-xs mt-3 hidden bg-rose-500/10 py-2 rounded border border-rose-500/20">PIN incorrecto o sin permisos.</p>
+        </div>
+    </div>
 
     <div class="admin-container">
         
