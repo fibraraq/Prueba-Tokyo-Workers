@@ -304,3 +304,12 @@ function cerrarModalRepartidor() {
 // EVENTOS AL CARGAR LA PÁGINA
 // -----------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', iniciarPantallaEstadisticas);
+// [ ... Todo el código de estadísticas que me pasaste arriba ... ]
+
+// --- MEJOR PRÁCTICA: Inicialización limpia ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Solo ejecutamos si los elementos de estadísticas existen en el HTML actual
+    if (document.getElementById('graficoPagos')) {
+        iniciarPantallaEstadisticas();
+    }
+});
