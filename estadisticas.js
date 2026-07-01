@@ -1,4 +1,3 @@
-
 // =================================================================
 // --- LÓGICA EXCLUSIVA DEL PANEL DE ESTADÍSTICAS ---
 // =================================================================
@@ -7,10 +6,9 @@ const API_ESTADISTICAS_PEDIDOS = "https://n8n-production-0c91c.up.railway.app/we
 let datosEstadisticas = [];
 let tasaEstadisticas = 1;
 let graficoTorta = null;
-let pedidosFiltradosActuales = []; // Variable para el historial del modal
+let pedidosFiltradosActuales = []; 
 
 async function iniciarPantallaEstadisticas() {
-    // Escudo de seguridad para que solo corra en estadisticas.html
     if (!document.getElementById('graficoPagos')) return;
 
     tasaEstadisticas = parseFloat(localStorage.getItem('tasaBCV')) || 1;
@@ -77,7 +75,7 @@ function aplicarFiltroEstadisticas(tipo) {
     });
 
     const finalizados = pedidosFiltrados.filter(p => (p.estado || '').toLowerCase() === 'finalizado');
-    pedidosFiltradosActuales = finalizados; // Guardamos para el modal de motorizados
+    pedidosFiltradosActuales = finalizados; 
     
     procesarCalculosEstadisticos(finalizados);
     renderHistorialFinalizadosEnStats(pedidosFiltrados);
@@ -303,14 +301,6 @@ function cerrarModalRepartidor() {
 }
 
 // -----------------------------------------------------------------
-// EVENTOS AL CARGAR LA PÁGINA (Asegúrate de que quede así al final de tu archivo)
+// EVENTOS AL CARGAR LA PÁGINA
 // -----------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
-    iniciarPantallaEstadisticas();
-    
-    // Si la función cargarMensajesWP existe (porque copiaste lo del panel Admin), la llamamos. 
-    // Si no, no pasa nada.
-    if (typeof cargarMensajesWP === 'function') {
-        cargarMensajesWP();
-    }
-});
+document.addEventListener('DOMContentLoaded', iniciarPantallaEstadisticas);
