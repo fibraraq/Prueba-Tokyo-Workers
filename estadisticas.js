@@ -8,6 +8,10 @@ let tasaEstadisticas = 1;
 let graficoTorta = null;
 let pedidosFiltradosActuales = []; 
 
+// 🟢 NUEVAS VARIABLES PARA EL AUTO-REFRESH
+let filtroActivo = 'hoy'; 
+let timerEstadisticas = null;
+
 async function iniciarPantallaEstadisticas() {
     if (!document.getElementById('graficoPagos')) return;
 
@@ -17,31 +21,54 @@ async function iniciarPantallaEstadisticas() {
         const res = await fetch(API_ESTADISTICAS_PEDIDOS + "?historico=true");
         const data = await res.json();
         datosEstadisticas = Array.isArray(data) ? data : [];
+        
         aplicarFiltroEstadisticas('hoy');
+        arrancarPollingEstadisticas(); // 🟢 Arrancamos el motor de recarga automática
     } catch(e) {
         console.error("Error descargando pedidos para estadísticas:", e);
     }
 }
 
-function aplicarFiltroEstadisticas(tipo) {
+// 🟢 NUEVA FUNCIÓN: Motor de recarga silenciosa
+function arrancarPollingEstadisticas() {
+    if (timerEstadisticas) clearInterval(timerEstadisticas);
+    
+    timerEstadisticas = setInterval(async () => {
+        try {
+            const res = await fetch(API_ESTADISTICAS_PEDIDOS + "?historico=true");
+            const data = await res.json();
+            datosEstadisticas = Array.isArray(data) ? data : [];
+            
+            // Re-aplicamos el filtro actual para que actualice los números sin mover la pantalla
+            aplicarFiltroEstadisticas(filtroActivo, true);
+        } catch (error) {
+            console.error("Error en auto-refresh de estadísticas:", error);
+        }
+    }, 15000); // Se actualiza cada 15 segundos
+}
+
+// 🟢 MODIFICADA: Ahora acepta un parámetro silencioso y guarda la memoria
+function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
     if (!document.getElementById('graficoPagos')) return;
 
-    document.querySelectorAll('.filtro-btn').forEach(btn => {
-        btn.classList.remove('bg-indigo-600', 'text-white');
-        btn.classList.add('bg-slate-800', 'text-slate-300');
-    });
-    
-    if (tipo !== 'custom') {
-        document.getElementById('fechaCustom').value = '';
-        try {
-            if (window.event && window.event.target && window.event.target.classList.contains('filtro-btn')) {
-                window.event.target.classList.remove('bg-slate-800', 'text-slate-300');
-                window.event.target.classList.add('bg-indigo-600', 'text-white');
-            } else if (tipo === 'hoy') {
-                document.querySelectorAll('.filtro-btn')[0].classList.remove('bg-slate-800', 'text-slate-300');
-                document.querySelectorAll('.filtro-btn')[0].classList.add('bg-indigo-600', 'text-white');
-            }
-        } catch(e) {}
+    filtroActivo = tipo; // Guardamos en memoria en qué pestaña estamos
+
+    // Solo cambiamos los colores de los botones si el usuario hizo clic manual
+    if (!esSilencioso) {
+        document.querySelectorAll('.filtro-btn').forEach(btn => {
+            btn.classList.remove('bg-indigo-600', 'text-white');
+            btn.classList.add('bg-slate-800', 'text-slate-300');
+        });
+        
+        if (tipo !== 'custom') {
+            document.getElementById('fechaCustom').value = '';
+            try {
+                if (window.event && window.event.currentTarget) {
+                    window.event.currentTarget.classList.remove('bg-slate-800', 'text-slate-300');
+                    window.event.currentTarget.classList.add('bg-indigo-600', 'text-white');
+                }
+            } catch(e) {}
+        }
     }
 
     const hoy = new Date();
@@ -59,7 +86,7 @@ function aplicarFiltroEstadisticas(tipo) {
         }
         if (tipo === 'semana') {
             const inicioSemana = new Date(hoy);
-            inicioSemana.setDate(hoy.getDate() - hoy.getDay() + 1);
+            inicioSemana.setDate(hoy.getDate() - hoy.getDay() + 1); // Lunes
             return fechaPedido >= inicioSemana;
         }
         if (tipo === 'mes') {
@@ -68,7 +95,10 @@ function aplicarFiltroEstadisticas(tipo) {
         if (tipo === 'custom') {
             const fechaSeleccionada = document.getElementById('fechaCustom').value;
             if (!fechaSeleccionada) return true;
-            const fCustom = new Date(fechaSeleccionada + 'T00:00:00');
+            // Forzamos a que interprete la fecha en la zona local, no en UTC
+            const partesFecha = fechaSeleccionada.split('-');
+            const fCustom = new Date(partesFecha[0], partesFecha[1] - 1, partesFecha[2]);
+            fCustom.setHours(0,0,0,0);
             return fechaPedido.getTime() === fCustom.getTime();
         }
         return true;
@@ -80,6 +110,8 @@ function aplicarFiltroEstadisticas(tipo) {
     procesarCalculosEstadisticos(finalizados);
     renderHistorialFinalizadosEnStats(pedidosFiltrados);
 }
+
+// ... EL RESTO DEL CÓDIGO (procesarCalculosEstadisticos, dibujarWidgetsEstadisticas, etc.) QUEDA EXACTAMENTE IGUAL ...
 
 function procesarCalculosEstadisticos(pedidos) {
     let totalUSD = 0;
