@@ -47,14 +47,23 @@ function arrancarPollingEstadisticas() {
     }, 15000); // Se actualiza cada 15 segundos
 }
 
-// 🟢 MODIFICADA: Ahora acepta un parámetro silencioso y guarda la memoria
-function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
+// 🟢 FUNCIÓN ACTUALIZADA: Ahora descarga datos frescos al hacer clic
+async function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
     if (!document.getElementById('graficoPagos')) return;
 
     filtroActivo = tipo; // Guardamos en memoria en qué pestaña estamos
 
-    // Solo cambiamos los colores de los botones si el usuario hizo clic manual
+    // 1. SI ES UN CLIC MANUAL: Descargamos la data más fresca del servidor
     if (!esSilencioso) {
+        try {
+            const res = await fetch(API_ESTADISTICAS_PEDIDOS + "?historico=true");
+            const data = await res.json();
+            datosEstadisticas = Array.isArray(data) ? data : [];
+        } catch(e) {
+            console.error("Error al refrescar datos manualmente:", e);
+        }
+
+        // Cambiamos los colores de los botones
         document.querySelectorAll('.filtro-btn').forEach(btn => {
             btn.classList.remove('bg-indigo-600', 'text-white');
             btn.classList.add('bg-slate-800', 'text-slate-300');
@@ -71,6 +80,7 @@ function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
         }
     }
 
+    // 2. PROCEDEMOS A FILTRAR LA DATA (Que ahora está 100% actualizada)
     const hoy = new Date();
     hoy.setHours(0,0,0,0);
     
@@ -86,7 +96,7 @@ function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
         }
         if (tipo === 'semana') {
             const inicioSemana = new Date(hoy);
-            inicioSemana.setDate(hoy.getDate() - hoy.getDay() + 1); // Lunes
+            inicioSemana.setDate(hoy.getDate() - hoy.getDay() + 1);
             return fechaPedido >= inicioSemana;
         }
         if (tipo === 'mes') {
@@ -95,7 +105,7 @@ function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
         if (tipo === 'custom') {
             const fechaSeleccionada = document.getElementById('fechaCustom').value;
             if (!fechaSeleccionada) return true;
-            // Forzamos a que interprete la fecha en la zona local, no en UTC
+            // Reparación de Zona Horaria para el calendario manual
             const partesFecha = fechaSeleccionada.split('-');
             const fCustom = new Date(partesFecha[0], partesFecha[1] - 1, partesFecha[2]);
             fCustom.setHours(0,0,0,0);
