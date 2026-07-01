@@ -164,46 +164,47 @@ function verificarSesion() {
     }
 }
 
-function iniciarSesion(event) {
-    if (event && typeof event.preventDefault === 'function') {
-        event.preventDefault();
-    }
+const API_VALIDAR_ACCESO = "https://n8n-production-0c91c.up.railway.app/webhook/validar-acceso";
+
+async function iniciarSesion(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
 
     const usernameInput = document.getElementById('loginUsername').value.trim();
     const pinInput = document.getElementById('loginPIN').value.trim();
     const errorMsg = document.getElementById('loginError');
+    const btnSubmit = document.querySelector('#formLogin button[type="submit"]');
     
     if (errorMsg) errorMsg.classList.add('hidden');
+    if (!usernameInput || !pinInput) return;
 
-    if (!USUARIOS_SISTEMA || USUARIOS_SISTEMA.length === 0) {
-        console.error("La lista de usuarios está vacía. Verifica la conexión con n8n.");
-        if (errorMsg) {
-            errorMsg.innerText = "Error de conexión con la base de datos.";
-            errorMsg.classList.remove('hidden');
-        }
-        return; 
-    }
+    if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...'; }
 
-    const usuarioEncontrado = USUARIOS_SISTEMA.find(u => 
-        String(u.username).toLowerCase() === usernameInput.toLowerCase() && 
-        String(u.pin) === String(pinInput)
-    );
+    try {
+        // Enviamos la carta por debajo de la puerta a n8n
+        const response = await fetch(API_VALIDAR_ACCESO, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo: 'login_normal', username: usernameInput, pin: pinInput })
+        });
 
-    if (usuarioEncontrado) {
-        usuarioActivo = { username: usuarioEncontrado.username, nombre: usuarioEncontrado.nombre, rol: usuarioEncontrado.rol };
-        localStorage.setItem('usuarioActivo', JSON.stringify(usuarioActivo));
-        
-        const formLogin = document.getElementById('formLogin');
-        if (formLogin) formLogin.reset();
-        
-        verificarSesion();
-    } else {
-        if (errorMsg) {
-            errorMsg.innerText = "Usuario o PIN de acceso incorrectos.";
-            errorMsg.classList.remove('hidden');
+        const data = await response.json();
+
+        if (data.success && data.usuario) {
+            // Guardamos al usuario PERO el PIN jamás llegó al navegador
+            usuarioActivo = { username: data.usuario.username, nombre: data.usuario.nombre, rol: data.usuario.rol };
+            localStorage.setItem('usuarioActivo', JSON.stringify(usuarioActivo));
+            
+            const formLogin = document.getElementById('formLogin');
+            if (formLogin) formLogin.reset();
+            
+            verificarSesion();
         } else {
-            alert("Usuario o PIN incorrectos.");
+            if (errorMsg) { errorMsg.innerText = "Usuario o PIN incorrectos."; errorMsg.classList.remove('hidden'); }
         }
+    } catch (error) {
+        if (errorMsg) { errorMsg.innerText = "Error de conexión con el servidor."; errorMsg.classList.remove('hidden'); }
+    } finally {
+        if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = 'Ingresar <i class="fa-solid fa-arrow-right"></i>'; }
     }
 }
 
@@ -946,7 +947,6 @@ async function inicializarTablero() {
     }
     
     await cargarMotorizadosDesdeDB();
-    await cargarUsuariosDesdeDB();
     await cargarCatalogoDesdeDB(); 
     verificarSesion();
     actualizarTasaBCV();
