@@ -712,23 +712,18 @@ function abrirModalCombo(item) {
                 selectIndex++;
             }
         } else if (grupo.tipo === 'producto') {
-            // Buscamos el producto en la memoria del menú de la tienda
-            let prodName = "";
-            let encontrado = false;
-            
-            for(let key in menuData) {
-                let p = menuData[key].items.find(x => String(x.id) === String(grupo.valor) || x.name === grupo.valor);
-                if(p) { 
-                    prodName = p.name || p.nombre; // Soportamos name o nombre
-                    encontrado = true;
-                    break; 
+            // 🌟 Leemos el nombre exacto que ahora nos manda el panel de administración
+            let prodName = grupo.nombre_producto; 
+
+            // Si es un combo viejo y no tiene el nombre guardado, intentamos buscarlo por si acaso:
+            if (!prodName) {
+                for(let key in menuData) {
+                    if (menuData[key].items) {
+                        let p = menuData[key].items.find(x => String(x.id) === String(grupo.valor));
+                        if(p) { prodName = p.name || p.nombre; break; }
+                    }
                 }
-            }
-            
-            // Si la búsqueda estricta falló, usamos el valor crudo que guardó la base de datos
-            // (a veces n8n guarda el nombre en 'valor' si no encuentra el ID)
-            if (!encontrado) {
-                prodName = isNaN(grupo.valor) ? grupo.valor : "Producto Fijo";
+                if (!prodName) prodName = isNaN(grupo.valor) ? grupo.valor : "Producto Fijo";
             }
             
             let fijoHtml = `
