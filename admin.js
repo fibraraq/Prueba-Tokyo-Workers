@@ -1452,47 +1452,37 @@ if (btnAddCombo) {
 
 const formCombo = document.getElementById('form-combo');
 if (formCombo) {
-    // Usamos .onsubmit directo en lugar de clonar el formulario (así no rompemos el botón)
     formCombo.onsubmit = async function(e) {
         e.preventDefault();
         const id = document.getElementById('combo-id').value;
-        
         const itemsSeleccionados = [];
         let faltaHacerClic = false;
 
-        // Revisamos fila por fila
         document.querySelectorAll('.fila-item-combo').forEach(fila => {
             const ref = fila.querySelector('.item-referencia').value;
             const qty = parseInt(fila.querySelector('.item-cantidad').value);
             const visibleText = fila.querySelector('.item-visible').value.trim();
             
-            // Si hay texto escrito pero la referencia está vacía, es que no seleccionó de la lista
-            if (visibleText !== "" && ref === "") {
-                faltaHacerClic = true;
-            } else if (ref && qty > 0) {
+            if (visibleText !== "" && ref === "") faltaHacerClic = true;
+            else if (ref && qty > 0) {
                 if (ref.startsWith('CAT_')) {
                     itemsSeleccionados.push({ tipo: 'categoria', valor: ref.replace('CAT_', ''), cantidad: qty });
                 } else if (ref.startsWith('PROD_')) {
-                    itemsSeleccionados.push({ tipo: 'producto', valor: parseInt(ref.replace('PROD_', '')), cantidad: qty });
+                    // 🌟 MAGIA AQUÍ: Buscamos el nombre real y lo guardamos en el paquete 🌟
+                    const pId = parseInt(ref.replace('PROD_', ''));
+                    const pEncontrado = adminProductos.find(x => x.id === pId);
+                    const nombreReal = pEncontrado ? pEncontrado.nombre : 'Producto Fijo';
+                    
+                    itemsSeleccionados.push({ tipo: 'producto', valor: pId, nombre_producto: nombreReal, cantidad: qty });
                 }
             }
         });
 
-        // NUEVA VALIDACIÓN: Te avisa si escribiste algo pero olvidaste hacer clic en la sugerencia
-        if (faltaHacerClic) {
-            alert('⚠️ Importante: Debes HACER CLIC en una de las opciones de la caja oscura flotante para seleccionarla. No basta solo con escribir el nombre.');
-            return;
-        }
-
-        if (itemsSeleccionados.length === 0) { 
-            alert('Añade al menos 1 elemento válido al combo.'); 
-            return; 
-        }
+        if (faltaHacerClic) { alert('⚠️ Importante: Debes HACER CLIC en una de las opciones flotantes.'); return; }
+        if (itemsSeleccionados.length === 0) { alert('Añade al menos 1 elemento válido al combo.'); return; }
 
         let imgFinalCombo = document.getElementById('combo-imagen').value.trim();
-        if (imgFinalCombo === '') {
-            imgFinalCombo = obtenerEmojiPlato();
-        }
+        if (imgFinalCombo === '' && typeof obtenerEmojiPlato === 'function') imgFinalCombo = obtenerEmojiPlato();
 
         const payload = {
             id: id ? parseInt(id) : null,
