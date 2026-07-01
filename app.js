@@ -731,7 +731,7 @@ function renderizarTablero() {
     const mapaIdsDiarios = {};
     pedidosHoy.forEach((p, index) => {
         const id = p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID';
-        mapIdsDiarios[id] = index + 1; 
+        mapaIdsDiarios[id] = index + 1; 
     });
 
     pedidosEnMemoria.forEach(pedido => {
