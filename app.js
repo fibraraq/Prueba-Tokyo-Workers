@@ -1031,7 +1031,14 @@ async function cargarDatosAdmin() {
         actualizarSelectsCombos();
 
         await cargarMotorizadosDesdeDB();
-        await cargarMensajesWP();
+        // Escudo protector: Solo carga los mensajes si la función existe
+        if (typeof cargarMensajesWP === 'function') {
+           try {
+                cargarMensajesWP();
+            } catch(e) {
+                console.log("No se requieren mensajes en esta pantalla.");
+            }
+        } 
         await cargarUsuariosDesdeDB();
         if (document.getElementById('lista-usuarios-container')) {
             renderListaUsuarios();
