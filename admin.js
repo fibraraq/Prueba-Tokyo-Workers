@@ -31,9 +31,6 @@ async function cargarMensajesWP() {
     }
 }
 
-// Cargar mensajes automáticamente al abrir la página
-document.addEventListener('DOMContentLoaded', cargarMensajesWP);
-
 // Guardar los mensajes al enviar el formulario
 const formMensajes = document.getElementById('form-mensajes');
 if(formMensajes) {
@@ -1063,15 +1060,6 @@ let adminCategorias = [];
 let adminProductos = [];
 let adminCombos = [];
 
-// CORREGIDO: Disparar la función de forma segura dependiendo de cómo cargue el HTML
-if (document.getElementById('form-categoria')) {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', cargarDatosAdmin);
-    } else {
-        cargarDatosAdmin();
-    }
-}
-
 async function cargarDatosAdmin() {
     try {
         const res = await fetch(ADMIN_URL_MENU);
@@ -1896,4 +1884,67 @@ async function eliminarUsuario(id) {
         await cargarUsuariosDesdeDB();
         renderListaUsuarios();
     } catch(e) { alert('Error al eliminar.'); }
+}
+
+// ==========================================
+// LÓGICA DE SEGURIDAD Y DESBLOQUEO
+// ==========================================
+const URL_OBTENER_USUARIOS_ADMIN = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-usuarios";
+
+// Pone el cursor automáticamente en la caja del PIN al abrir la página
+document.addEventListener('DOMContentLoaded', () => {
+    const inputPin = document.getElementById('input-pin-admin');
+    if (inputPin) inputPin.focus();
+});
+
+async function desbloquearAdmin() {
+    const pinIngresado = document.getElementById('input-pin-admin').value.trim();
+    const errorMsg = document.getElementById('error-pin-admin');
+    const boton = document.getElementById('btn-desbloquear-admin');
+    
+    if (!pinIngresado) return;
+    
+    errorMsg.classList.add('hidden');
+    boton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+    boton.disabled = true;
+
+    try {
+        // Descargamos los usuarios frescos de la base de datos
+        const response = await fetch(URL_OBTENER_USUARIOS_ADMIN);
+        const data = await response.json();
+        const usuarios = Array.isArray(data) ? data : (data.data || []);
+
+        // Buscamos si existe un admin o superadmin con ese PIN
+        const usuarioValido = usuarios.find(u => 
+            String(u.pin) === pinIngresado && 
+            (String(u.rol).toLowerCase() === 'admin' || String(u.rol).toLowerCase() === 'superadmin')
+        );
+
+        if (usuarioValido) {
+            // ¡Acceso concedido! Escondemos la cortina con una animación suave
+            document.getElementById('pantalla-bloqueo-admin').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('pantalla-bloqueo-admin').classList.add('hidden');
+            }, 300);
+            
+            // Y AHORA SÍ, cargamos toda la data del panel
+            cargarDatosAdmin();
+            if (typeof cargarMensajesWP === 'function') cargarMensajesWP();
+        } else {
+            // PIN incorrecto o el usuario es solo un "cajero"
+            lanzarErrorBloqueo(errorMsg, boton, "PIN incorrecto o sin privilegios de administrador.");
+        }
+    } catch (error) {
+        console.error("Error verificando credenciales:", error);
+        lanzarErrorBloqueo(errorMsg, boton, "Error de conexión con el servidor.");
+    }
+}
+
+function lanzarErrorBloqueo(errorMsg, boton, mensaje) {
+    errorMsg.innerText = mensaje;
+    errorMsg.classList.remove('hidden');
+    boton.innerHTML = 'Desbloquear <i class="fa-solid fa-arrow-right"></i>';
+    boton.disabled = false;
+    document.getElementById('input-pin-admin').value = '';
+    document.getElementById('input-pin-admin').focus();
 }
