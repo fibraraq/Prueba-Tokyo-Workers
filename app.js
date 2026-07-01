@@ -60,20 +60,6 @@ async function cargarCatalogoDesdeDB() {
     } 
 }
 
-// --- CARGAR USUARIOS DESDE LA BASE DE DATOS ---
-async function cargarUsuariosDesdeDB() {
-    try {
-        const response = await fetch(URL_OBTENER_USUARIOS);
-        if (!response.ok) throw new Error('Error al conectar con el servidor de usuarios');
-        
-        const data = await response.json();
-        USUARIOS_SISTEMA = Array.isArray(data) ? data : (data.data || []);
-        console.log("Usuarios cargados desde BD:", USUARIOS_SISTEMA);
-    } catch (error) {
-        console.error("Error obteniendo los usuarios:", error);
-    }
-}
-
 async function cargarMotorizadosDesdeDB() {
     try {
         const response = await fetch(URL_OBTENER_MOTORIZADOS + "?t=" + new Date().getTime());
