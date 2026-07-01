@@ -665,12 +665,16 @@ function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datos
 
     pedidosEnMemoria[index].estado = estado; pedidosEnMemoria[index].procesado_por = operadorFirma;
     pedidosEnMemoria[index].referencia_pago = nuevaRef; pedidosEnMemoria[index].imagen_pago = nuevaImg;
-    renderizarTablero(); 
+    renderizarTablero();
+
+    // 🟢 AQUÍ ESTÁ LA MAGIA: Rescatamos la dirección de la memoria
+    const direccionGuardada = pedidoViejo.direccion || pedidoViejo.Direccion || "Dirección no especificada";
 
     const payload = {
         id: id, estado: estado, telefono: telefono, cliente: cliente, tipo_entrega: tipoEntrega, procesado_por: operadorFirma,
         referencia_pago: nuevaRef, imagen_pago: nuevaImg, pedido_detallado: pedidoViejo.pedido_detallado || pedidoViejo['Pedido Detallado'] || "",
-        total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0, tiempo_estimado: tiempoEstimado
+        total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0, tiempo_estimado: tiempoEstimado,
+        direccion: direccionGuardada // 🟢 AHORA SÍ ENVIAMOS LA DIRECCIÓN A N8N
     };
     fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(e => console.error(e));
 }
