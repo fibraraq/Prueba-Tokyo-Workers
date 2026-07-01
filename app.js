@@ -169,7 +169,7 @@ async function iniciarSesion(event) {
         // Enviamos la carta por debajo de la puerta a n8n
         const response = await fetch(API_VALIDAR_ACCESO, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer TokioSushi_App_2026_X' },
             body: JSON.stringify({ tipo: 'login_normal', username: usernameInput, pin: pinInput })
         });
 
@@ -493,7 +493,7 @@ function guardarEdicionPedido() {
         telefono: pedidoAnterior.telefono || '', tipo_entrega: pedidoAnterior.tipo_entrega || '', procesado_por: usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado",
         referencia_pago: pedidoAnterior.referencia_pago || pedidoAnterior.Referencia_pago || "", imagen_pago: pedidoAnterior.imagen_pago || pedidoAnterior.Imagen_pago || ""
     };
-    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadBD) }).catch(e => console.error("Error BD:", e));
+    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer TokioSushi_App_2026_X' }, body: JSON.stringify(payloadBD) }).catch(e => console.error("Error BD:", e));
 
     const tasaActual = parseFloat(document.getElementById('tasaBCV').value) || 1;
     const metodoPago = String(pedidoAnterior.metodo_pago || pedidoAnterior['Método de pago'] || pedidoAnterior.Metodo_pago || '').toLowerCase();
@@ -514,7 +514,7 @@ function guardarEdicionPedido() {
     };
     
     fetch("https://n8n-production-0c91c.up.railway.app/webhook/notificar-edicion", { 
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadNotificacion) 
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer TokioSushi_App_2026_X' }, body: JSON.stringify(payloadNotificacion) 
     }).catch(e => console.error("Error enviando WhatsApp:", e));
 }
 
@@ -530,7 +530,7 @@ function cancelarPedido(idPedido) {
         procesado_por: operadorFirma, referencia_pago: pedido.referencia_pago || "", imagen_pago: pedido.imagen_pago || "",
         pedido_detallado: pedido.pedido_detallado || "", total_orden: parseFloat(pedido.total_orden || pedido['Total Orden']) || 0, tiempo_estimado: ""
     };
-    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(e => console.error(e));
+    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer TokioSushi_App_2026_X' }, body: JSON.stringify(payload) }).catch(e => console.error(e));
 }
 
 // --- COMPROBANTES Y TIEMPO ---
@@ -619,7 +619,7 @@ function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datos
         total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0, tiempo_estimado: tiempoEstimado,
         direccion: direccionGuardada 
     };
-    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(e => console.error(e));
+    fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer TokioSushi_App_2026_X' }, body: JSON.stringify(payload) }).catch(e => console.error(e));
 }
 
 // --- FECHAS Y RENDERIZADO ---
@@ -1020,7 +1020,7 @@ async function procesarPrecioDelivery(idPedido) {
     
     fetch(API_ACTUALIZAR_ESTADO, { 
         method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer TokioSushi_App_2026_X' }, 
         body: JSON.stringify(payload) 
     }).catch(e => console.error("Error BD:", e));
 }
@@ -1095,7 +1095,7 @@ function guardarRepartidor() {
 
     fetch(API_ACTUALIZAR_ESTADO, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer TokioSushi_App_2026_X' },
         body: JSON.stringify(payload)
     }).catch(e => console.error("Error BD:", e));
     
