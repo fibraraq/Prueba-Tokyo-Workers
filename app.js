@@ -1,26 +1,18 @@
-// Tokio Sushi - Núcleo de Operaciones y Control del Sistema
-const ADMIN_URL_GUARDAR_USUARIO = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-usuario";
-const ADMIN_URL_ELIMINAR_USUARIO = "https://n8n-production-0c91c.up.railway.app/webhook/eliminar-usuario";
+// =====================================================================
+// Tokio Sushi - Núcleo de Operaciones y Control del Sistema (app.js)
+// =====================================================================
 
 const URL_OBTENER_MOTORIZADOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-motorizados";
-const ADMIN_URL_GUARDAR_MOT = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-motorizado";
-const ADMIN_URL_ELIMINAR_MOT = "https://n8n-production-0c91c.up.railway.app/webhook/eliminar-motorizado";
-
-let MOTORIZADOS_SISTEMA = []; // Memoria para los choferes
-
 const API_OBTENER_PEDIDOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-pedidos";
 const API_ACTUALIZAR_ESTADO = "https://n8n-production-0c91c.up.railway.app/webhook/actualizar-estado";
 const URL_NUEVO_PEDIDO = "https://n8n-production-0c91c.up.railway.app/webhook/Prueba-tokyo";
 const URL_OBTENER_MENU = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-menu";
 const URL_OBTENER_USUARIOS = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-usuarios";
 
-// NUEVAS URLs PARA EL PANEL DE ADMINISTRACIÓN
-const URL_GUARDAR_PRODUCTO = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-producto";
-const URL_GUARDAR_COMBO = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-combo";
-
+let MOTORIZADOS_SISTEMA = []; 
 let USUARIOS_SISTEMA = [];
-let CATALOGO_PRODUCTOS = []; // Catálogo unificado para el buscador de pedidos
-let inventarioProductosBase = []; // Solo productos individuales (para armar combos)
+let CATALOGO_PRODUCTOS = []; 
+let inventarioProductosBase = []; 
 let usuarioActivo = null;
 let pedidosEnMemoria = [];
 let segundosFaltantes = 15;
@@ -30,34 +22,27 @@ let carritoEdicion = [];
 let totalEdicionUSD = 0;
 let resolveTiempoEstimado = null; 
 
-// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS (ANTI-CACHÉ Y DESEMPAQUETADO) ---
+// --- CARGAR CATÁLOGO DESDE LA BASE DE DATOS ---
 async function cargarCatalogoDesdeDB() {
     try {
-        // Le agregamos un número aleatorio a la URL para que Chrome no use datos viejos
         const urlFresca = URL_OBTENER_MENU + "?t=" + new Date().getTime();
         const response = await fetch(urlFresca);
         if (!response.ok) throw new Error('Error al conectar con el servidor de menú');
         
         const rawData = await response.json();
-        
-        // Desempaquetamos el Array si viene de n8n
         const data = (Array.isArray(rawData) && rawData[0].menu) ? rawData[0] : rawData;
         
         let todosLosItems = [];
 
-        // Si viene con la nueva estructura modular de n8n
         if (data && data.menu) {
             inventarioProductosBase = data.menu.productos || [];
             if (data.menu.productos) todosLosItems = todosLosItems.concat(data.menu.productos);
             if (data.menu.combos) todosLosItems = todosLosItems.concat(data.menu.combos);
-        } 
-        // Respaldo por si viene como array simple antiguo
-        else if (Array.isArray(data)) {
+        } else if (Array.isArray(data)) {
             todosLosItems = data;
             inventarioProductosBase = data; 
         }
 
-        // Mapeamos los datos unificados al formato que usa el buscador
         CATALOGO_PRODUCTOS = todosLosItems.map(item => ({
             id: item.id,
             name: item.nombre,
@@ -66,7 +51,7 @@ async function cargarCatalogoDesdeDB() {
         
         console.log("🔥 Catálogo listo para sugerencias:", CATALOGO_PRODUCTOS.length, "ítems cargados.");
         
-        // Si estamos en admin.html, actualizamos la primera fila del combo
+        // Escudo para Admin (por si comparten página)
         if (document.getElementById('lista-items-combo') && document.getElementById('lista-items-combo').innerHTML === '') {
             if (typeof agregarFilaProductoCombo === 'function') agregarFilaProductoCombo(); 
         }
@@ -74,6 +59,7 @@ async function cargarCatalogoDesdeDB() {
         console.error("Error obteniendo el catálogo interno:", error);
     } 
 }
+
 // --- CARGAR USUARIOS DESDE LA BASE DE DATOS ---
 async function cargarUsuariosDesdeDB() {
     try {
@@ -81,8 +67,6 @@ async function cargarUsuariosDesdeDB() {
         if (!response.ok) throw new Error('Error al conectar con el servidor de usuarios');
         
         const data = await response.json();
-        
-        // Nos aseguramos de que siempre sea una lista (array) sin importar cómo lo envíe n8n
         USUARIOS_SISTEMA = Array.isArray(data) ? data : (data.data || []);
         console.log("Usuarios cargados desde BD:", USUARIOS_SISTEMA);
     } catch (error) {
@@ -97,8 +81,8 @@ async function cargarMotorizadosDesdeDB() {
         const data = await response.json();
         MOTORIZADOS_SISTEMA = Array.isArray(data) ? data : (data.data || []);
         
-        // Si estamos en el admin, dibujamos la lista
-        if (document.getElementById('lista-motorizados-container')) {
+        // Escudo de seguridad para el Admin
+        if (document.getElementById('lista-motorizados-container') && typeof renderListaMotorizados === 'function') {
             renderListaMotorizados();
         }
     } catch (error) { console.error("Error obteniendo motorizados:", error); }
@@ -113,13 +97,11 @@ async function actualizarTasaBCV() {
     const tasaGuardada = localStorage.getItem('tasaBCV');
     const fechaTasa = localStorage.getItem('fechaTasa');
 
-    // 1. EL CANDADO MANUAL: Tu salvavidas. Si fijaste la tasa a mano hoy, se bloquea la API.
     if (fechaTasa === hoy && tasaGuardada) {
         inputTasa.value = tasaGuardada;
-        return; // Corta la ejecución aquí, tu número a mano está a salvo.
+        return; 
     }
 
-    // 2. Consulta a la API más estable (DolarApi)
     try {
         const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
         if (!response.ok) throw new Error('Error API BCV');
@@ -128,8 +110,6 @@ async function actualizarTasaBCV() {
         
         if (data && data.promedio) {
             inputTasa.value = parseFloat(data.promedio).toFixed(2);
-            
-            // Guardamos la tasa automática y le ponemos la fecha de hoy
             localStorage.setItem('tasaBCV', inputTasa.value);
             localStorage.setItem('fechaTasa', hoy);
             
@@ -138,7 +118,6 @@ async function actualizarTasaBCV() {
         }
     } catch (error) {
         console.error("Falló la conexión con DolarApi:", error);
-        // Si la API falla o se cae el internet, carga la última que guardaste
         if (tasaGuardada) inputTasa.value = tasaGuardada;
     }
 }
@@ -147,7 +126,7 @@ if (document.getElementById('tasaBCV')) {
     document.getElementById('tasaBCV').addEventListener('input', (e) => {
         const hoy = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
         localStorage.setItem('tasaBCV', e.target.value);
-        localStorage.setItem('fechaTasa', hoy); // Activa el candado manual para el día de hoy
+        localStorage.setItem('fechaTasa', hoy); 
         renderizarTablero(); 
     });
 }
@@ -155,7 +134,6 @@ if (document.getElementById('tasaBCV')) {
 // --- ESCUCHADOR DEL CALENDARIO ---
 if (document.getElementById('calendarioFiltro')) {
     document.getElementById('calendarioFiltro').addEventListener('change', () => {
-        // Al cambiar de día, limpiamos la pantalla, ponemos a cargar y pedimos los datos nuevos
         console.log("Cambiando fecha a:", document.getElementById('calendarioFiltro').value);
         pedidosEnMemoria = [];
         cargarPedidos();
@@ -186,7 +164,6 @@ function verificarSesion() {
     }
 }
 
-// --- SESIONES (RBAC) ---
 function iniciarSesion(event) {
     if (event && typeof event.preventDefault === 'function') {
         event.preventDefault();
@@ -265,13 +242,11 @@ function aplicarRestriccionesRol() {
 async function abrirModalNuevoPedido() { 
     const contenedor = document.getElementById('contenedorArticulos');
     
-    // ¡EL BLINDAJE!: Si la memoria está vacía, forzamos a descargar el menú en este instante
     if (CATALOGO_PRODUCTOS.length === 0) {
         console.log("Memoria vacía. Descargando menú fresco para las sugerencias...");
         await cargarCatalogoDesdeDB();
     }
 
-    // Si la fila actual no tiene el buscador inteligente, la destruimos y creamos una nueva
     if (!contenedor.innerHTML.includes('sugerencias-')) {
         contenedor.innerHTML = '';
         agregarFilaArticulo();
@@ -290,9 +265,8 @@ function agregarFilaArticulo() {
         : 'bg-slate-800 text-emerald-400 cursor-not-allowed border-slate-600 font-bold';
 
     const div = document.createElement('div');
-    div.className = "flex gap-2 articulo-fila relative"; // El relative es vital aquí
+    div.className = "flex gap-2 articulo-fila relative"; 
     
-    // Generamos un ID único para la cajita de sugerencias de esta fila
     const idSugerencia = 'sugerencias-' + Math.random().toString(36).substr(2, 9);
 
     div.innerHTML = `
@@ -312,22 +286,19 @@ function agregarFilaArticulo() {
     document.getElementById('contenedorArticulos').appendChild(div);
 }
 
-// 2. Filtra el catálogo en tiempo real mientras el usuario escribe
+// 2. Filtra el catálogo en tiempo real
 function mostrarSugerenciasPedido(inputElement, idContenedor) {
     const contenedor = document.getElementById(idContenedor);
     const texto = inputElement.value.toLowerCase().trim();
     
-    // Si borró el texto, escondemos la caja
     if (texto.length < 1) {
         contenedor.classList.add('hidden');
         return;
     }
 
-    // Buscamos coincidencias en el catálogo general
     const resultados = CATALOGO_PRODUCTOS.filter(p => p.name.toLowerCase().includes(texto));
 
     if (resultados.length > 0) {
-        // Dibujamos las opciones
         contenedor.innerHTML = resultados.map(p => `
             <div onclick="seleccionarSugerenciaPedido(this, '${p.name.replace(/'/g, "\\'")}', ${p.price})" class="p-2 border-b border-slate-700 hover:bg-slate-600 cursor-pointer text-sm text-white flex justify-between items-center transition">
                 <span class="truncate">${p.name}</span>
@@ -336,34 +307,28 @@ function mostrarSugerenciasPedido(inputElement, idContenedor) {
         `).join('');
         contenedor.classList.remove('hidden');
     } else {
-        // Si escribe algo que no existe
         contenedor.innerHTML = `<div class="p-2 text-sm text-slate-400 italic">No hay coincidencias...</div>`;
         contenedor.classList.remove('hidden');
     }
 }
 
-// 3. Rellena los datos automáticamente al hacer clic en la sugerencia
+// 3. Rellena los datos automáticamente
 function seleccionarSugerenciaPedido(elementoOpcion, nombre, precio) {
     const fila = elementoOpcion.closest('.articulo-fila');
-    
     const inputNombre = fila.querySelector('.item-name');
     const inputPrecio = fila.querySelector('.item-price');
     
-    // Rellenamos nombre y precio
     inputNombre.value = nombre;
     inputPrecio.value = precio;
-    
-    // Escondemos la caja flotante
     elementoOpcion.parentElement.classList.add('hidden');
 }
 
-// 4. La magia: Autocompletar el precio al seleccionar el producto
+// 4. Autocompletar el precio al seleccionar
 function autoCompletarPrecio(inputNombre) {
     const nombreIngresado = inputNombre.value.trim().toLowerCase();
     const productoEncontrado = CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreIngresado);
     
     if (productoEncontrado) {
-        // El input de precio es el cuadro que está inmediatamente a la derecha
         const inputPrecio = inputNombre.nextElementSibling;
         inputPrecio.value = productoEncontrado.price;
     }
@@ -374,7 +339,6 @@ async function enviarNuevoPedido() {
     const cliente = document.getElementById('inputCliente').value.trim();
     if(!cliente) { alert("Por favor ingresa el nombre del cliente."); return; }
 
-    // AQUÍ ESTÁ EL TRUCO: Le pegamos el precio directamente al nombre
     const articulos = Array.from(document.querySelectorAll('.articulo-fila')).map(f => {
         const cant = parseInt(f.querySelector('.item-qty').value) || 1;
         const nombreBase = f.querySelector('.item-name').value.trim() || 'Artículo sin nombre';
@@ -382,12 +346,11 @@ async function enviarNuevoPedido() {
         
         return {
             qty: cant,
-            name: `${nombreBase} ($${(precioUni * cant).toFixed(2)})`, // El nombre ahora viaja con el precio blindado
+            name: `${nombreBase} ($${(precioUni * cant).toFixed(2)})`, 
             price: precioUni
         };
     });
     
-    // (Opcional) Si tu n8n lee la variable pedido_detallado, se la enviamos también por si acaso
     const textoDetalladoConPrecios = articulos.map(item => `${item.qty}x ${item.name}`).join('\n');
 
     const payload = {
@@ -432,17 +395,13 @@ function abrirModalEditarPedido(idReal, idVisual) {
             let nombreLimpio = match[2].trim();
             let precioExtraido = 0;
 
-            // 1. Extraemos el precio del texto si existe ej: "Alaska Roll ($4.00)" o "Delivery ($3)"
             const matchPrecio = nombreLimpio.match(/\(\$(\d+(?:\.\d+)?)\)$/);
             if (matchPrecio) {
-                precioExtraido = parseFloat(matchPrecio[1]) / cant; // Calculamos el precio unitario
-                nombreLimpio = nombreLimpio.replace(/\s*\(\$[\d.]+\)$/, '').trim(); // Le quitamos el precio al nombre
+                precioExtraido = parseFloat(matchPrecio[1]) / cant; 
+                nombreLimpio = nombreLimpio.replace(/\s*\(\$[\d.]+\)$/, '').trim(); 
             }
 
-            // 2. Buscamos en el catálogo con el nombre limpio
             const itemCat = typeof CATALOGO_PRODUCTOS !== 'undefined' ? CATALOGO_PRODUCTOS.find(p => p.name.toLowerCase() === nombreLimpio.toLowerCase()) : null;
-            
-            // 3. Si está en el catálogo usamos su precio. Si no, usamos el que extrajimos.
             const precioFinal = itemCat ? itemCat.price : (precioExtraido || 0);
 
             carritoEdicion.push({ id: itemCat ? itemCat.id : 'custom', name: nombreLimpio, price: precioFinal, qty: cant });
@@ -509,7 +468,6 @@ function buscarProducto(texto) {
 }
 
 function agregarAlCarritoEdicion(idProducto) {
-    // Usamos String() para evitar que choque un número con un texto
     const producto = CATALOGO_PRODUCTOS.find(p => String(p.id) === String(idProducto)); 
     if (!producto) return;
     
@@ -568,7 +526,6 @@ function guardarEdicionPedido() {
         texto_bolivares: textoAdicionalBs 
     };
     
-    // Aquí puedes cambiar a tu nueva URL local si lo deseas
     fetch("https://n8n-production-0c91c.up.railway.app/webhook/notificar-edicion", { 
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadNotificacion) 
     }).catch(e => console.error("Error enviando WhatsApp:", e));
@@ -667,14 +624,13 @@ function ejecutarActualizacion(id, estado, telefono, cliente, tipoEntrega, datos
     pedidosEnMemoria[index].referencia_pago = nuevaRef; pedidosEnMemoria[index].imagen_pago = nuevaImg;
     renderizarTablero();
 
-    // 🟢 AQUÍ ESTÁ LA MAGIA: Rescatamos la dirección de la memoria
     const direccionGuardada = pedidoViejo.direccion || pedidoViejo.Direccion || "Dirección no especificada";
 
     const payload = {
         id: id, estado: estado, telefono: telefono, cliente: cliente, tipo_entrega: tipoEntrega, procesado_por: operadorFirma,
         referencia_pago: nuevaRef, imagen_pago: nuevaImg, pedido_detallado: pedidoViejo.pedido_detallado || pedidoViejo['Pedido Detallado'] || "",
         total_orden: parseFloat(pedidoViejo.total_orden || pedidoViejo['Total Orden']) || 0, tiempo_estimado: tiempoEstimado,
-        direccion: direccionGuardada // 🟢 AHORA SÍ ENVIAMOS LA DIRECCIÓN A N8N
+        direccion: direccionGuardada 
     };
     fetch(API_ACTUALIZAR_ESTADO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(e => console.error(e));
 }
@@ -726,27 +682,22 @@ async function cargarPedidos() {
         const datos = await response.json(); 
         pedidosEnMemoria = Array.isArray(datos) ? datos : [];
         
-        // --- NUEVA LÓGICA DE TASA HISTÓRICA ---
         const inputTasa = document.getElementById('tasaBCV');
         const hoy = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
 
         if (fechaCalendario && fechaCalendario !== hoy) {
-            // Buscamos si algún pedido de esa fecha tiene la tasa guardada
             const pedidoConTasa = pedidosEnMemoria.find(p => p.tasa_bcv && parseFloat(p.tasa_bcv) > 0);
-            if (pedidoConTasa) {
+            if (pedidoConTasa && inputTasa) {
                 inputTasa.value = parseFloat(pedidoConTasa.tasa_bcv).toFixed(2);
-                inputTasa.classList.add('text-amber-400'); // La pintamos de amarillo
-            } else {
-                // Para los pedidos viejos de ayer o antes que no tenían esta función
+                inputTasa.classList.add('text-amber-400'); 
+            } else if (inputTasa) {
                 inputTasa.value = "";
                 inputTasa.classList.add('text-amber-400');
             }
         } else {
-            // Si es la fecha de hoy, volvemos a la normalidad y buscamos la actual
             actualizarTasaBCV();
-            inputTasa.classList.remove('text-amber-400');
+            if (inputTasa) inputTasa.classList.remove('text-amber-400');
         }
-        // ----------------------------------------
 
         renderizarTablero(); 
         resetearYArrancarPolling();
@@ -755,13 +706,10 @@ async function cargarPedidos() {
     }
 }
 
-// --- HELPER PARA FORMATO DE MONEDA (PUNTOS Y COMAS) ---
 function formatearMoneda(valor) {
-    // Formato 'es-VE' (Venezuela): usa . para miles y , para decimales
     return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valor);
 }
 
-// --- ALGORITMO RENDERIZADOR Y MAPEO DE TURNOS ---
 function renderizarTablero() {
     const colCalculando = document.getElementById('columnaCalculandoDelivery');
     const colPagoPendiente = document.getElementById('columnaPagoPendiente');
@@ -783,7 +731,7 @@ function renderizarTablero() {
     const mapaIdsDiarios = {};
     pedidosHoy.forEach((p, index) => {
         const id = p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID';
-        mapaIdsDiarios[id] = index + 1; 
+        mapIdsDiarios[id] = index + 1; 
     });
 
     pedidosEnMemoria.forEach(pedido => {
@@ -798,7 +746,6 @@ function renderizarTablero() {
         const esPagoMovil = metodoPago.toLowerCase().includes('pago') || metodoPago.toLowerCase().includes('movil');
         const monto = parseFloat(String(pedido.total_orden || pedido.monto || 0).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
         
-        // APLICAMOS EL FORMATO AQUÍ
         const montoFormateado = formatearMoneda(monto);
         const montoBsFormateado = formatearMoneda(monto * tasaActual);
 
@@ -935,7 +882,6 @@ function renderizarTablero() {
     document.getElementById('cantEnCocina').innerText = conteoCocina; 
     document.getElementById('cantFinalizado').innerText = conteoFinalizado;
 
-    // APLICAMOS EL FORMATO A LOS TOTALES DEL FONDO TAMBIÉN
     const totalVentasFormateado = formatearMoneda(totalVentasDia);
     const totalVentasBsFormateado = formatearMoneda(totalVentasDia * tasaActual);
     if (document.getElementById('totalDiaBottom')) document.getElementById('totalDiaBottom').innerHTML = `<div class="flex flex-col text-right leading-tight"><span class="text-lg font-bold text-emerald-400">$${totalVentasFormateado}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${totalVentasBsFormateado}</span></div>`;
@@ -971,7 +917,7 @@ function abrirModalDetalle(idPedido) {
         seccionVES = `<div class="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg mt-2 text-amber-300 text-xs text-center font-bold">Total en Bolívares: Bs. ${(monto * t).toFixed(2)} (Tasa: ${t.toFixed(2)} Bs/$)</div>`;
     }
     let refHtml = ref ? `<p class="text-xs text-amber-400 mt-1 font-mono bg-slate-900 border border-slate-700 px-2 py-1 rounded inline-block">Ref: ${ref}</p>` : '';
-    // --- LÓGICA PARA INYECTAR LA IMAGEN EN EL MODAL ---
+    
     let btnImg = '';
     if (pedido.imagen_pago && String(pedido.imagen_pago).trim() !== '' && String(pedido.imagen_pago) !== 'undefined') {
         btnImg = `
@@ -990,540 +936,19 @@ function abrirModalDetalle(idPedido) {
 }
 function cerrarModal() { document.getElementById('modalDetalle').classList.add('hidden'); }
 
-
-// =====================================================================
-// --- LÓGICA EXCLUSIVA DEL PANEL DE ADMINISTRACIÓN (admin.html) ---
-// =====================================================================
-
-const ADMIN_URL_MENU = "https://n8n-production-0c91c.up.railway.app/webhook/obtener-menu";
-const ADMIN_URL_GUARDAR_CAT = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-categoria";
-const ADMIN_URL_GUARDAR_PROD = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-producto";
-const ADMIN_URL_GUARDAR_COMBO = "https://n8n-production-0c91c.up.railway.app/webhook/guardar-combo";
-const ADMIN_URL_ELIMINAR = "https://n8n-production-0c91c.up.railway.app/webhook/eliminar-item";
-
-let adminCategorias = [];
-let adminProductos = [];
-let adminCombos = [];
-
-// CORREGIDO: Disparar la función de forma segura dependiendo de cómo cargue el HTML
-if (document.getElementById('form-categoria')) {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', cargarDatosAdmin);
-    } else {
-        cargarDatosAdmin();
-    }
-}
-
-async function cargarDatosAdmin() {
-    try {
-        const res = await fetch(ADMIN_URL_MENU);
-        const rawData = await res.json();
-        
-        // EL TRUCO: Si n8n lo envía envuelto en un Array [], sacamos el primer elemento [0]
-        const data = Array.isArray(rawData) ? rawData[0] : rawData;
-        
-        adminCategorias = data.menu ? (data.menu.categorias || []) : [];
-        adminProductos = data.menu ? (data.menu.productos || []) : [];
-        adminCombos = data.menu ? (data.menu.combos || []) : [];
-
-        renderListaCategorias();
-        renderListaProductos();
-        renderListaCombos();
-        actualizarSelectCategorias();
-        
-        // ¡LA MAGIA AQUÍ! Actualizamos los selects de los combos automáticamente
-        actualizarSelectsCombos();
-
-        await cargarMotorizadosDesdeDB();
-        await cargarUsuariosDesdeDB();
-        if (document.getElementById('lista-usuarios-container')) {
-            renderListaUsuarios();
-        }
-        
-        // Si el contenedor de items de combo está vacío, añadimos una fila por defecto
-        const listaItems = document.getElementById('lista-items-combo');
-        if (listaItems && listaItems.innerHTML === '') {
-            agregarFilaProductoCombo();
-        }
-    } catch (error) {
-        console.error("Error cargando datos del admin:", error);
-    }
-}
-
-// --- RENDERIZADO DE CATEGORÍAS ---
-function renderListaCategorias(lista = adminCategorias) {
-    const cont = document.getElementById('lista-categorias-container');
-    if(!cont) return;
-    cont.innerHTML = '';
-    
-    if (lista.length === 0) {
-        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No se encontraron categorías.</p>';
-        return;
-    }
-
-    lista.forEach(cat => {
-        cont.innerHTML += `
-            <div class="list-item">
-                <div class="item-info">
-                    <p class="item-title">${cat.nombre}</p>
-                </div>
-                <div class="item-actions">
-                    <button class="action-btn btn-edit" onclick="editarCategoria(${cat.id})" title="Editar">✏️</button>
-                    <button class="action-btn btn-delete" onclick="eliminarItem(${cat.id}, 'categoria')" title="Eliminar">🗑️</button>
-                </div>
-            </div>`;
-    });
-}
-
-// Le agregamos "lista = adminProductos" para que por defecto muestre todos, 
-// pero si el buscador le manda una lista filtrada, dibuje esa.
-function renderListaProductos(lista = adminProductos) {
-    const cont = document.getElementById('lista-productos-container');
-    if(!cont) return;
-    cont.innerHTML = '';
-    
-    if (lista.length === 0) {
-        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No se encontraron productos.</p>';
-        return;
-    }
-
-    lista.forEach(p => {
-        const opacityClass = p.disponible ? '' : 'deshabilitado';
-        cont.innerHTML += `
-            <div class="list-item ${opacityClass}">
-                <div class="item-info">
-                    <p class="item-title">${p.nombre} <span style="color:#10b981">$${p.precio}</span></p>
-                    <p class="item-meta">Cat: ${p.categoria} | Disp: ${p.disponible ? 'Sí' : 'No'}</p>
-                </div>
-                <div class="item-actions">
-                    <button class="action-btn btn-edit" onclick="editarProducto(${p.id})" title="Editar">✏️</button>
-                    <button class="action-btn btn-delete" onclick="eliminarItem(${p.id}, 'producto')" title="Eliminar">🗑️</button>
-                </div>
-            </div>`;
-    });
-}
-
-// --- NUEVO: BUSCADOR EN TIEMPO REAL ---
-function filtrarProductosAdmin() {
-    const textoBuscado = document.getElementById('buscador-productos-admin').value.toLowerCase();
-    
-    // Filtramos la memoria viva
-    const resultados = adminProductos.filter(p => 
-        p.nombre.toLowerCase().includes(textoBuscado)
-    );
-    
-    // Mandamos a pintar solo los resultados
-    renderListaProductos(resultados);
-}
-
-// --- RENDERIZADO DE COMBOS ---
-function renderListaCombos(lista = adminCombos) {
-    const cont = document.getElementById('lista-combos-container');
-    if(!cont) return;
-    cont.innerHTML = '';
-    
-    if (lista.length === 0) {
-        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No se encontraron combos.</p>';
-        return;
-    }
-
-    lista.forEach(c => {
-        const opacityClass = c.disponible ? '' : 'deshabilitado';
-        cont.innerHTML += `
-            <div class="list-item ${opacityClass}">
-                <div class="item-info">
-                    <p class="item-title">${c.nombre} <span style="color:#10b981">$${c.precio}</span></p>
-                    <p class="item-meta">Disp: ${c.disponible ? 'Sí' : 'No'}</p>
-                </div>
-                <div class="item-actions">
-                    <button class="action-btn btn-edit" onclick="editarCombo(${c.id})" title="Editar">✏️</button>
-                    <button class="action-btn btn-delete" onclick="eliminarItem(${c.id}, 'combo')" title="Eliminar">🗑️</button>
-                </div>
-            </div>`;
-    });
-}
-
-// Buscador para Categorías
-function filtrarCategoriasAdmin() {
-    const textoBuscado = document.getElementById('buscador-categorias-admin').value.toLowerCase();
-    const resultados = adminCategorias.filter(c => c.nombre.toLowerCase().includes(textoBuscado));
-    renderListaCategorias(resultados);
-}
-
-// Buscador para Combos
-function filtrarCombosAdmin() {
-    const textoBuscado = document.getElementById('buscador-combos-admin').value.toLowerCase();
-    const resultados = adminCombos.filter(c => c.nombre.toLowerCase().includes(textoBuscado));
-    renderListaCombos(resultados);
-}
-
-function actualizarSelectCategorias() {
-    const select = document.getElementById('prod-categoria');
-    if(!select) return;
-    select.innerHTML = '<option value="">-- Selecciona Categoría --</option>';
-    adminCategorias.forEach(cat => {
-        select.innerHTML += `<option value="${cat.nombre}">${cat.nombre}</option>`;
-    });
-}
-
-// --- ELIMINAR ---
-async function eliminarItem(id, tipo) {
-    if (!confirm(`¿Seguro que deseas eliminar este ${tipo}? Esta acción no se puede deshacer.`)) return;
-    
-    try {
-        await fetch(ADMIN_URL_ELIMINAR, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: id, tipo: tipo })
-        });
-        cargarDatosAdmin();
-    } catch(e) {
-        alert('Error al intentar eliminar el elemento.');
-    }
-}
-
-// --- NUEVA VERSIÓN: MOTOR DE AUTOCOMPLETADO PARA COMBOS ---
-function actualizarSelectsCombos() {
-    let datalist = document.getElementById('lista-productos-combo');
-    if (!datalist) {
-        datalist = document.createElement('datalist');
-        datalist.id = 'lista-productos-combo';
-        document.body.appendChild(datalist);
-    }
-    
-    // Llenamos la lista invisible con el catálogo actual
-    datalist.innerHTML = adminProductos.map(p => 
-        `<option value="${p.nombre} ($${p.precio})"></option>`
-    ).join('');
-}
-
-// --- FORMULARIOS: CATEGORÍA ---
-if (document.getElementById('form-categoria')) {
-    document.getElementById('form-categoria').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = document.getElementById('cat-id').value;
-        const payload = {
-            id: id ? parseInt(id) : null,
-            nombre: document.getElementById('cat-nombre').value.trim(),
-            imagen: document.getElementById('cat-imagen').value.trim()
-        };
-        try {
-            await fetch(ADMIN_URL_GUARDAR_CAT, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-            resetFormCat();
-            cargarDatosAdmin();
-        } catch (error) { alert('Error al guardar la categoría.'); }
-    });
-}
-
-function editarCategoria(id) {
-    const cat = adminCategorias.find(c => c.id === id);
-    if(!cat) return;
-    document.getElementById('cat-id').value = cat.id;
-    document.getElementById('cat-nombre').value = cat.nombre;
-    document.getElementById('cat-imagen').value = cat.imagen || '';
-    
-    document.getElementById('titulo-form-cat').innerText = "Editar Categoría";
-    document.getElementById('btn-save-cat').innerText = "💾 Actualizar Categoría";
-    document.getElementById('btn-cancel-cat').style.display = "block";
-}
-
-function resetFormCat() {
-    document.getElementById('form-categoria').reset();
-    document.getElementById('cat-id').value = "";
-    if (document.getElementById('cat-imagen')) document.getElementById('cat-imagen').value = "";
-    document.getElementById('titulo-form-cat').innerText = "Crear Categoría";
-    document.getElementById('btn-save-cat').innerText = "💾 Guardar Categoría";
-    document.getElementById('btn-cancel-cat').style.display = "none";
-    if(document.getElementById('buscador-categorias-admin')) document.getElementById('buscador-categorias-admin').value = '';
-}
-
-// --- FORMULARIOS: PRODUCTO ---
-if (document.getElementById('form-producto')) {
-    document.getElementById('form-producto').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = document.getElementById('prod-id').value;
-        let imgFinalProd = document.getElementById('prod-imagen').value.trim();
-        if (imgFinalProd === '') {
-            imgFinalProd = obtenerEmojiPlato();
-        }
-        const payload = {
-            id: id ? parseInt(id) : null,
-            nombre: document.getElementById('prod-nombre').value.trim(),
-            categoria: document.getElementById('prod-categoria').value,
-            precio: parseFloat(document.getElementById('prod-precio').value),
-            imagen: imgFinalProd,
-            descripcion: document.getElementById('prod-descripcion').value.trim(),
-            disponible: document.getElementById('prod-disponible').checked
-        };
-        try {
-            await fetch(ADMIN_URL_GUARDAR_PROD, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-            resetFormProd();
-            cargarDatosAdmin();
-        } catch (error) { alert('Error al guardar el producto.'); }
-    });
-}
-
-function editarProducto(id) {
-    const p = adminProductos.find(x => x.id === id);
-    if(!p) return;
-    document.getElementById('prod-id').value = p.id;
-    document.getElementById('prod-nombre').value = p.nombre;
-    document.getElementById('prod-categoria').value = p.categoria;
-    document.getElementById('prod-precio').value = p.precio;
-    document.getElementById('prod-imagen').value = p.imagen || '';
-    document.getElementById('prod-descripcion').value = p.descripcion;
-    document.getElementById('prod-disponible').checked = p.disponible;
-    
-    document.getElementById('titulo-form-prod').innerText = "Editar Producto";
-    document.getElementById('btn-save-prod').innerText = "💾 Actualizar Producto";
-    document.getElementById('btn-cancel-prod').style.display = "block";
-}
-
-function resetFormProd() {
-    document.getElementById('form-producto').reset();
-    document.getElementById('prod-id').value = "";
-    if (document.getElementById('prod-imagen')) document.getElementById('prod-imagen').value = "";
-    document.getElementById('titulo-form-prod').innerText = "Crear Producto";
-    document.getElementById('btn-save-prod').innerText = "💾 Guardar Producto";
-    document.getElementById('btn-cancel-prod').style.display = "none";
-}
-
-// --- 1. DIBUJANTE DE FILA (CON BUSCADOR INTELIGENTE) ---
-function agregarFilaProductoCombo(valorSeleccionado = "", qty = 1) {
-    const contenedor = document.getElementById('lista-items-combo');
-    const fila = document.createElement('div');
-    fila.className = 'fila-item-combo'; 
-    fila.style.display = 'flex';
-    fila.style.gap = '10px';
-    fila.style.marginBottom = '10px';
-
-    // Pre-llenar si estamos editando un combo guardado
-    let nombreLegible = "";
-    if (valorSeleccionado.startsWith('CAT_')) {
-        nombreLegible = "📁 Categoría: " + valorSeleccionado.replace('CAT_', '');
-    } else if (valorSeleccionado.startsWith('PROD_')) {
-        const pId = parseInt(valorSeleccionado.replace('PROD_', ''));
-        const p = adminProductos.find(x => x.id === pId);
-        if (p) nombreLegible = "🍣 Producto: " + p.nombre;
-    }
-
-    // ID único para la cajita flotante de esta fila específica
-    const idCaja = 'sug-combo-' + Math.random().toString(36).substr(2, 9);
-
-    fila.innerHTML = `
-        <div style="flex: 2; position: relative;">
-            <input type="text" 
-                onfocus="buscarItemCombo(this, '${idCaja}')" 
-                oninput="buscarItemCombo(this, '${idCaja}')" 
-                value="${nombreLegible}" 
-                placeholder="🔍 Buscar categoría o producto..." 
-                autocomplete="off" 
-                class="item-visible"
-                style="width: 100%; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; outline: none;">
-            
-            <input type="hidden" class="item-referencia" value="${valorSeleccionado}">
-            
-            <div id="${idCaja}" class="caja-sugerencias hidden" style="display: none; position: absolute; z-index: 50; width: 100%; margin-top: 4px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; max-height: 250px; overflow-y: auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);"></div>
-        </div>
-
-        <input type="number" class="item-cantidad" min="1" value="${qty}" required style="flex: 1; padding: 0.75rem; background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;" placeholder="Cant.">
-        <button type="button" onclick="this.parentElement.remove()" style="background: #e11d48; color: white; border: none; border-radius: 4px; padding: 0 15px; cursor: pointer; font-weight: bold;">X</button>
-    `;
-    contenedor.appendChild(fila);
-}
-
-// --- 2. MOTOR DEL BUSCADOR FLOTANTE ---
-function buscarItemCombo(inputElement, idCaja) {
-    const contenedor = document.getElementById(idCaja);
-    const hiddenInput = inputElement.nextElementSibling;
-    const texto = inputElement.value.toLowerCase().trim();
-
-    // Si el usuario borra para buscar otra cosa, vaciamos el input oculto
-    hiddenInput.value = "";
-
-    // Filtramos
-    const catFiltradas = adminCategorias.filter(c => c.nombre.toLowerCase().includes(texto) || texto === '');
-    const prodFiltrados = adminProductos.filter(p => p.nombre.toLowerCase().includes(texto) || texto === '');
-
-    let html = '';
-
-    if (catFiltradas.length > 0) {
-        html += '<div style="padding: 8px 10px; font-size: 11px; color: #94a3b8; font-weight: bold; background: #0f172a; text-transform: uppercase;">👉 Que el cliente elija (Categorías)</div>';
-        catFiltradas.forEach(c => {
-            html += `<div onclick="seleccionarSugerenciaCombo(this, '${idCaja}', 'CAT_${c.nombre}', '📁 Categoría: ${c.nombre}')" style="padding: 10px; cursor: pointer; font-size: 13px; color: white; border-bottom: 1px solid #334155; transition: background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">📁 ${c.nombre}</div>`;
-        });
-    }
-
-    if (prodFiltrados.length > 0) {
-        html += '<div style="padding: 8px 10px; font-size: 11px; color: #94a3b8; font-weight: bold; background: #0f172a; text-transform: uppercase;">👉 Incluido Fijo (Productos)</div>';
-        prodFiltrados.forEach(p => {
-            // CAMBIO AQUÍ: display: flex y padding derecho de 20px para la barra de scroll
-            html += `<div onclick="seleccionarSugerenciaCombo(this, '${idCaja}', 'PROD_${p.id}', '🍣 Producto: ${p.nombre}')" style="padding: 10px 20px 10px 10px; cursor: pointer; font-size: 13px; color: white; border-bottom: 1px solid #334155; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
-                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;">🍣 ${p.nombre}</span> 
-                <span style="color:#10b981; font-weight: bold; flex-shrink: 0;">$${p.precio.toFixed(2)}</span>
-            </div>`;
-        });
-    }
-
-    if (html === '') {
-        html = '<div style="padding: 10px; font-size: 13px; color: #94a3b8; font-style: italic;">No hay coincidencias...</div>';
-    }
-
-    // Escondemos las demás cajas que puedan estar abiertas y mostramos esta
-    document.querySelectorAll('.caja-sugerencias').forEach(caja => caja.style.display = 'none');
-    contenedor.innerHTML = html;
-    contenedor.style.display = 'block';
-}
-// --- 3. AL HACER CLIC EN UNA SUGERENCIA ---
-function seleccionarSugerenciaCombo(elemento, idCaja, valorReal, textoLegible) {
-    const contenedor = document.getElementById(idCaja);
-    const hiddenInput = contenedor.previousElementSibling;
-    const visibleInput = hiddenInput.previousElementSibling;
-
-    hiddenInput.value = valorReal;
-    visibleInput.value = textoLegible;
-
-    contenedor.style.display = 'none';
-}
-
-// --- 4. CERRAR LAS CAJAS AL HACER CLIC AFUERA ---
-document.addEventListener('click', function(e) {
-    if (!e.target.classList.contains('item-visible')) {
-        document.querySelectorAll('.caja-sugerencias').forEach(caja => {
-            caja.style.display = 'none';
-        });
-    }
-});
-
-// --- EVENTOS DEL COMBO (CORREGIDOS Y BLINDADOS) ---
-const btnAddCombo = document.getElementById('btn-add-item');
-if (btnAddCombo) {
-    // Usamos .onclick directo para que el botón jamás pierda su función
-    btnAddCombo.onclick = function() {
-        agregarFilaProductoCombo();
-    };
-}
-
-const formCombo = document.getElementById('form-combo');
-if (formCombo) {
-    // Usamos .onsubmit directo en lugar de clonar el formulario (así no rompemos el botón)
-    formCombo.onsubmit = async function(e) {
-        e.preventDefault();
-        const id = document.getElementById('combo-id').value;
-        
-        const itemsSeleccionados = [];
-        let faltaHacerClic = false;
-
-        // Revisamos fila por fila
-        document.querySelectorAll('.fila-item-combo').forEach(fila => {
-            const ref = fila.querySelector('.item-referencia').value;
-            const qty = parseInt(fila.querySelector('.item-cantidad').value);
-            const visibleText = fila.querySelector('.item-visible').value.trim();
-            
-            // Si hay texto escrito pero la referencia está vacía, es que no seleccionó de la lista
-            if (visibleText !== "" && ref === "") {
-                faltaHacerClic = true;
-            } else if (ref && qty > 0) {
-                if (ref.startsWith('CAT_')) {
-                    itemsSeleccionados.push({ tipo: 'categoria', valor: ref.replace('CAT_', ''), cantidad: qty });
-                } else if (ref.startsWith('PROD_')) {
-                    itemsSeleccionados.push({ tipo: 'producto', valor: parseInt(ref.replace('PROD_', '')), cantidad: qty });
-                }
-            }
-        });
-
-        // NUEVA VALIDACIÓN: Te avisa si escribiste algo pero olvidaste hacer clic en la sugerencia
-        if (faltaHacerClic) {
-            alert('⚠️ Importante: Debes HACER CLIC en una de las opciones de la caja oscura flotante para seleccionarla. No basta solo con escribir el nombre.');
-            return;
-        }
-
-        if (itemsSeleccionados.length === 0) { 
-            alert('Añade al menos 1 elemento válido al combo.'); 
-            return; 
-        }
-
-        let imgFinalCombo = document.getElementById('combo-imagen').value.trim();
-        if (imgFinalCombo === '') {
-            imgFinalCombo = obtenerEmojiPlato();
-        }
-
-        const payload = {
-            id: id ? parseInt(id) : null,
-            nombre: document.getElementById('combo-nombre').value.trim(),
-            precio: parseFloat(document.getElementById('combo-precio').value),
-            imagen: imgFinalCombo,
-            descripcion: document.getElementById('combo-descripcion').value.trim(),
-            items: itemsSeleccionados,
-            disponible: document.getElementById('combo-disponible').checked
-        };
-        
-        try {
-            await fetch(ADMIN_URL_GUARDAR_COMBO, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-            resetFormCombo();
-            cargarDatosAdmin();
-        } catch (error) { alert('Error al guardar el combo.'); }
-    };
-}
-
-function editarCombo(id) {
-    const c = adminCombos.find(x => x.id === id);
-    if(!c) return;
-    document.getElementById('combo-id').value = c.id;
-    document.getElementById('combo-nombre').value = c.nombre;
-    document.getElementById('combo-precio').value = c.precio;
-    document.getElementById('combo-imagen').value = c.imagen || '';
-    document.getElementById('combo-descripcion').value = c.descripcion || '';
-    document.getElementById('combo-disponible').checked = c.disponible;
-    
-    document.getElementById('lista-items-combo').innerHTML = '';
-    let parsedItems = [];
-    try { parsedItems = typeof c.items_json === 'string' ? JSON.parse(c.items_json) : c.items_json; } catch(e){}
-    
-    // Traducimos el JSON a las cajas desplegables
-    if (parsedItems && parsedItems.length > 0) {
-        parsedItems.forEach(item => {
-            if (item.tipo) {
-                const valorSelect = item.tipo === 'categoria' ? 'CAT_' + item.valor : 'PROD_' + item.valor;
-                agregarFilaProductoCombo(valorSelect, item.cantidad);
-            }
-        });
-    } else {
-        agregarFilaProductoCombo(); 
-    }
-
-    document.getElementById('titulo-form-combo').innerText = "Editar Combo";
-    document.getElementById('btn-save-combo').innerText = "🍱 Actualizar Combo";
-    document.getElementById('btn-cancel-combo').style.display = "block";
-}
-
-function resetFormCombo() {
-    document.getElementById('form-combo').reset();
-    document.getElementById('combo-id').value = "";
-    document.getElementById('lista-items-combo').innerHTML = '';
-    agregarFilaProductoCombo();
-    
-    document.getElementById('titulo-form-combo').innerText = "Crear Combo";
-    document.getElementById('btn-save-combo').innerText = "🍱 Guardar Combo";
-    document.getElementById('btn-cancel-combo').style.display = "none";
-    if(document.getElementById('buscador-combos-admin')) document.getElementById('buscador-combos-admin').value = '';
-}
 // ==========================================
 // ARRANQUE PRINCIPAL (PANTALLA DE OPERACIONES)
 // ==========================================
 async function inicializarTablero() {
-    // 1. Inyectar la fecha de hoy en el calendario
     const calendario = document.getElementById('calendarioFiltro');
     if (calendario && !calendario.value) {
         calendario.value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Caracas'});
     }
     
-    // 2. Cargar datos base
     await cargarMotorizadosDesdeDB();
     await cargarUsuariosDesdeDB();
-    await cargarCatalogoDesdeDB(); // <-- Corregido el error de mayúsculas aquí
+    await cargarCatalogoDesdeDB(); 
     verificarSesion();
-    cargarDatosAdmin();
     actualizarTasaBCV();
 }
 
@@ -1535,13 +960,11 @@ if (document.getElementById('vistaLogin')) {
     }
 }
 
-// --- GENERADOR DE EMOJIS ALEATORIOS PARA PLATOS ---
 function obtenerEmojiPlato() {
     const emojis = ['🍱', '🍙', '🍣', '🥤', '🍰', '🥟', '🍤', '🔥', '🍜', '🥢'];
     return emojis[Math.floor(Math.random() * emojis.length)];
 }
 
-// --- NUEVO: MODAL ESTÉTICO DE DELIVERY ---
 function pedirPrecioDelivery(cliente) {
     return new Promise((resolve) => {
         const modal = document.getElementById('modalPrecioDelivery');
@@ -1575,7 +998,6 @@ async function procesarPrecioDelivery(idPedido) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idPedido));
     if (!pedido) return;
 
-    // Lanzamos el nuevo modal hermoso
     const precioDel = await pedirPrecioDelivery(pedido.cliente);
     if (precioDel === null) return; 
     
@@ -1631,7 +1053,6 @@ function abrirModalRepartidor(idReal, evento) {
     const select = document.getElementById('selectRepartidor');
     select.innerHTML = '<option value="">-- Seleccionar --</option>';
     
-    // AQUÍ ESTÁ EL CAMBIO: Ahora inyectamos la lista de MOTORIZADOS puros
     MOTORIZADOS_SISTEMA.forEach(m => {
         select.innerHTML += `<option value="${m.nombre}">${m.nombre}</option>`;
     });
@@ -1663,14 +1084,11 @@ function guardarRepartidor() {
     if (index === -1) return;
     const pedido = pedidosEnMemoria[index];
     
-    // ¡LA CLAVE! Rescatamos el ID antes de que el modal lo borre
     const idSeguro = idPedidoRepartidorActual;
     
-    // 1. Cambiamos la moto a verde visualmente
     pedidosEnMemoria[index].repartidor = nombreRepartidor;
     renderizarTablero();
 
-    // 2. Enviamos la actualización a la base de datos (n8n)
     const operadorFirma = usuarioActivo ? `${usuarioActivo.nombre} (${usuarioActivo.rol})` : "No registrado";
     const payload = {
         id_pedido: idSeguro,
@@ -1686,7 +1104,7 @@ function guardarRepartidor() {
         referencia_pago: pedido.referencia_pago || "",
         imagen_pago: pedido.imagen_pago || "",
         repartidor: nombreRepartidor,
-        actualizacion_silenciosa: true // <--- SEÑAL SECRETA AGREGADA
+        actualizacion_silenciosa: true 
     };
 
     fetch(API_ACTUALIZAR_ESTADO, {
@@ -1695,148 +1113,5 @@ function guardarRepartidor() {
         body: JSON.stringify(payload)
     }).catch(e => console.error("Error BD:", e));
     
-    // 3. AHORA SÍ, cerramos el modal al final de todo el proceso
     cerrarModalRepartidor();
 }
-// --- FUNCIONES ADMIN PARA MOTORIZADOS ---
-function renderListaMotorizados() {
-    const cont = document.getElementById('lista-motorizados-container');
-    if(!cont) return;
-    cont.innerHTML = '';
-    if (MOTORIZADOS_SISTEMA.length === 0) {
-        cont.innerHTML = '<p class="text-sm text-slate-500 italic">No hay motorizados registrados.</p>'; return;
-    }
-    MOTORIZADOS_SISTEMA.forEach(m => {
-        cont.innerHTML += `
-            <div class="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-700">
-                <div class="text-white font-semibold text-sm">🏍️ ${m.nombre}</div>
-                <div class="flex gap-2">
-                    <button class="text-amber-400 hover:text-amber-300 px-2" onclick="editarMotorizado(${m.id})" title="Editar"><i class="fa-solid fa-pen"></i></button>
-                    <button class="text-red-500 hover:text-red-400 px-2" onclick="eliminarMotorizado(${m.id})" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
-                </div>
-            </div>`;
-    });
-}
-
-if (document.getElementById('form-motorizado')) {
-    document.getElementById('form-motorizado').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = document.getElementById('mot-id').value;
-        const payload = { id: id ? parseInt(id) : null, nombre: document.getElementById('mot-nombre').value.trim() };
-        try {
-            await fetch(ADMIN_URL_GUARDAR_MOT, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-            resetFormMot(); await cargarMotorizadosDesdeDB();
-        } catch (error) { alert('Error al guardar.'); }
-    });
-}
-
-function editarMotorizado(id) {
-    const m = MOTORIZADOS_SISTEMA.find(x => x.id === id); if(!m) return;
-    document.getElementById('mot-id').value = m.id; document.getElementById('mot-nombre').value = m.nombre;
-    document.getElementById('titulo-form-mot').innerText = "Editar Motorizado";
-    document.getElementById('btn-save-mot').innerText = "💾 Actualizar";
-    document.getElementById('btn-cancel-mot').classList.remove('hidden');
-}
-
-function resetFormMot() {
-    document.getElementById('form-motorizado').reset(); document.getElementById('mot-id').value = "";
-    document.getElementById('titulo-form-mot').innerText = "Registrar Motorizado";
-    document.getElementById('btn-save-mot').innerText = "💾 Guardar Chofer";
-    document.getElementById('btn-cancel-mot').classList.add('hidden');
-}
-
-async function eliminarMotorizado(id) {
-    if (!confirm(`¿Seguro que deseas eliminar este motorizado?`)) return;
-    try {
-        await fetch(ADMIN_URL_ELIMINAR_MOT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
-        await cargarMotorizadosDesdeDB();
-    } catch(e) { alert('Error al eliminar.'); }
-}
-
-// --- FUNCIONES ADMIN PARA USUARIOS DE SISTEMA ---
-function renderListaUsuarios() {
-    const cont = document.getElementById('lista-usuarios-container');
-    if(!cont) return;
-    cont.innerHTML = '';
-    
-    if (!USUARIOS_SISTEMA || USUARIOS_SISTEMA.length === 0) {
-        cont.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">No hay usuarios registrados.</p>'; return;
-    }
-    
-    USUARIOS_SISTEMA.forEach(u => {
-        // EL ESCUDO: Si es admin o superadmin, bloqueamos los botones
-        const esAdmin = (String(u.rol).toLowerCase() === 'admin' || String(u.rol).toLowerCase() === 'superadmin');
-        
-        let botones = '';
-        if (esAdmin) {
-            botones = `<span style="font-size: 10px; background: rgba(239,68,68,0.2); color: #f87171; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(239,68,68,0.3); text-transform: uppercase; font-weight: bold;">Protegido 🛡️</span>`;
-        } else {
-            botones = `
-                <button type="button" class="action-btn btn-edit" onclick="editarUsuario(${u.id})" title="Editar">✏️</button>
-                <button type="button" class="action-btn btn-delete" onclick="eliminarUsuario(${u.id})" title="Eliminar">🗑️</button>
-            `;
-        }
-
-        cont.innerHTML += `
-            <div class="list-item">
-                <div class="item-info">
-                    <p class="item-title">👤 ${u.nombre}</p>
-                    <p class="item-meta">User: <span style="color:#38bdf8; font-weight:bold;">${u.username}</span> | Rol: ${u.rol} | Clave: ${esAdmin ? '••••' : u.pin}</p>
-                </div>
-                <div class="item-actions">
-                    ${botones}
-                </div>
-            </div>`;
-    });
-}
-
-if (document.getElementById('form-usuario')) {
-    document.getElementById('form-usuario').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const id = document.getElementById('usr-id').value;
-        const payload = { 
-            id: id ? parseInt(id) : null, 
-            nombre: document.getElementById('usr-nombre').value.trim(),
-            username: document.getElementById('usr-username').value.trim(),
-            pin: document.getElementById('usr-pin').value.trim(),
-            rol: document.getElementById('usr-rol').value
-        };
-        try {
-            await fetch(ADMIN_URL_GUARDAR_USUARIO, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-            resetFormUsr(); 
-            await cargarUsuariosDesdeDB();
-            renderListaUsuarios();
-        } catch (error) { alert('Error al guardar el usuario.'); }
-    });
-}
-
-function editarUsuario(id) {
-    const u = USUARIOS_SISTEMA.find(x => x.id === id); if(!u) return;
-    document.getElementById('usr-id').value = u.id; 
-    document.getElementById('usr-nombre').value = u.nombre;
-    document.getElementById('usr-username').value = u.username;
-    document.getElementById('usr-pin').value = u.pin;
-    document.getElementById('usr-rol').value = u.rol;
-    
-    document.getElementById('titulo-form-usr').innerText = "Editar Usuario";
-    document.getElementById('btn-save-usr').innerText = "💾 Actualizar Usuario";
-    document.getElementById('btn-cancel-usr').style.display = "block";
-}
-
-function resetFormUsr() {
-    document.getElementById('form-usuario').reset(); 
-    document.getElementById('usr-id').value = "";
-    document.getElementById('titulo-form-usr').innerText = "Crear Usuario";
-    document.getElementById('btn-save-usr').innerText = "💾 Guardar Usuario";
-    document.getElementById('btn-cancel-usr').style.display = "none";
-}
-
-async function eliminarUsuario(id) {
-    if (!confirm(`¿Seguro que deseas ELIMINAR este usuario del sistema?`)) return;
-    try {
-        await fetch(ADMIN_URL_ELIMINAR_USUARIO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
-        await cargarUsuariosDesdeDB();
-        renderListaUsuarios();
-    } catch(e) { alert('Error al eliminar.'); }
-}
-
