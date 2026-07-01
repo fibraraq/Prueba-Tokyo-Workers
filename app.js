@@ -1835,3 +1835,4 @@ async function eliminarUsuario(id) {
         renderListaUsuarios();
     } catch(e) { alert('Error al eliminar.'); }
 }
+
