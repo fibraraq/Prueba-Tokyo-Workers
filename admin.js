@@ -1887,6 +1887,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inputPin) inputPin.focus();
 });
 
+const API_VALIDAR_ACCESO = "https://n8n-production-0c91c.up.railway.app/webhook/validar-acceso";
+
 async function desbloquearAdmin() {
     const pinIngresado = document.getElementById('input-pin-admin').value.trim();
     const errorMsg = document.getElementById('error-pin-admin');
@@ -1899,33 +1901,24 @@ async function desbloquearAdmin() {
     boton.disabled = true;
 
     try {
-        // Descargamos los usuarios frescos de la base de datos
-        const response = await fetch(URL_OBTENER_USUARIOS_ADMIN);
+        const response = await fetch(API_VALIDAR_ACCESO, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo: 'login_admin', pin: pinIngresado })
+        });
+
         const data = await response.json();
-        const usuarios = Array.isArray(data) ? data : (data.data || []);
 
-        // Buscamos si existe un admin o superadmin con ese PIN
-        const usuarioValido = usuarios.find(u => 
-            String(u.pin) === pinIngresado && 
-            (String(u.rol).toLowerCase() === 'admin' || String(u.rol).toLowerCase() === 'superadmin')
-        );
-
-        if (usuarioValido) {
-            // ¡Acceso concedido! Escondemos la cortina con una animación suave
+        if (data.success && data.usuario) {
             document.getElementById('pantalla-bloqueo-admin').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('pantalla-bloqueo-admin').classList.add('hidden');
-            }, 300);
+            setTimeout(() => { document.getElementById('pantalla-bloqueo-admin').classList.add('hidden'); }, 300);
             
-            // Y AHORA SÍ, cargamos toda la data del panel
             cargarDatosAdmin();
             if (typeof cargarMensajesWP === 'function') cargarMensajesWP();
         } else {
-            // PIN incorrecto o el usuario es solo un "cajero"
             lanzarErrorBloqueo(errorMsg, boton, "PIN incorrecto o sin privilegios de administrador.");
         }
     } catch (error) {
-        console.error("Error verificando credenciales:", error);
         lanzarErrorBloqueo(errorMsg, boton, "Error de conexión con el servidor.");
     }
 }
