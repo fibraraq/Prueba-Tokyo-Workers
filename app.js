@@ -688,7 +688,6 @@ async function cargarPedidos() {
         }
 
         renderizarTablero(); 
-        resetearYArrancarPolling();
     } catch (error) { 
         console.error(error); 
     }
