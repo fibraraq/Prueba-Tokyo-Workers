@@ -754,32 +754,21 @@ function renderizarTablero() {
         let hora = '--:--';
         const fechaRaw = pedido.timestamp || pedido['Timestamp'];
         if (fechaRaw) {
-            try {
-                // Buscamos directamente los números de la hora (ej: "12:38") ignorando el resto
-                const match = String(fechaRaw).match(/(\d{1,2}):(\d{2})/);
+            // Buscamos los números directamente, ignorando el formato nativo de fecha
+            const match = String(fechaRaw).match(/(\d{1,2}):(\d{2})/);
+            
+            if (match) {
+                let h = parseInt(match[1], 10);
+                const m = match[2];
+
+                // Forzamos la resta de 4 horas
+                h = h - 4;
+                if (h < 0) h = h + 24; 
+
+                const ampm = (h >= 12 && h < 24) ? 'PM' : 'AM';
+                h = h % 12 || 12; 
                 
-                if (match) {
-                    let h = parseInt(match[1], 10);
-                    const m = match[2];
-
-                    // LA FUERZA BRUTA: Le restamos 4 horas fijas (Diferencia UTC a Venezuela)
-                    h = h - 4;
-                    
-                    // Si el pedido se hizo en la madrugada y la resta da negativo (ej: 2 AM UTC - 4 = -2)
-                    if (h < 0) {
-                        h = h + 24;
-                    }
-
-                    // Definimos si es AM o PM
-                    const ampm = (h >= 12 && h < 24) ? 'PM' : 'AM';
-                    
-                    // Convertimos al formato estándar de 12 horas (las 13:00 se vuelven 1:00)
-                    h = h % 12 || 12; 
-                    
-                    hora = `${h}:${m} ${ampm}`;
-                }
-            } catch(e) {
-                console.error("Error forzando la hora matemáticamente:", e);
+                hora = `${h}:${m} ${ampm}`;
             }
         }
         
