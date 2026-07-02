@@ -740,38 +740,34 @@ function renderizarTablero() {
         if (esPagoMovil) htmlMonto = `<div class="flex flex-col"><span class="text-xs font-bold text-slate-300">$${montoFormateado}</span><span class="text-[10px] font-bold text-amber-400">Bs. ${montoBsFormateado}</span></div>`;
         
         let hora = '--:--';
-        if (pedido.timestamp) {
+        const fechaRaw = pedido.timestamp || pedido['Timestamp'];
+        if (fechaRaw) {
             try {
-                let fechaStr = String(pedido.timestamp);
+                // Buscamos directamente los números de la hora (ej: "12:38") ignorando el resto
+                const match = String(fechaRaw).match(/(\d{1,2}):(\d{2})/);
                 
-                // 1. Intentamos estandarizar la fecha a formato ISO UTC
-                if (!fechaStr.includes('T') && fechaStr.includes(' ')) {
-                    fechaStr = fechaStr.replace(' ', 'T');
-                }
-                if (fechaStr.includes('T') && !fechaStr.endsWith('Z') && !fechaStr.includes('-') && !fechaStr.includes('+')) {
-                    fechaStr += 'Z';
-                }
-                
-                const d = new Date(fechaStr);
-                
-                // 2. Si el navegador logra leerla, que aplique la zona horaria de Caracas
-                if (!isNaN(d.getTime())) {
-                    hora = d.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
-                } else {
-                    // 3. RESPALDO EXTREMO: Si falla, extraemos los números y restamos 4 horas manualmente
-                    const m = fechaStr.match(/(\d{1,2}):(\d{2})/);
-                    if (m) {
-                        let h = parseInt(m[1], 10);
-                        h = h - 4; // Restamos las 4 horas (Diferencia entre UTC y VET)
-                        if (h < 0) h = h + 24; // Ajuste por si el pedido entró en la madrugada
-                        
-                        const ampm = (h >= 12 && h < 24) ? 'PM' : 'AM';
-                        h = h % 12 || 12; // Convertimos a formato de 12 horas
-                        hora = `${h}:${m[2]} ${ampm}`;
+                if (match) {
+                    let h = parseInt(match[1], 10);
+                    const m = match[2];
+
+                    // LA FUERZA BRUTA: Le restamos 4 horas fijas (Diferencia UTC a Venezuela)
+                    h = h - 4;
+                    
+                    // Si el pedido se hizo en la madrugada y la resta da negativo (ej: 2 AM UTC - 4 = -2)
+                    if (h < 0) {
+                        h = h + 24;
                     }
+
+                    // Definimos si es AM o PM
+                    const ampm = (h >= 12 && h < 24) ? 'PM' : 'AM';
+                    
+                    // Convertimos al formato estándar de 12 horas (las 13:00 se vuelven 1:00)
+                    h = h % 12 || 12; 
+                    
+                    hora = `${h}:${m} ${ampm}`;
                 }
             } catch(e) {
-                console.error("Error al calcular la hora:", e);
+                console.error("Error forzando la hora matemáticamente:", e);
             }
         }
         
