@@ -742,29 +742,37 @@ function renderizarTablero() {
         let hora = '--:--';
         if (pedido.timestamp) {
             try {
-                let fechaSegura = pedido.timestamp;
+                let fechaStr = String(pedido.timestamp);
                 
-                // Si la fecha viene de Postgres como texto simple "YYYY-MM-DD HH:MM:SS"
-                if (!fechaSegura.includes('T') && fechaSegura.includes(' ')) {
-                    // Reemplazamos el espacio por T y agregamos la Z para marcarla como UTC
-                    fechaSegura = fechaSegura.replace(' ', 'T') + 'Z'; 
-                } 
-                // Si tiene T pero le falta la Z de UTC
-                else if (fechaSegura.includes('T') && !fechaSegura.endsWith('Z') && !fechaSegura.includes('-') && !fechaSegura.includes('+')) {
-                    fechaSegura += 'Z';
+                // 1. Intentamos estandarizar la fecha a formato ISO UTC
+                if (!fechaStr.includes('T') && fechaStr.includes(' ')) {
+                    fechaStr = fechaStr.replace(' ', 'T');
+                }
+                if (fechaStr.includes('T') && !fechaStr.endsWith('Z') && !fechaStr.includes('-') && !fechaStr.includes('+')) {
+                    fechaStr += 'Z';
                 }
                 
-                const d = new Date(fechaSegura);
+                const d = new Date(fechaStr);
                 
-                // Si logramos armar una fecha válida, la obligamos a mostrarse en hora de Venezuela
+                // 2. Si el navegador logra leerla, que aplique la zona horaria de Caracas
                 if (!isNaN(d.getTime())) {
                     hora = d.toLocaleTimeString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' });
                 } else {
-                    // Respaldo de emergencia si el texto es muy raro
-                    const m = pedido.timestamp.match(/(\d{1,2}):(\d{2})/);
-                    if(m) { let h = parseInt(m[1],10); const ampm = h >= 12 ? 'PM':'AM'; h = h % 12 || 12; hora = `${h}:${m[2]} ${ampm}`; }
+                    // 3. RESPALDO EXTREMO: Si falla, extraemos los números y restamos 4 horas manualmente
+                    const m = fechaStr.match(/(\d{1,2}):(\d{2})/);
+                    if (m) {
+                        let h = parseInt(m[1], 10);
+                        h = h - 4; // Restamos las 4 horas (Diferencia entre UTC y VET)
+                        if (h < 0) h = h + 24; // Ajuste por si el pedido entró en la madrugada
+                        
+                        const ampm = (h >= 12 && h < 24) ? 'PM' : 'AM';
+                        h = h % 12 || 12; // Convertimos a formato de 12 horas
+                        hora = `${h}:${m[2]} ${ampm}`;
+                    }
                 }
-            } catch(e){}
+            } catch(e) {
+                console.error("Error al calcular la hora:", e);
+            }
         }
         
         const art = pedido.pedido_detallado || 'Detalle no disponible'; 
