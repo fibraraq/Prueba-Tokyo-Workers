@@ -47,13 +47,50 @@ function arrancarPollingEstadisticas() {
     }, 15000); // Se actualiza cada 15 segundos
 }
 
-// 🟢 FUNCIÓN ACTUALIZADA: Ahora descarga datos frescos al hacer clic
+// -----------------------------------------------------------------
+// CONTROLADORES DE LA INTERFAZ (BOTONES DE FILTRO)
+// -----------------------------------------------------------------
+function cambiarFiltroActivo(botonClickeado, rangoFiltro) {
+    const botones = document.querySelectorAll('.btn-filtro');
+    
+    // Apagamos todos los botones
+    botones.forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('text-slate-400', 'hover:bg-slate-800');
+    });
+    
+    // Encendemos SOLO el botón que recibió el clic
+    if (botonClickeado) {
+        botonClickeado.classList.remove('text-slate-400', 'hover:bg-slate-800');
+        botonClickeado.classList.add('bg-indigo-600', 'text-white');
+    }
+    
+    // Si tocan un botón rápido, borramos la fecha manual
+    if (rangoFiltro !== 'custom') {
+        document.getElementById('fechaCustom').value = '';
+    }
+    
+    // Ejecutamos la lógica de datos
+    aplicarFiltroEstadisticas(rangoFiltro);
+}
+
+function apagarBotonesFiltro() {
+    const botones = document.querySelectorAll('.btn-filtro');
+    botones.forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('text-slate-400', 'hover:bg-slate-800');
+    });
+}
+
+// -----------------------------------------------------------------
+// LÓGICA DE FILTRADO DE DATOS
+// -----------------------------------------------------------------
 async function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
     if (!document.getElementById('graficoPagos')) return;
 
     filtroActivo = tipo; // Guardamos en memoria en qué pestaña estamos
 
-    // 1. SI ES UN CLIC MANUAL: Descargamos la data más fresca del servidor
+    // SI ES UN CLIC MANUAL: Descargamos la data más fresca del servidor
     if (!esSilencioso) {
         try {
             const res = await fetch(API_ESTADISTICAS_PEDIDOS + "?historico=true");
@@ -62,25 +99,9 @@ async function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
         } catch(e) {
             console.error("Error al refrescar datos manualmente:", e);
         }
-
-        // Cambiamos los colores de los botones
-        document.querySelectorAll('.filtro-btn').forEach(btn => {
-            btn.classList.remove('bg-indigo-600', 'text-white');
-            btn.classList.add('bg-slate-800', 'text-slate-300');
-        });
-        
-        if (tipo !== 'custom') {
-            document.getElementById('fechaCustom').value = '';
-            try {
-                if (window.event && window.event.currentTarget) {
-                    window.event.currentTarget.classList.remove('bg-slate-800', 'text-slate-300');
-                    window.event.currentTarget.classList.add('bg-indigo-600', 'text-white');
-                }
-            } catch(e) {}
-        }
     }
 
-    // 2. PROCEDEMOS A FILTRAR LA DATA (Que ahora está 100% actualizada)
+    // PROCEDEMOS A FILTRAR LA DATA
     const hoy = new Date();
     hoy.setHours(0,0,0,0);
     
@@ -120,8 +141,6 @@ async function aplicarFiltroEstadisticas(tipo, esSilencioso = false) {
     procesarCalculosEstadisticos(finalizados);
     renderHistorialFinalizadosEnStats(pedidosFiltrados);
 }
-
-// ... EL RESTO DEL CÓDIGO (procesarCalculosEstadisticos, dibujarWidgetsEstadisticas, etc.) QUEDA EXACTAMENTE IGUAL ...
 
 function procesarCalculosEstadisticos(pedidos) {
     let totalUSD = 0;
@@ -345,42 +364,8 @@ function cerrarModalRepartidor() {
 // -----------------------------------------------------------------
 // EVENTOS AL CARGAR LA PÁGINA
 // -----------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', iniciarPantallaEstadisticas);
-// [ ... Todo el código de estadísticas que me pasaste arriba ... ]
-
-// --- MEJOR PRÁCTICA: Inicialización limpia ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Solo ejecutamos si los elementos de estadísticas existen en el HTML actual
     if (document.getElementById('graficoPagos')) {
         iniciarPantallaEstadisticas();
     }
 });
-
-function cambiarFiltroActivo(botonClickeado, rangoFiltro) {
-    // 1. Seleccionamos todos los botones que tengan la clase 'btn-filtro'
-    const botones = document.querySelectorAll('.btn-filtro');
-    
-    // 2. Apagamos todos los botones (les quitamos el fondo azul y los ponemos grises)
-    botones.forEach(btn => {
-        btn.classList.remove('bg-blue-600', 'text-white');
-        btn.classList.add('text-slate-400');
-    });
-    
-    // 3. Encendemos SOLO el botón que recibió el clic
-    if (botonClickeado) {
-        botonClickeado.classList.remove('text-slate-400');
-        botonClickeado.classList.add('bg-blue-600', 'text-white');
-    }
-    
-    // 4. Aquí llamas a la función que ya tengas programada para traer los datos
-    // Ejemplo: cargarDatosEstadisticas(rangoFiltro);
-    console.log("Filtro cambiado a:", rangoFiltro);
-}
-
-function apagarBotonesFiltro() {
-    const botones = document.querySelectorAll('.btn-filtro');
-    botones.forEach(btn => {
-        btn.classList.remove('bg-blue-600', 'text-white');
-        btn.classList.add('text-slate-400');
-    });
-}
