@@ -333,12 +333,16 @@ async function enviarNuevoPedido() {
         
         return {
             qty: cant,
-            name: `${nombreBase} ($${(precioUni * cant).toFixed(2)})`, 
+            name: `${nombreBase} ($${(precioUni * cant).toFixed(2)})`,
             price: precioUni
         };
     });
     
     const textoDetalladoConPrecios = articulos.map(item => `${item.qty}x ${item.name}`).join('\n');
+
+    // 🌟 NUEVO: Calculamos el número de pedido visual del día
+    const pedidosHoy = pedidosEnMemoria.filter(p => esPedidoDeLaFecha(JSON.stringify(p)));
+    const proximoIdVisual = pedidosHoy.length + 1;
 
     const payload = {
         cliente: cliente, telefono: document.getElementById('inputTelefono').value.trim() || 'No registrado',
@@ -346,12 +350,21 @@ async function enviarNuevoPedido() {
         direccion: document.getElementById('inputDireccion').value.trim() || 'En el local', 
         articulos: articulos,
         pedido_detallado: textoDetalladoConPrecios, 
-        timestamp: new Date().toISOString(), tasa_bcv: parseFloat(document.getElementById('tasaBCV').value) || 1
+        timestamp: new Date().toISOString(), tasa_bcv: parseFloat(document.getElementById('tasaBCV').value) || 1,
+        // 🌟 NUEVO: Enviamos el ID visual a n8n
+        id_visual: proximoIdVisual
     };
 
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
     try {
-        const res = await fetch(URL_NUEVO_PEDIDO, { method: 'POST', body: JSON.stringify(payload), headers: {'Content-Type': 'application/json'} });
+        const res = await fetch(URL_NUEVO_PEDIDO, { 
+            method: 'POST', 
+            body: JSON.stringify(payload), 
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer TokioSushi_App_2026_X' // Tu candado de seguridad
+            } 
+        });
         if(res.ok) { 
             document.getElementById('formNuevoPedido').reset();
             document.getElementById('contenedorArticulos').innerHTML = '';
@@ -361,7 +374,6 @@ async function enviarNuevoPedido() {
     } catch(e) { alert("Error de conexión al intentar enviar el pedido."); } 
     finally { btn.disabled = false; btn.innerHTML = 'Procesar Pedido <i class="fa-solid fa-paper-plane"></i>'; }
 }
-
 
 function abrirModalEditarPedido(idReal, idVisual) {
     const pedido = pedidosEnMemoria.find(p => String(p.id_pedido || p['ID_Pedido'] || p.ID || 'S/ID') === String(idReal));
