@@ -661,6 +661,7 @@ async function sendOrder(event) {
         submitBtn.innerText = "🚀 Confirmar y Enviar Pedido"; submitBtn.disabled = false;
     }
 }
+
 // --- CONTROL EXCLUSIVO DEL MODAL DE COMBOS ---
 let comboEnPersonalizacion = null;
 
@@ -681,7 +682,6 @@ function abrirModalCombo(item) {
 
     gruposOpciones.forEach((grupo) => {
         if (grupo.tipo === 'categoria') {
-            // Buscamos todos los platos de esa categoría en tiempo real
             let opcionesCat = [];
             for(let key in menuData) {
                 if(menuData[key].titulo.toLowerCase() === grupo.valor.toLowerCase()) {
@@ -695,37 +695,45 @@ function abrirModalCombo(item) {
                 return;
             }
 
-            let optionsHtml = opcionesCat.map(opt => `<option value="${opt.name}">${opt.name}</option>`).join('');
+            // MAGIA 1: Agregamos el atributo "data-desc" a cada opción
+            let optionsHtml = opcionesCat.map(opt => `<option value="${opt.name}" data-desc="${opt.desc || ''}">${opt.name}</option>`).join('');
             
-            // Creamos un menú por cada cantidad que hayas exigido (Ej: 2 roles = 2 menús)
+            // Extraemos la descripción del primer elemento para mostrarla al abrir
+            let primeraDesc = opcionesCat[0] && opcionesCat[0].desc ? opcionesCat[0].desc : '';
+            
             for(let i=0; i < grupo.cantidad; i++) {
                 let tituloVisual = grupo.cantidad > 1 ? `Elige tu ${grupo.valor} (${i+1} de ${grupo.cantidad})` : `Elige tu ${grupo.valor}`;
+                
+                // MAGIA 2: Agregamos el onchange al select y el párrafo <p> abajo
                 let grupoHtml = `
                     <div class="space-y-1 mb-3">
                         <label class="block text-gray-500 font-bold text-[10px] uppercase tracking-wider">${tituloVisual}</label>
-                        <select id="select-combo-grupo-${selectIndex}" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-gray-50 focus:outline-none focus:border-red-500 font-medium text-gray-800 shadow-sm cursor-pointer">
+                        <select id="select-combo-grupo-${selectIndex}" onchange="actualizarDescripcionCombo(this, 'desc-combo-${selectIndex}')" class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-gray-50 focus:outline-none focus:border-red-500 font-medium text-gray-800 shadow-sm cursor-pointer">
                             ${optionsHtml}
                         </select>
+                        <p id="desc-combo-${selectIndex}" class="text-[10px] text-gray-400 italic px-1 min-h-[15px]">${primeraDesc}</p>
                     </div>
                 `;
                 container.insertAdjacentHTML('beforeend', grupoHtml);
                 selectIndex++;
             }
         } else if (grupo.tipo === 'producto') {
-            // 🌟 Leemos el nombre exacto que ahora nos manda el panel de administración
             let prodName = grupo.nombre_producto; 
+            let descFija = "";
 
-            // Si es un combo viejo y no tiene el nombre guardado, intentamos buscarlo por si acaso:
             if (!prodName) {
                 for(let key in menuData) {
                     if (menuData[key].items) {
                         let p = menuData[key].items.find(x => String(x.id) === String(grupo.valor));
-                        if(p) { prodName = p.name || p.nombre; break; }
+                        if(p) { prodName = p.name || p.nombre; descFija = p.desc || ""; break; }
                     }
                 }
                 if (!prodName) prodName = isNaN(grupo.valor) ? grupo.valor : "Producto Fijo";
             }
             
+            // MAGIA 3: También le agregamos la descripción a los fijos si la tienen
+            let htmlDescFija = descFija ? `<p class="text-[10px] text-gray-400 italic px-1 mt-0.5">${descFija}</p>` : '';
+
             let fijoHtml = `
                 <div class="space-y-1 mb-3">
                     <label class="block text-gray-500 font-bold text-[10px] uppercase tracking-wider">Incluido Fijo</label>
@@ -733,6 +741,7 @@ function abrirModalCombo(item) {
                         <span class="truncate pr-2">✔️ ${prodName}</span>
                         <span class="font-black flex-shrink-0 bg-emerald-200 px-2 py-0.5 rounded">x${grupo.cantidad}</span>
                     </div>
+                    ${htmlDescFija}
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', fijoHtml);
@@ -748,6 +757,17 @@ function cerrarModalCombo() {
     document.getElementById('modal-combo').classList.remove('flex');
     document.getElementById('modal-combo').classList.add('hidden');
     comboEnPersonalizacion = null;
+}
+
+// --- NUEVO: Motor que cambia la descripción en tiempo real ---
+function actualizarDescripcionCombo(selectElement, idParrafo) {
+    const opcionSeleccionada = selectElement.options[selectElement.selectedIndex];
+    const descripcion = opcionSeleccionada.getAttribute('data-desc');
+    const parrafo = document.getElementById(idParrafo);
+    
+    if (parrafo) {
+        parrafo.innerText = descripcion || '';
+    }
 }
 
 function guardarSeleccionCombo() {
