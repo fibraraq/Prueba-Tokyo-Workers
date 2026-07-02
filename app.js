@@ -1139,5 +1139,3 @@ function guardarRepartidor() {
     
     cerrarModalRepartidor();
 }
-
-
