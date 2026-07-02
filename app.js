@@ -793,7 +793,13 @@ function renderizarTablero() {
                     <div class="flex justify-between items-start">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-bold text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded border border-purple-400/20">#${idVisual}</span>
-                            <button onclick="('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-file-lines"></i></button>
+                            
+                            <button onclick="abrirModalDetalle('${idReal}')" class="text-slate-400 hover:text-white transition cursor-pointer" title="Ver Detalles"><i class="fa-solid fa-file-lines"></i></button>
+                            
+                            <button onclick="abrirModalEditarPedido('${idReal}', '${idVisual}')" class="text-slate-400 hover:text-amber-400 transition cursor-pointer" title="Editar Pedido"><i class="fa-solid fa-pen"></i></button>
+                            
+                            <button onclick="cancelarPedido('${idReal}')" class="text-slate-400 hover:text-red-500 transition cursor-pointer" title="Cancelar Pedido"><i class="fa-solid fa-trash"></i></button>
+                            
                             ${btnWhatsApp}
                         </div>
                         <span class="text-[10px] text-slate-400 font-medium"><i class="fa-regular fa-clock"></i> ${hora}</span>
