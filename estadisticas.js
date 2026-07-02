@@ -355,3 +355,32 @@ document.addEventListener('DOMContentLoaded', () => {
         iniciarPantallaEstadisticas();
     }
 });
+
+function cambiarFiltroActivo(botonClickeado, rangoFiltro) {
+    // 1. Seleccionamos todos los botones que tengan la clase 'btn-filtro'
+    const botones = document.querySelectorAll('.btn-filtro');
+    
+    // 2. Apagamos todos los botones (les quitamos el fondo azul y los ponemos grises)
+    botones.forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('text-slate-400');
+    });
+    
+    // 3. Encendemos SOLO el botón que recibió el clic
+    if (botonClickeado) {
+        botonClickeado.classList.remove('text-slate-400');
+        botonClickeado.classList.add('bg-blue-600', 'text-white');
+    }
+    
+    // 4. Aquí llamas a la función que ya tengas programada para traer los datos
+    // Ejemplo: cargarDatosEstadisticas(rangoFiltro);
+    console.log("Filtro cambiado a:", rangoFiltro);
+}
+
+function apagarBotonesFiltro() {
+    const botones = document.querySelectorAll('.btn-filtro');
+    botones.forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('text-slate-400');
+    });
+}
