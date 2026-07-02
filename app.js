@@ -16,7 +16,6 @@ let inventarioProductosBase = [];
 let usuarioActivo = null;
 let pedidosEnMemoria = [];
 let segundosFaltantes = 15;
-let pollingTimer;
 
 let carritoEdicion = []; 
 let totalEdicionUSD = 0;
@@ -659,16 +658,6 @@ function esPedidoDeLaFecha(filaTexto) {
 
 function normalizarEstado(estadoRaw) { return (!estadoRaw) ? '' : estadoRaw.replace(/[\s\uFEFF\xA0]+/g, '').toLowerCase(); }
 
-function resetearYArrancarPolling() {
-    if (!document.getElementById('contadorSegundos')) return;
-    segundosFaltantes = 15; document.getElementById('contadorSegundos').innerText = segundosFaltantes;
-    clearInterval(pollingTimer);
-    pollingTimer = setInterval(() => {
-        segundosFaltantes--; document.getElementById('contadorSegundos').innerText = segundosFaltantes;
-        if (segundosFaltantes <= 0) { cargarPedidos(); segundosFaltantes = 15; }
-    }, 1000);
-}
-
 async function cargarPedidos() {
     try {
         const fechaCalendario = document.getElementById('calendarioFiltro') ? document.getElementById('calendarioFiltro').value : '';
@@ -953,6 +942,25 @@ function abrirModalDetalle(idPedido) {
     document.getElementById('modalDetalle').classList.remove('hidden');
 }
 function cerrarModal() { document.getElementById('modalDetalle').classList.add('hidden'); }
+
+// --- SISTEMA DE TIEMPO REAL (PUSHER) ---
+// Pusher permite ver si estamos en desarrollo para mostrar errores en la consola
+Pusher.logToConsole = false; 
+
+const pusher = new Pusher('88089dcd4800848c78dd', {
+    cluster: 'us2'
+});
+
+// Nos suscribimos al mismo canal que configuramos en n8n
+const channel = pusher.subscribe('canal-cocina');
+
+// Escuchamos el evento exacto
+channel.bind('actualizar-tablero', function(data) {
+    console.log("¡Señal de Pusher recibida! Actualizando tablero...");
+    
+    // Al recibir el aviso, ejecutamos la carga de pedidos inmediatamente
+    cargarPedidos();
+});
 
 // ==========================================
 // ARRANQUE PRINCIPAL (PANTALLA DE OPERACIONES)
